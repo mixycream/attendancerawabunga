@@ -1,13 +1,30 @@
 // --- KONFIGURASI UTAMA ---
+// Paste URL Google Apps Script kamu di sini (Wajib)
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxBbEsm6blMRoUYpCEYESMw6Y0XpIm-dBwSjoGvT2ZkIWDKFmXiyCbc_v04QccFfg7z/exec"; 
 
-// --- STATE VARIABLES ---
+// --- FALLBACK DEFAULTS (Konfigurasi Standar jika Cloud Kosong) ---
+const DEFAULT_SHIFTS_FALLBACK = {
+  "Helper Cook": { start: "15:00", end: "23:00" },
+  "Cook": { start: "23:00", end: "07:00" },
+  "Head Chef": { start: "23:00", end: "07:00" },
+  "Packing": { start: "03:00", end: "11:00" },
+  "Distribusi": { start: "06:00", end: "14:00" },
+  "Kenek Distribusi": { start: "06:00", end: "14:00" },
+  "Kebersihan": { start: "08:00", end: "16:00" },
+  "Asisten Lapangan": { start: "04:00", end: "12:00" },
+  "Gudang": { start: "10:00", end: "18:00" },
+  "Keamanan Shift 1": { start: "07:00", end: "19:00" }, 
+  "Keamanan Shift 2": { start: "19:00", end: "07:00" }
+};
+
+// STATE
 let employees = []; 
 let logs = [];
 let currentUser = null;
 let appConfig = { 
     overtimeRate: 15000,
-    shifts: {} 
+    // Inisialisasi shifts dengan default agar tidak 00:00 saat pertama load
+    shifts: JSON.parse(JSON.stringify(DEFAULT_SHIFTS_FALLBACK)) 
 }; 
 let sortState = {
     logs: 'time_desc',
@@ -52,6 +69,7 @@ window.onload = () => {
         currentUser = JSON.parse(savedUser);
         document.getElementById('loginView').classList.add('hidden');
         
+        // Load data dari server saat start
         fetchData(true).then(() => {
             if(currentUser.role === 'security') initSecurity();
             else initAdmin();
@@ -81,11 +99,13 @@ async function handleLogin(e) {
             employees = data.employees;
             logs = data.logs;
             
+            // 1. Cek Admin
             if (u.toLowerCase() === 'admin' && p === '123') {
                 loginSuccess({ u: 'admin', role: 'admin', name: 'Administrator' });
                 return;
             }
 
+            // 2. Cek Security dari Data Karyawan
             const userMatch = employees.find(emp => 
                 emp.username && 
                 emp.username.toLowerCase() === u.toLowerCase() && 
@@ -94,10 +114,11 @@ async function handleLogin(e) {
             );
 
             if (userMatch) {
+                // PENTING: Simpan nama security yang benar ke currentUser
                 loginSuccess({ 
                     u: userMatch.username, 
                     role: 'security', 
-                    name: userMatch.name, 
+                    name: userMatch.name, // Ini nama security yang akan muncul di log
                     id: userMatch.id, 
                     division: userMatch.division, 
                     photo: userMatch.photo 
@@ -167,8 +188,12 @@ async function fetchData(force = false) {
                     appConfig.overtimeRate = parseInt(data.config.overtimeRate);
                     localStorage.setItem('mbg_overtime_rate', appConfig.overtimeRate);
                 }
+                
+                // FIX JAM DEFAULT: Gabungkan config server dengan default fallback
+                // Ini memastikan jika server kosong, fallback tetap dipakai
                 if(data.config.shifts) {
-                    appConfig.shifts = data.config.shifts;
+                    // Merge strategies: Default + Server Config
+                    appConfig.shifts = { ...DEFAULT_SHIFTS_FALLBACK, ...data.config.shifts };
                 }
             }
             refreshUI();
@@ -202,6 +227,20 @@ async function postData(action, payload) {
 
 // --- UI RENDER LOGIC ---
 
+function saveConfig() {
+    const rate = document.getElementById('configOvertimeRate').value;
+    
+    // UPDATE STATE LANGSUNG
+    appConfig.overtimeRate = parseInt(rate);
+    localStorage.setItem('mbg_overtime_rate', rate);
+    
+    // UPDATE UI LANGSUNG
+    renderSalary(); 
+    
+    // KIRIM KE SERVER
+    postData('saveConfig', { overtimeRate: rate });
+}
+
 function refreshUI() {
     if(!currentUser || currentUser.role !== 'admin') {
         updateSecurityDropdown();
@@ -230,7 +269,6 @@ function refreshUI() {
     document.getElementById('statOvertime').innerText = overtimeCount;
     document.getElementById('statLate').innerText = lateCount; 
 
-    // Render Components safely
     try { renderTrendChart(); } catch(e) { console.log("Chart render error", e); }
     try { renderDivisionGrid(); } catch(e) { console.log("Grid render error", e); }
     
@@ -243,7 +281,6 @@ function renderTrendChart() {
     const canvas = document.getElementById('trendChart');
     if (!canvas) return;
     
-    // FIX: Hancurkan instance lama jika ada, meskipun canvas baru (untuk refresh)
     if (trendChartInstance) {
         trendChartInstance.destroy();
         trendChartInstance = null;
@@ -251,11 +288,9 @@ function renderTrendChart() {
 
     const ctx = canvas.getContext('2d');
     
-    // FIX: Gunakan tanggal lokal untuk label agar sesuai dengan data log (YYYY-MM-DD)
     const labels = [...Array(7)].map((_, i) => {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        // Format YYYY-MM-DD lokal
         const year = d.getFullYear();
         const month = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
@@ -271,7 +306,7 @@ function renderTrendChart() {
         data: {
             labels: labels.map(d => {
                 const parts = d.split('-');
-                return `${parts[2]}/${parts[1]}`; // Tampilkan dd/mm
+                return `${parts[2]}/${parts[1]}`; 
             }),
             datasets: [
                 { label: 'Hadir', data: presentData, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.4, fill: true },
@@ -293,14 +328,12 @@ function renderDivisionGrid() {
     if(!container) return;
     
     const counts = {};
-    // Hitung ulang dari data employees yang baru di-fetch
     if (employees.length > 0) {
         employees.forEach(e => {
             counts[e.division] = (counts[e.division] || 0) + 1;
         });
     }
 
-    // FIX: Tampilkan pesan jika data kosong agar tidak "loading" selamanya
     if (Object.keys(counts).length === 0) {
         container.innerHTML = '<div class="col-span-full text-center text-slate-400 py-4 text-xs">Belum ada data karyawan.</div>';
         return;
@@ -362,6 +395,10 @@ function renderLogsTable() {
                     lateInfo += `<div class="text-[9px] text-slate-400 mt-1 italic max-w-[100px] truncate" title="${l.note}">"${l.note}"</div>`;
                 }
             }
+            
+            // FIX: Menampilkan nama security yang melakukan scan (bukan System)
+            // Jika l.security ada isinya, tampilkan. Jika tidak, tampilkan '-'
+            let scannedBy = l.security ? `<span class="text-[10px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">${l.security}</span>` : '-';
                 
             return `
             <tr class="bg-white hover:bg-slate-50 border-b border-slate-50 transition group">
@@ -377,6 +414,7 @@ function renderLogsTable() {
                 <td class="px-6 py-4 text-center">${lateInfo}</td>
                 <td class="px-6 py-4 text-center">${overtimeInfo}</td>
                 <td class="px-6 py-4 text-center">${actionArea}</td>
+                <td class="px-6 py-4 text-center">${scannedBy}</td> <!-- COLUMN DIABSEN -->
             </tr>`;
         }).join('');
     }
@@ -510,8 +548,6 @@ function renderSalary() {
     }).join('');
 }
 
-// --- SECURITY LOGIC ---
-
 function initSecurity() {
     document.getElementById('securityLayout').classList.remove('hidden');
     
@@ -620,15 +656,23 @@ async function submitAbsence(type) {
         if (divConfig && typeof divConfig !== 'string') {
              const shiftEndH = parseInt(divConfig.end.split(':')[0]);
              const shiftStartH = parseInt(divConfig.start.split(':')[0]);
+             
              let logDateParts = lastLog.date.split('-'); 
              let logYear = parseInt(logDateParts[0]);
              let logMonth = parseInt(logDateParts[1]) - 1; 
              let logDay = parseInt(logDateParts[2]);
+             
              let expectedEnd = new Date(logYear, logMonth, logDay, shiftEndH, parseInt(divConfig.end.split(':')[1]));
+             
              if (shiftEndH < shiftStartH) expectedEnd.setDate(expectedEnd.getDate() + 1);
+
              const diffMs = now - expectedEnd;
              const diffMinutes = Math.floor(diffMs / 60000);
-             if (diffMinutes > 40) overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
+
+             if (diffMinutes > 40) {
+                 overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
+             }
+             
              toastMessage = `Lembur: ${overtimeHours} Jam`;
         }
     }
@@ -641,9 +685,11 @@ async function submitAbsence(type) {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const photoBase64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1]; 
 
+    // FIX: Sertakan nama security di payload
     const payload = {
         empId: scannedEmployee.id, name: scannedEmployee.name, type: finalType, overtime: overtimeHours,
-        location: currentLocation, image: photoBase64, date: today, lateMinutes: lateMinutes, forcedTime: forcedTime, note: "" 
+        location: currentLocation, image: photoBase64, date: today, lateMinutes: lateMinutes, forcedTime: forcedTime, note: "",
+        security: currentUser ? currentUser.name : "System"
     };
 
     if (finalType === 'PENDING') {
@@ -727,6 +773,7 @@ function startClockAndGPS() {
 }
 
 function updateSecurityDropdown() {
+    // Hidden in current UI revision, but kept for logic safety
     const sel = document.getElementById('manualInput');
     if(!sel) return;
     sel.innerHTML = '<option value="">Cari Nama Manual (Jika Scan Gagal)</option>';
@@ -781,10 +828,17 @@ function openConfigModal() {
     const list = document.getElementById('configList');
     list.innerHTML = '';
     const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2"];
+    
     orderedKeys.forEach(key => {
-        const shiftData = appConfig.shifts[key] || { start: "00:00", end: "08:00" };
+        // FIX: Use Fallback if shift data is missing
+        let shiftData = appConfig.shifts[key];
+        if (!shiftData || !shiftData.start) {
+            shiftData = DEFAULT_SHIFTS_FALLBACK[key] || { start: "00:00", end: "08:00" };
+        }
+        
         const startVal = typeof shiftData === 'string' ? shiftData : shiftData.start; 
         const endVal = typeof shiftData === 'string' ? "00:00" : shiftData.end;
+        
         list.innerHTML += `
         <div class="grid grid-cols-12 gap-2 items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
             <div class="col-span-4 text-xs font-bold text-slate-700">${key}</div>
@@ -833,7 +887,8 @@ function saveShiftConfig() {
 }
 function getShiftTime(division) {
     if (division === 'Keamanan') return "Shift (Rotasi)";
-    const shift = appConfig.shifts[division];
+    // Use fallback if shifts are empty or not loaded yet
+    const shift = appConfig.shifts[division] || DEFAULT_SHIFTS_FALLBACK[division];
     if (!shift) return "-";
     if (typeof shift === 'string') return shift; 
     return `${shift.start} - ${shift.end}`;

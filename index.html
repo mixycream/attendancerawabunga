@@ -8,7 +8,7 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Chart.js -->
+    <!-- Chart.js (NEW: Untuk Grafik Garis) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Icons & Fonts -->
@@ -291,9 +291,9 @@
                     
                     <!-- TAB 1: DASHBOARD -->
                     <div id="tab-dashboard" class="animate-fade-in space-y-6">
-                        <!-- ... (Dashboard Content Same as Before) ... -->
                         <!-- Stats Grid -->
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                            <!-- Card Total Karyawan (Updated: Clickable) -->
                             <div onclick="showAllEmployees()" class="cursor-pointer hover:scale-[1.02] transition-transform active:scale-95 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group">
                                 <div class="absolute -right-4 -top-4 w-24 h-24 bg-slate-50 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
                                 <div class="relative">
@@ -304,6 +304,7 @@
                                 </div>
                             </div>
                             
+                            <!-- Card Hadir (Clickable) -->
                             <div onclick="showPresentVolunteers()" class="cursor-pointer bg-gradient-to-br from-mbg-500 to-emerald-600 p-6 rounded-[2rem] shadow-lg shadow-mbg-500/20 text-white relative overflow-hidden group hover:scale-[1.02] transition-transform active:scale-95">
                                 <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/20 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
                                 <div class="relative h-full flex flex-col justify-between">
@@ -322,7 +323,9 @@
                                 </div>
                             </div>
                             
+                            <!-- Card Lembur & Telat Container -->
                             <div class="col-span-1 md:col-span-1 grid grid-rows-2 gap-4">
+                                <!-- Lembur (Updated: Clickable) -->
                                 <div onclick="showOvertimeToday()" class="cursor-pointer hover:scale-[1.02] transition-transform active:scale-95 bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden flex flex-col justify-center">
                                     <div class="absolute right-2 top-2 w-10 h-10 bg-amber-50 rounded-full"></div>
                                     <div class="relative">
@@ -332,6 +335,7 @@
                                         <div class="text-2xl font-extrabold text-amber-500" id="statOvertime">0</div>
                                     </div>
                                 </div>
+                                <!-- Telat (Updated: Clickable) -->
                                 <div onclick="showLateToday()" class="cursor-pointer hover:scale-[1.02] transition-transform active:scale-95 bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden flex flex-col justify-center">
                                     <div class="absolute right-2 top-2 w-10 h-10 bg-red-50 rounded-full"></div>
                                     <div class="relative">
@@ -343,18 +347,20 @@
                                 </div>
                             </div>
                             
+                            <!-- Card Setting Lembur -->
                              <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group hover:border-mbg-200 transition">
-                                <div class="relative h-full flex flex-col justify-between">
-                                    <div>
-                                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-                                            <span>Tarif Lembur</span>
-                                        </div>
-                                        <div class="flex items-center gap-2 mb-3">
-                                            <span class="text-xs font-bold text-slate-400">Rp</span>
-                                            <input type="number" id="configOvertimeRate" value="15000" onchange="saveConfig()" class="w-full bg-slate-50 border-none rounded-lg text-lg font-bold text-slate-800 focus:ring-2 focus:ring-mbg-500 py-1 px-2 placeholder-slate-300">
-                                            <span class="text-[10px] text-slate-400">/Jam</span>
-                                        </div>
+                                <div class="relative">
+                                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                                        <span>Tarif Lembur</span>
+                                        <i class="fas fa-cloud-upload-alt text-mbg-500" title="Auto Sync Cloud"></i>
                                     </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs font-bold text-slate-400">Rp</span>
+                                        <input type="number" id="configOvertimeRate" value="15000" onchange="saveConfig()" class="w-full bg-slate-50 border-none rounded-lg text-lg font-bold text-slate-800 focus:ring-2 focus:ring-mbg-500 py-1 px-2 placeholder-slate-300">
+                                        <span class="text-[10px] text-slate-400">/Jam</span>
+                                    </div>
+                                </div>
+                                <div class="mt-4 pt-4 border-t border-slate-50">
                                     <button onclick="openConfigModal()" class="w-full py-2 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-700 transition flex items-center justify-center gap-2">
                                         <i class="fas fa-clock"></i> Atur Jam Kerja
                                     </button>
@@ -362,6 +368,7 @@
                             </div>
                         </div>
 
+                        <!-- Bar Chart Statistik -->
                          <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden p-6">
                             <h3 class="font-bold text-slate-800 text-sm mb-4 flex items-center gap-2">
                                 <i class="fas fa-chart-line text-mbg-500"></i> Tren Kehadiran (7 Hari Terakhir)
@@ -371,13 +378,16 @@
                             </div>
                         </div>
 
+                        <!-- DIVISION GRID (REDESIGNED) -->
                         <div class="space-y-4">
                             <h3 class="font-bold text-slate-800 text-sm px-2">Lihat per Divisi</h3>
                             <div id="divisionGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                <!-- Grid Buttons Will Be Injected Here -->
                                 <div class="text-xs text-slate-400 w-full text-center col-span-full py-4">Memuat Divisi...</div>
                             </div>
                         </div>
 
+                        <!-- LOGS TABLE -->
                         <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
                             <div class="p-6 border-b border-slate-50 flex justify-between items-center bg-white sticky left-0">
                                 <div>
@@ -402,6 +412,7 @@
                                             <th class="px-6 py-4 font-bold text-center text-red-500">Telat</th> 
                                             <th class="px-6 py-4 font-bold text-center text-amber-500">Lembur</th> 
                                             <th class="px-6 py-4 font-bold text-center">Status</th>
+                                            <th class="px-6 py-4 font-bold text-center">Diabsen</th> <!-- NEW COLUMN -->
                                         </tr>
                                     </thead>
                                     <tbody id="logsTableBody" class="divide-y divide-slate-50"></tbody>
@@ -410,36 +421,34 @@
                         </div>
                     </div>
 
-                    <!-- TAB 2: EMPLOYEES (UPDATED INPUT FORM) -->
+                    <!-- TAB 2: EMPLOYEES -->
                     <div id="tab-employees" class="hidden animate-fade-in space-y-6">
                         <div class="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-slate-100 relative overflow-hidden">
                             <div class="relative z-10">
                                 <h3 class="font-bold text-slate-800 mb-6 text-lg">Input Karyawan Baru</h3>
-                                <form onsubmit="addEmployee(event)" class="space-y-4">
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Nama Lengkap</label>
-                                            <input type="text" id="newEmpName" class="input-field" placeholder="Contoh: Budi Santoso" required>
-                                        </div>
-                                        <div>
-                                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Divisi</label>
-                                            <select id="newEmpDiv" class="input-field cursor-pointer" onchange="toggleCredsField(this.value, 'new')">
-                                                <option>Helper Cook</option>
-                                                <option>Cook</option>
-                                                <option>Head Chef</option>
-                                                <option>Packing</option>
-                                                <option>Distribusi</option>
-                                                <option>Kenek Distribusi</option>
-                                                <option>Kebersihan</option>
-                                                <option>Asisten Lapangan</option>
-                                                <option>Gudang</option>
-                                                <option>Keamanan</option>
-                                            </select>
-                                        </div>
+                                <form onsubmit="addEmployee(event)" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                                    <div class="md:col-span-4 space-y-1">
+                                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Nama Lengkap</label>
+                                        <input type="text" id="newEmpName" class="input-field" placeholder="Contoh: Budi Santoso" required>
+                                    </div>
+                                    <div class="md:col-span-3 space-y-1">
+                                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Divisi</label>
+                                        <select id="newEmpDiv" class="input-field cursor-pointer" onchange="toggleCredsField(this.value, 'new')">
+                                            <option>Helper Cook</option>
+                                            <option>Cook</option>
+                                            <option>Head Chef</option>
+                                            <option>Packing</option>
+                                            <option>Distribusi</option>
+                                            <option>Kenek Distribusi</option>
+                                            <option>Kebersihan</option>
+                                            <option>Asisten Lapangan</option>
+                                            <option>Gudang</option>
+                                            <option>Keamanan</option>
+                                        </select>
                                     </div>
                                     
                                     <!-- NEW: CREDENTIALS FIELD FOR NEW EMPLOYEE -->
-                                    <div id="newCredsContainer" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <div id="newCredsContainer" class="hidden col-span-12 grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100 mt-2">
                                         <div class="col-span-full text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Akses Login Security</div>
                                         <div>
                                             <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Username</label>
@@ -451,14 +460,12 @@
                                         </div>
                                     </div>
 
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                                        <div>
-                                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Gaji Harian</label>
-                                            <input type="number" id="newEmpSalary" class="input-field" placeholder="Contoh: 150000" required>
-                                        </div>
-                                        <div>
-                                            <button type="submit" class="w-full bg-slate-900 text-white font-bold h-[46px] rounded-xl hover:bg-slate-800 transition shadow-lg shadow-slate-200">Simpan</button>
-                                        </div>
+                                    <div class="md:col-span-3 space-y-1">
+                                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Gaji Harian</label>
+                                        <input type="number" id="newEmpSalary" class="input-field" placeholder="Contoh: 150000" required>
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <button type="submit" class="w-full bg-slate-900 text-white font-bold h-[46px] rounded-xl hover:bg-slate-800 transition shadow-lg shadow-slate-200">Simpan</button>
                                     </div>
                                 </form>
                             </div>
@@ -491,9 +498,8 @@
                         </div>
                     </div>
 
-                    <!-- TAB 3: SALARIES (Same as before) -->
+                    <!-- TAB 3: SALARIES -->
                     <div id="tab-salaries" class="hidden animate-fade-in space-y-6">
-                         <!-- ... Table Gaji content ... -->
                          <div class="flex flex-col md:flex-row justify-between items-center bg-mbg-600 p-6 rounded-[2rem] shadow-lg shadow-mbg-500/20 text-white no-print">
                             <div class="mb-4 md:mb-0">
                                 <h2 class="text-xl font-bold">Laporan Penggajian</h2>
@@ -503,6 +509,8 @@
                                 <i class="fas fa-print"></i> Cetak PDF
                             </button>
                         </div>
+                        
+                        <!-- TABLE GAJI -->
                         <div class="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden" id="printAreaSalary">
                             <div class="flex justify-between items-center mb-4 no-print">
                                 <h3 class="font-bold text-slate-800">Tabel Rekap</h3>
@@ -531,6 +539,8 @@
                                     <tbody id="salaryTableBody" class="divide-y divide-slate-100"></tbody>
                                 </table>
                             </div>
+
+                            <!-- TABEL RINCIAN LEMBUR -->
                              <div class="mt-8">
                                 <h4 class="font-bold text-slate-800 mb-3 text-sm">Rincian Perhitungan Lembur (Detail)</h4>
                                 <div class="overflow-x-auto border border-slate-200 rounded-lg">
@@ -551,6 +561,8 @@
                                     </table>
                                 </div>
                             </div>
+
+                            <!-- TABEL RINCIAN KETERLAMBATAN -->
                             <div class="mt-8">
                                 <h4 class="font-bold text-slate-800 mb-3 text-sm">Rincian Keterlambatan (Detail)</h4>
                                 <div class="overflow-x-auto border border-slate-200 rounded-lg">
@@ -570,6 +582,7 @@
                                     </table>
                                 </div>
                             </div>
+
                             <div class="mt-8 pt-8 border-t border-slate-200 hidden print-only grid grid-cols-2">
                                 <div class="text-center">
                                     <p class="text-xs text-slate-500 mb-16">Dibuat Oleh,</p>
@@ -588,6 +601,7 @@
 
         <!-- 3. SECURITY LAYOUT (Security Mode) -->
         <div id="securityLayout" class="hidden flex flex-col h-full bg-slate-900 text-white font-sans relative">
+            <!-- Header Security Info -->
             <div class="absolute top-0 left-0 w-full z-20 px-6 py-4 bg-gradient-to-b from-black/80 to-transparent flex flex-col gap-2">
                 <div class="flex justify-between items-start">
                     <div class="flex items-center gap-2">
@@ -651,10 +665,12 @@
             </div>
 
             <!-- Page 1: QR Scanner -->
-            <div id="secPage1" class="flex-1 flex flex-col items-center justify-center p-6 relative pt-48">
+            <div id="secPage1" class="flex-1 flex flex-col items-center justify-center p-6 relative pt-24">
                 <!-- Camera Frame -->
                 <div class="relative w-full max-w-sm aspect-square bg-black rounded-[3rem] overflow-hidden shadow-2xl shadow-black/50 border-[6px] border-slate-800 group mb-8">
                     <video id="scanVideo" autoplay playsinline class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition duration-500"></video>
+                    
+                    <!-- Scanner Animation Overlay -->
                     <div class="absolute inset-0 p-10 flex items-center justify-center pointer-events-none">
                          <div class="w-full h-full border-2 border-white/30 rounded-[2rem] relative">
                             <div class="absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 border-emerald-500 rounded-tl-2xl"></div>
@@ -664,6 +680,8 @@
                             <div class="absolute top-1/2 left-6 right-6 h-0.5 bg-red-500/80 shadow-[0_0_20px_#ef4444] animate-[scan_2s_ease-in-out_infinite]"></div>
                          </div>
                     </div>
+                    
+                    <!-- Status Text -->
                     <div class="absolute bottom-6 left-0 right-0 text-center">
                         <span class="bg-black/50 text-white/80 text-[10px] px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10 font-medium">
                             Scan QR Karyawan
@@ -686,54 +704,54 @@
 
             <!-- Page 2: Selfie Verification -->
             <div id="secPage2" class="hidden flex-1 flex flex-col bg-slate-900 overflow-y-auto">
-                <div class="pt-32 px-6 pb-6">
-                    <div class="bg-slate-800/50 border border-white/5 p-5 rounded-[2rem] flex items-center gap-5 backdrop-blur-sm shadow-xl">
-                        <div class="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center text-2xl text-white shadow-lg shadow-emerald-500/20 shrink-0">
+                <!-- Profile Header -->
+                <div class="pt-28 px-6 pb-6">
+                    <div class="bg-slate-800/50 border border-white/5 p-5 rounded-[2rem] flex items-center gap-5 backdrop-blur-sm">
+                        <div class="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center text-2xl text-white shadow-lg shadow-emerald-500/20">
                             <i class="fas fa-user-check"></i>
                         </div>
-                        <div class="flex-1 min-w-0">
-                            <h2 id="confirmName" class="text-xl font-bold text-white leading-tight truncate">Nama Karyawan</h2>
-                            <div class="flex items-center gap-2 mt-1.5 flex-wrap">
-                                <span id="confirmDiv" class="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">Divisi</span>
-                                <span id="confirmShift" class="text-[10px] text-slate-400 flex items-center gap-1">
-                                    <i class="far fa-clock"></i> <span class="truncate">Jam Masuk: --:--</span>
-                                </span>
-                            </div>
+                        <div>
+                            <h2 id="confirmName" class="text-xl font-bold text-white leading-tight">Nama Karyawan</h2>
+                            <span id="confirmDiv" class="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md mt-1 inline-block border border-emerald-500/20">Divisi</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="px-6 flex-1 flex flex-col justify-start pb-8">
-                    <div class="relative bg-black rounded-[2.5rem] overflow-hidden border-4 border-slate-800 w-full aspect-[3/4] shadow-2xl mb-6 group shrink-0 max-h-[50vh]">
+                <!-- Selfie Cam -->
+                <div class="px-6 flex-1 flex flex-col">
+                    <div class="relative bg-black rounded-[2.5rem] overflow-hidden border-4 border-slate-800 w-full aspect-[3/4] shadow-2xl mb-6 group">
                         <video id="faceVideo" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100 transition-transform duration-500"></video>
                         <canvas id="snapCanvas" class="hidden"></canvas>
-                        <button onclick="toggleCamera()" class="absolute top-4 right-4 w-12 h-12 rounded-full bg-black/40 text-white backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-white hover:text-black transition-all shadow-lg active:rotate-180 z-20">
+                        
+                        <!-- Toggle Camera Button -->
+                        <button onclick="toggleCamera()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/40 text-white backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-white hover:text-black transition-all shadow-lg active:rotate-180 z-20">
                             <i class="fas fa-sync-alt"></i>
                         </button>
                     </div>
 
+                    <!-- Action Buttons -->
                     <div class="grid grid-cols-2 gap-4 mb-4">
-                        <button id="btnAbsenIn" onclick="submitAbsence('IN')" disabled class="relative overflow-hidden bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-2xl font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-all group border-t border-white/20">
+                        <button id="btnAbsenIn" onclick="submitAbsence('IN')" disabled class="relative overflow-hidden bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-all group border-t border-white/20">
                             <div class="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 rounded-2xl"></div>
                             <div class="relative flex flex-col items-center gap-1">
-                                <i class="fas fa-sign-in-alt text-xl mb-0.5"></i> 
+                                <i class="fas fa-sign-in-alt text-2xl mb-1"></i> 
                                 <span class="text-[10px] tracking-widest uppercase">Absen Masuk</span>
                             </div>
                         </button>
-                        <button id="btnAbsenOut" onclick="submitAbsence('OUT')" disabled class="relative overflow-hidden bg-gradient-to-b from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-2xl font-bold shadow-lg shadow-amber-500/20 active:scale-95 transition-all group border-t border-white/20">
+                        <button id="btnAbsenOut" onclick="submitAbsence('OUT')" disabled class="relative overflow-hidden bg-gradient-to-b from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-bold shadow-lg shadow-amber-500/20 active:scale-95 transition-all group border-t border-white/20">
                              <div class="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 rounded-2xl"></div>
                             <div class="relative flex flex-col items-center gap-1">
-                                <i class="fas fa-sign-out-alt text-xl mb-0.5"></i> 
+                                <i class="fas fa-sign-out-alt text-2xl mb-1"></i> 
                                 <span class="text-[10px] tracking-widest uppercase">Absen Pulang</span>
                             </div>
                         </button>
                     </div>
                     
-                    <button onclick="resetSecurityFlow()" class="w-full py-4 text-slate-500 text-xs font-bold bg-slate-800/50 hover:bg-slate-800 rounded-2xl active:scale-95 border border-white/5 transition uppercase tracking-widest">
+                    <button onclick="resetSecurityFlow()" class="w-full py-4 text-slate-500 text-xs font-bold bg-slate-800/50 hover:bg-slate-800 rounded-2xl active:scale-95 border border-white/5 transition mb-8 uppercase tracking-widest">
                         Batal / Scan Ulang
                     </button>
                     
-                    <div class="mt-auto pt-6 text-center text-[10px] text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
+                    <div class="pb-6 text-center text-[10px] text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
                 </div>
             </div>
         </div>
