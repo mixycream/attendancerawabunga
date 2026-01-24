@@ -22,7 +22,7 @@ let sortState = {
     salary: 'name_asc'
 };
 let editingEmployeeId = null;
-let pendingAttendancePayload = null;
+let pendingAttendancePayload = null; // Menyimpan data sementara jika telat > 30 menit
 let trendChartInstance = null; // Instance Chart.js
 
 // Camera & Geo State
@@ -33,12 +33,25 @@ let currentLocation = "Lokasi Tidak Terdeteksi";
 let isLocationLocked = false;
 let activeWorkerTimer = null; 
 
-// --- HELPER FILE READER ---
+// --- HELPER FUNCTIONS ---
 const readFile = (file) => new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = (e) => resolve(e.target.result);
     reader.readAsDataURL(file);
 });
+
+// Format Menit ke "X Jam Y Menit"
+function formatDuration(totalMinutes) {
+    if (!totalMinutes || totalMinutes <= 0) return "-";
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    
+    let result = [];
+    if (hours > 0) result.push(`${hours} Jam`);
+    if (minutes > 0) result.push(`${minutes} Menit`);
+    
+    return result.join(" ");
+}
 
 // --- AUTH & INIT ---
 window.onload = () => {
@@ -143,7 +156,7 @@ async function postData(action, payload) {
             body: JSON.stringify({ action, ...payload })
         });
         
-        await new Promise(r => setTimeout(r, 2000)); // Tunggu upload
+        await new Promise(r => setTimeout(r, 2000)); 
 
         showToast("Data Tersimpan!", "success");
         fetchData(); 
@@ -154,128 +167,6 @@ async function postData(action, payload) {
         toggleLoader(false);
         return false;
     }
-}
-
-// --- SORTING LOGIC ---
-function handleSort(table, value) {
-    sortState[table] = value;
-    refreshUI();
-}
-
-function getSortedData(data, type) {
-    let sorted = [...data];
-    const criteria = sortState[type];
-
-    if (type === 'logs') {
-        if (criteria === 'time_desc') return sorted.sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
-        if (criteria === 'time_asc') return sorted.sort((a, b) => new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time));
-        if (criteria === 'name_asc') return sorted.sort((a, b) => a.name.localeCompare(b.name));
-        if (criteria === 'status_asc') return sorted.sort((a, b) => a.type.localeCompare(b.type));
-    }
-    
-    if (type === 'employees') {
-        if (criteria === 'name_asc') return sorted.sort((a, b) => a.name.localeCompare(b.name));
-        if (criteria === 'name_desc') return sorted.sort((a, b) => b.name.localeCompare(a.name));
-        if (criteria === 'salary_desc') return sorted.sort((a, b) => b.salary - a.salary);
-        if (criteria === 'div_asc') return sorted.sort((a, b) => a.division.localeCompare(b.division));
-    }
-
-    return sorted;
-}
-
-// --- CONFIG & SHIFT LOGIC ---
-function openConfigModal() {
-    const list = document.getElementById('configList');
-    list.innerHTML = '';
-    
-    const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2"];
-    
-    orderedKeys.forEach(key => {
-        const shiftData = appConfig.shifts[key] || { start: "00:00", end: "08:00" };
-        const startVal = typeof shiftData === 'string' ? shiftData : shiftData.start; 
-        const endVal = typeof shiftData === 'string' ? "00:00" : shiftData.end;
-
-        list.innerHTML += `
-        <div class="grid grid-cols-12 gap-2 items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
-            <div class="col-span-4 text-xs font-bold text-slate-700">${key}</div>
-            <div class="col-span-4">
-                 <input type="text" inputmode="numeric" placeholder="HH:mm" maxlength="5"
-                   class="shift-start-input w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-emerald-600 focus:border-mbg-500 outline-none text-center" 
-                   data-division="${key}" value="${startVal}" 
-                   onchange="validateTimeInput(this); autoCalculateEndTime(this)">
-            </div>
-            <div class="col-span-4">
-                <input type="text" inputmode="numeric" placeholder="HH:mm" maxlength="5"
-                   class="shift-end-input w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-amber-600 focus:border-mbg-500 outline-none text-center" 
-                   data-division="${key}" id="end-${key.replace(/\s/g, '-')}" value="${endVal}"
-                   onchange="validateTimeInput(this)">
-            </div>
-        </div>`;
-    });
-
-    document.getElementById('configModal').classList.remove('hidden');
-    setTimeout(() => document.getElementById('configModal').classList.remove('opacity-0'), 10);
-}
-
-function validateTimeInput(input) {
-    let val = input.value.replace(/[^0-9:]/g, ''); 
-    if (!val) return;
-
-    if(val.indexOf(':') === -1) {
-        if(val.length === 4) val = val.substring(0,2) + ':' + val.substring(2);
-        else if(val.length === 3) val = '0' + val.substring(0,1) + ':' + val.substring(1);
-        else if(val.length <= 2) val = val + ':00';
-    }
-
-    let [h, m] = val.split(':').map(Number);
-    if(isNaN(h)) h = 0;
-    if(isNaN(m)) m = 0;
-    h = Math.min(23, Math.max(0, h));
-    m = Math.min(59, Math.max(0, m));
-    input.value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-}
-
-function autoCalculateEndTime(input) {
-    const div = input.dataset.division;
-    const startTime = input.value;
-    if(!startTime) return;
-
-    const [h, m] = startTime.split(':').map(Number);
-    let endH = (h + 8) % 24;
-    const endStr = `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    
-    const endInput = document.getElementById(`end-${div.replace(/\s/g, '-')}`);
-    if(endInput) {
-        endInput.value = endStr;
-        endInput.classList.add('bg-amber-50');
-        setTimeout(() => endInput.classList.remove('bg-amber-50'), 300);
-    }
-}
-
-function closeConfigModal() {
-    document.getElementById('configModal').classList.add('opacity-0');
-    setTimeout(() => document.getElementById('configModal').classList.add('hidden'), 300);
-}
-
-function saveShiftConfig() {
-    const startInputs = document.querySelectorAll('.shift-start-input');
-    let newShifts = {};
-    startInputs.forEach(input => {
-        const div = input.dataset.division;
-        const endInput = document.getElementById(`end-${div.replace(/\s/g, '-')}`);
-        newShifts[div] = { start: input.value, end: endInput.value };
-    });
-    appConfig.shifts = newShifts;
-    postData('saveConfig', { shifts: newShifts });
-    closeConfigModal();
-}
-
-function getShiftTime(division) {
-    if (division === 'Keamanan') return "Shift (Rotasi)";
-    const shift = appConfig.shifts[division];
-    if (!shift) return "-";
-    if (typeof shift === 'string') return shift; 
-    return `${shift.start} - ${shift.end}`;
 }
 
 // --- UI UPDATES & LOGIC ---
@@ -301,6 +192,7 @@ function refreshUI() {
     const todayLogs = logs.filter(l => l.date === today);
     const present = todayLogs.filter(l => l.type === 'IN').length;
     
+    // Hitung Late Count
     const lateCount = todayLogs.filter(l => l.lateMinutes > 0 || l.type === 'PENDING').length;
     
     let overtimeCount = 0;
@@ -311,17 +203,18 @@ function refreshUI() {
         return myLogs.length > 0 && myLogs[0].type === 'IN';
     }).length;
 
+    // Update Stats Cards
     document.getElementById('statEmp').innerText = employees.length;
     document.getElementById('statPresent').innerText = present;
     document.getElementById('statWorking').innerText = workingCount + " Sedang Bekerja";
     document.getElementById('statOvertime').innerText = overtimeCount;
     document.getElementById('statLate').innerText = lateCount; 
 
-    // RENDER NEW COMPONENTS
+    // Render Components
     renderTrendChart();
     renderDivisionGrid();
 
-    // RENDER LOGS (Sorted)
+    // --- RENDER LOGS (TABEL AKTIVITAS) ---
     const sortedLogs = getSortedData(logs, 'logs');
     const logBody = document.getElementById('logsTableBody');
     logBody.innerHTML = sortedLogs.slice(0, 20).map(l => {
@@ -360,12 +253,14 @@ function refreshUI() {
              photoHtml = `<img src="${l.photo}" onclick="previewImage('${safeUrl}'); event.stopPropagation();" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md cursor-pointer hover:scale-110 transition mx-auto" onerror="this.onerror=null; this.src='https://via.placeholder.com/40?text=Err';">`;
         }
         
-        let extraInfo = '-';
-        if (l.overtime > 0) extraInfo = `<span class="text-amber-600 font-bold">${l.overtime} Jam</span>`;
+        // Pemisahan Kolom & Format
+        let overtimeInfo = l.overtime > 0 ? `<span class="text-amber-600 font-bold">${l.overtime} Jam</span>` : '-';
+        
+        let lateInfo = '-';
         if (l.lateMinutes > 0) {
-            extraInfo = `<span class="text-red-500 font-bold">Telat ${l.lateMinutes}m</span>`;
+            lateInfo = `<span class="text-red-500 font-bold text-[10px]">${formatDuration(l.lateMinutes)}</span>`;
             if (l.note) {
-                extraInfo += `<div class="text-[9px] text-slate-400 mt-1 italic max-w-[100px] truncate" title="${l.note}">"${l.note}"</div>`;
+                lateInfo += `<div class="text-[9px] text-slate-400 mt-1 italic max-w-[100px] truncate" title="${l.note}">"${l.note}"</div>`;
             }
         }
             
@@ -380,115 +275,63 @@ function refreshUI() {
              <td class="px-6 py-4">
                 <div class="text-[10px] text-slate-500 truncate max-w-[150px]"><i class="fas fa-map-marker-alt text-slate-300 mr-1"></i>${l.location || '-'}</div>
             </td>
-            <td class="px-6 py-4 text-xs text-right">${extraInfo}</td>
+            <td class="px-6 py-4 text-center">${lateInfo}</td>
+            <td class="px-6 py-4 text-center">${overtimeInfo}</td>
             <td class="px-6 py-4 text-center">${actionArea}</td>
         </tr>`;
     }).join('');
+
+    // --- RENDER EMPLOYEE LIST (DAFTAR RELAWAN) ---
+    const sortedEmployees = getSortedData(employees, 'employees');
+    const empBody = document.getElementById('employeeTableBody');
+    if(empBody) {
+        empBody.innerHTML = sortedEmployees.map(e => {
+            let profilePic = `<div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400"><i class="fas fa-user"></i></div>`;
+            if (e.photo && e.photo.length > 20) {
+                 profilePic = `<img src="${e.photo}" class="w-8 h-8 rounded-full object-cover border border-slate-200">`;
+            }
+
+            const shiftTime = getShiftTime(e.division);
+
+            return `
+            <tr class="border-b border-slate-50 hover:bg-slate-50 transition">
+                <td class="px-6 py-4">
+                    <div class="flex items-center gap-3">
+                        ${profilePic}
+                        <div>
+                            <div class="font-bold text-slate-700">${e.name}</div>
+                            <div class="text-[10px] text-slate-400 font-mono">${e.id}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">${e.division}</span>
+                    <div class="text-[10px] text-slate-400 mt-1"><i class="far fa-clock"></i> ${shiftTime}</div>
+                </td>
+                <td class="px-6 py-4 text-right font-bold text-emerald-600">Rp ${parseInt(e.salary).toLocaleString()}</td>
+                <td class="px-6 py-4 text-center">
+                    <button onclick="openEditEmployee('${e.id}')" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-mbg-50 hover:text-mbg-600 transition flex items-center justify-center">
+                        <i class="fas fa-pen text-xs"></i>
+                    </button>
+                </td>
+            </tr>
+        `}).join('');
+    }
 
     renderSalary();
 }
 
 async function confirmLate(row, newStatus) {
     if(!confirm(`Konfirmasi status menjadi ${newStatus}?`)) return;
-    
     const logIndex = logs.findIndex(l => l.row == row);
     if(logIndex !== -1) {
         logs[logIndex].type = newStatus;
         refreshUI();
     }
-
     await postData('confirmAttendance', { row: row, newStatus: newStatus });
 }
 
-// --- NEW CHART & GRID RENDERERS ---
-
-function renderTrendChart() {
-    const ctx = document.getElementById('trendChart').getContext('2d');
-    
-    // Get Last 7 Days
-    const labels = [...Array(7)].map((_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        return d.toISOString().split('T')[0];
-    }).reverse();
-
-    // Calculate Data Per Day
-    const presentData = labels.map(date => logs.filter(l => l.date === date && l.type === 'IN').length);
-    const lateData = labels.map(date => logs.filter(l => l.date === date && (l.lateMinutes > 0 || l.type === 'PENDING')).length);
-    const overtimeData = labels.map(date => logs.filter(l => l.date === date && l.type === 'OUT' && l.overtime > 0).length);
-
-    if (trendChartInstance) trendChartInstance.destroy();
-
-    trendChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels.map(d => {
-                const parts = d.split('-');
-                return `${parts[2]}/${parts[1]}`; // dd/mm
-            }),
-            datasets: [
-                {
-                    label: 'Hadir',
-                    data: presentData,
-                    borderColor: '#10b981', // Emerald 500
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                },
-                {
-                    label: 'Telat',
-                    data: lateData,
-                    borderColor: '#ef4444', // Red 500
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    tension: 0.4
-                },
-                {
-                    label: 'Lembur',
-                    data: overtimeData,
-                    borderColor: '#f59e0b', // Amber 500
-                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                    tension: 0.4
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'top' }
-            },
-            scales: {
-                y: { beginAtZero: true, ticks: { stepSize: 1 } }
-            }
-        }
-    });
-}
-
-function renderDivisionGrid() {
-    const container = document.getElementById('divisionGrid');
-    if(!container) return;
-    
-    const counts = {};
-    employees.forEach(e => {
-        counts[e.division] = (counts[e.division] || 0) + 1;
-    });
-
-    const colors = ['bg-emerald-500', 'bg-blue-500', 'bg-amber-500', 'bg-purple-500', 'bg-rose-500', 'bg-indigo-500', 'bg-cyan-500', 'bg-lime-500'];
-
-    container.innerHTML = Object.entries(counts).map(([div, count], index) => {
-        const colorClass = colors[index % colors.length];
-        return `
-        <div onclick="showDivisionDetails('${div}')" class="cursor-pointer group relative overflow-hidden bg-white border border-slate-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
-            <div class="absolute right-0 top-0 w-16 h-16 opacity-10 rounded-bl-full ${colorClass} group-hover:scale-150 transition-transform duration-500"></div>
-            <div class="relative z-10">
-                <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Divisi</div>
-                <div class="font-bold text-slate-800 text-sm truncate" title="${div}">${div}</div>
-                <div class="mt-2 text-2xl font-extrabold text-slate-800">${count} <span class="text-[10px] font-normal text-slate-400">Org</span></div>
-            </div>
-        </div>`;
-    }).join('');
-}
-
+// --- RENDER SALARY & REPORTS ---
 function renderSalary() {
     const body = document.getElementById('salaryTableBody');
     const detailBody = document.getElementById('overtimeDetailBody');
@@ -504,6 +347,7 @@ function renderSalary() {
         let totalOvertimeHours = 0;
         let totalLateCount = 0; 
         
+        // Detail Lembur
         empLogs.filter(l => l.type === 'OUT' && l.overtime > 0).forEach(l => {
             totalOvertimeHours += (parseInt(l.overtime) || 0);
             const shift = appConfig.shifts[e.division];
@@ -520,6 +364,7 @@ function renderSalary() {
             </tr>`;
         });
 
+        // Detail Telat
         empLogs.filter(l => l.type === 'IN' && l.lateMinutes > 0).forEach(l => {
             totalLateCount++;
             const shift = appConfig.shifts[e.division];
@@ -532,7 +377,7 @@ function renderSalary() {
                 <td class="p-3 text-slate-500">${l.date}</td>
                 <td class="p-3 font-mono text-slate-500">${shiftStart}</td>
                 <td class="p-3 font-mono font-bold text-slate-800">${l.time}</td>
-                <td class="p-3 text-right font-bold text-red-500">${l.lateMinutes} Menit${noteText}</td>
+                <td class="p-3 text-right font-bold text-red-500">${formatDuration(l.lateMinutes)} ${noteText}</td>
             </tr>`;
         });
 
@@ -574,275 +419,232 @@ function renderSalary() {
     }).join('');
 }
 
-// ... (Edit Employee Functions remain unchanged) ...
-function openEditEmployee(id) {
-    const emp = employees.find(e => e.id === id);
-    if (!emp) return;
-
-    editingEmployeeId = id;
-    document.getElementById('editEmpId').value = id;
-    document.getElementById('editEmpName').value = emp.name;
-    document.getElementById('editEmpDiv').value = emp.division;
-    document.getElementById('editEmpSalary').value = emp.salary;
+// --- CHART & GRID ---
+function renderTrendChart() {
+    const ctx = document.getElementById('trendChart').getContext('2d');
     
-    document.getElementById('editEmpPhoto').value = "";
-    
-    const previewContainer = document.getElementById('editPreviewContainer');
-    if (emp.photo && emp.photo.length > 20) {
-        previewContainer.innerHTML = `<img src="${emp.photo}" class="w-full h-full object-cover">`;
-    } else {
-        previewContainer.innerHTML = '<i class="fas fa-user text-slate-300 text-2xl"></i>';
-    }
+    const labels = [...Array(7)].map((_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        return d.toISOString().split('T')[0];
+    }).reverse();
 
-    document.getElementById('editEmployeeModal').classList.remove('hidden');
-    setTimeout(() => document.getElementById('editEmployeeModal').classList.remove('opacity-0'), 10);
-}
+    const presentData = labels.map(date => logs.filter(l => l.date === date && l.type === 'IN').length);
+    const lateData = labels.map(date => logs.filter(l => l.date === date && (l.lateMinutes > 0 || l.type === 'PENDING')).length);
+    const overtimeData = labels.map(date => logs.filter(l => l.date === date && l.type === 'OUT' && l.overtime > 0).length);
 
-function closeEditEmployee() {
-    document.getElementById('editEmployeeModal').classList.add('opacity-0');
-    setTimeout(() => document.getElementById('editEmployeeModal').classList.add('hidden'), 300);
-    editingEmployeeId = null;
-}
+    if (trendChartInstance) trendChartInstance.destroy();
 
-function deleteEmployee() {
-    if (!editingEmployeeId) return;
-    
-    if(confirm("Apakah Anda yakin ingin menghapus data relawan ini? Tindakan ini tidak dapat dibatalkan.")) {
-        employees = employees.filter(e => e.id !== editingEmployeeId);
-        refreshUI();
-        closeEditEmployee();
-        postData('deleteEmployee', { id: editingEmployeeId });
-    }
-}
-
-async function submitEditEmployee(e) {
-    e.preventDefault();
-    if (!editingEmployeeId) return;
-
-    const name = document.getElementById('editEmpName').value;
-    const div = document.getElementById('editEmpDiv').value;
-    const salary = document.getElementById('editEmpSalary').value;
-    const fileInput = document.getElementById('editEmpPhoto');
-
-    let payload = {
-        id: editingEmployeeId,
-        name: name,
-        division: div,
-        salary: salary
-    };
-
-    if(fileInput.files.length > 0) {
-        const base64 = await readFile(fileInput.files[0]);
-        payload.photo = base64; 
-        payload.image = base64.split(',')[1];
-    } else {
-        const oldEmp = employees.find(e => e.id === editingEmployeeId);
-        if(oldEmp && oldEmp.photo) {
-            payload.photo = oldEmp.photo; 
+    trendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels.map(d => {
+                const parts = d.split('-');
+                return `${parts[2]}/${parts[1]}`; 
+            }),
+            datasets: [
+                { label: 'Hadir', data: presentData, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.4, fill: true },
+                { label: 'Telat', data: lateData, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', tension: 0.4 },
+                { label: 'Lembur', data: overtimeData, borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', tension: 0.4 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'top' } },
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
         }
-    }
-
-    const empIndex = employees.findIndex(e => e.id === editingEmployeeId);
-    if(empIndex !== -1) {
-        employees[empIndex] = { ...employees[empIndex], ...payload };
-        refreshUI();
-    }
-
-    closeEditEmployee();
-    postData('addEmployee', payload);
+    });
 }
 
-// NEW HELPER FUNCTIONS FOR MODAL
-function showAllEmployees() { openModalList('Total Relawan Terdaftar', 'all'); }
-function showActiveVolunteers() { openModalList('Relawan Sedang Bekerja', 'active'); }
-function showPresentVolunteers() { openModalList('Relawan Hadir Hari Ini', 'present'); }
-function showOvertimeToday() { openModalList('Lembur Hari Ini', 'overtime'); }
-function showLateToday() { openModalList('Terlambat Hari Ini', 'late'); }
-function showDivisionDetails(division) { openModalList(`Divisi: ${division}`, 'division', division); }
-
-function openModalList(title, mode, filterParam = null) {
-    const list = document.getElementById('activeWorkersList');
-    document.getElementById('activeModalTitle').innerText = title;
+function renderDivisionGrid() {
+    const container = document.getElementById('divisionGrid');
+    if(!container) return;
     
-    const render = () => {
-        const now = new Date();
-        const today = new Date().toISOString().split('T')[0];
-        let filtered = [];
+    const counts = {};
+    employees.forEach(e => {
+        counts[e.division] = (counts[e.division] || 0) + 1;
+    });
 
-        if (mode === 'all') { // NEW: SHOW ALL
-            document.getElementById('activeModalSubtitle').innerText = "Seluruh database relawan";
-            filtered = employees;
-        
-        } else if (mode === 'active') {
-            document.getElementById('activeModalSubtitle').innerText = "Realtime tracking (Durasi kerja saat ini)";
-            filtered = employees.map(e => {
-                const myLogs = logs.filter(l => l.empId === e.id).sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
-                if (myLogs.length > 0 && myLogs[0].type === 'IN') {
-                    const lastLog = myLogs[0];
-                    return { ...e, inTime: lastLog.time, inDate: lastLog.date, inPhoto: lastLog.photo, status: 'working' };
-                }
-                return null;
-            }).filter(e => e !== null);
-        
-        } else if (mode === 'present') {
-            document.getElementById('activeModalSubtitle').innerText = `Daftar kehadiran tanggal ${today}`;
-            const todayInLogs = logs.filter(l => l.date === today && l.type === 'IN');
-            filtered = todayInLogs.map(log => {
-                const emp = employees.find(e => e.id === log.empId);
-                return emp ? { ...emp, inTime: log.time, inDate: log.date, inPhoto: log.photo, status: 'present' } : null;
-            }).filter(e => e !== null);
-            
-        } else if (mode === 'overtime') { // NEW: SHOW OVERTIME TODAY
-            document.getElementById('activeModalSubtitle').innerText = `Relawan lembur tanggal ${today}`;
-            const todayOvertimeLogs = logs.filter(l => l.date === today && l.type === 'OUT' && l.overtime > 0);
-            filtered = todayOvertimeLogs.map(log => {
-                const emp = employees.find(e => e.id === log.empId);
-                return emp ? { ...emp, extraInfo: `+${log.overtime} Jam`, status: 'overtime' } : null;
-            }).filter(e => e !== null);
+    const colors = ['bg-emerald-500', 'bg-blue-500', 'bg-amber-500', 'bg-purple-500', 'bg-rose-500', 'bg-indigo-500', 'bg-cyan-500', 'bg-lime-500'];
 
-        } else if (mode === 'late') { // NEW: SHOW LATE TODAY
-            document.getElementById('activeModalSubtitle').innerText = `Relawan terlambat tanggal ${today}`;
-            const todayLateLogs = logs.filter(l => l.date === today && (l.lateMinutes > 0 || l.type === 'PENDING'));
-            filtered = todayLateLogs.map(log => {
-                const emp = employees.find(e => e.id === log.empId);
-                const info = log.type === 'PENDING' ? 'Menunggu Konfirmasi' : `${log.lateMinutes} Menit`;
-                return emp ? { ...emp, extraInfo: info, status: 'late' } : null;
-            }).filter(e => e !== null);
-
-        } else if (mode === 'division') {
-            document.getElementById('activeModalSubtitle').innerText = "Daftar total relawan terdaftar";
-            filtered = employees.filter(e => e.division === filterParam);
-        }
-
-        list.innerHTML = filtered.length ? filtered.map(w => {
-            let statusBadge = '', timeInfo = '';
-            
-            if (mode === 'active') {
-                const start = new Date(`${w.inDate}T${w.inTime}`);
-                const diffMs = Math.max(now - start, 0);
-                const hrs = Math.floor(diffMs / 3600000);
-                const mins = Math.floor((diffMs % 3600000) / 60000);
-                const secs = Math.floor((diffMs % 60000) / 1000); 
-                statusBadge = '<span class="bg-emerald-100 text-emerald-600 text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse">Sedang Bekerja</span>';
-                timeInfo = `<div class="font-mono font-bold text-emerald-600 text-sm">${hrs}j ${mins}m ${secs}d</div>`; 
-            } else if (mode === 'present') {
-                statusBadge = '<span class="bg-blue-100 text-blue-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Hadir</span>';
-                timeInfo = `<div class="text-[10px] text-slate-400">Masuk: <span class="font-bold text-slate-700">${w.inTime}</span></div>`;
-            } else if (mode === 'overtime') {
-                statusBadge = '<span class="bg-amber-100 text-amber-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Lembur</span>';
-                timeInfo = `<div class="text-sm font-bold text-amber-600">${w.extraInfo}</div>`;
-            } else if (mode === 'late') {
-                statusBadge = '<span class="bg-red-100 text-red-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Terlambat</span>';
-                timeInfo = `<div class="text-sm font-bold text-red-600">${w.extraInfo}</div>`;
-            } else {
-                statusBadge = `<span class="bg-slate-100 text-slate-500 text-[10px] px-2 py-0.5 rounded-full font-bold">ID: ${w.id}</span>`;
-            }
-
-            const listPhoto = w.photo && w.photo.length > 20 
-                ? `style="background-image:url('${w.photo}')"` 
-                : '';
-            const listIcon = !w.photo || w.photo.length <= 20 
-                ? '<i class="fas fa-user flex h-full items-center justify-center text-slate-300"></i>' 
-                : '';
-
-            return `
-            <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                <div class="w-10 h-10 rounded-full bg-slate-200 bg-cover bg-center shadow-inner" ${listPhoto}>
-                    ${listIcon}
-                </div>
-                <div class="flex-1">
-                    <div class="font-bold text-sm text-slate-800">${w.name}</div>
-                    <div class="text-[10px] text-slate-400">${w.division}</div>
-                    <div class="flex items-center gap-2 mt-0.5">${statusBadge}</div>
-                </div>
-                <div class="text-right">${timeInfo}</div>
-            </div>`;
-        }).join('') : '<div class="text-center text-slate-400 py-10">Tidak ada data.</div>';
-    };
-
-    render();
-    document.getElementById('activeWorkersModal').classList.remove('hidden');
-    setTimeout(() => document.getElementById('activeWorkersModal').classList.remove('opacity-0'), 10);
-    
-    if(activeWorkerTimer) clearInterval(activeWorkerTimer);
-    if(mode === 'active') activeWorkerTimer = setInterval(render, 1000); 
+    container.innerHTML = Object.entries(counts).map(([div, count], index) => {
+        const colorClass = colors[index % colors.length];
+        return `
+        <div onclick="showDivisionDetails('${div}')" class="cursor-pointer group relative overflow-hidden bg-white border border-slate-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
+            <div class="absolute right-0 top-0 w-16 h-16 opacity-10 rounded-bl-full ${colorClass} group-hover:scale-150 transition-transform duration-500"></div>
+            <div class="relative z-10">
+                <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Divisi</div>
+                <div class="font-bold text-slate-800 text-sm truncate" title="${div}">${div}</div>
+                <div class="mt-2 text-2xl font-extrabold text-slate-800">${count} <span class="text-[10px] font-normal text-slate-400">Org</span></div>
+            </div>
+        </div>`;
+    }).join('');
 }
 
-function closeActiveWorkers() {
-    const modal = document.getElementById('activeWorkersModal');
-    modal.classList.add('opacity-0');
-    setTimeout(() => modal.classList.add('hidden'), 300);
-    if(activeWorkerTimer) clearInterval(activeWorkerTimer);
-}
+// --- SECURITY LOGIC UPDATED ---
+function validateEmployee(id) {
+    const emp = employees.find(e => e.id == id || e.name.toLowerCase() == id.toLowerCase());
+    if(emp) {
+        scannedEmployee = emp;
+        document.getElementById('secPage1').classList.add('hidden');
+        document.getElementById('secPage2').classList.remove('hidden');
+        document.getElementById('confirmName').innerText = emp.name;
+        document.getElementById('confirmDiv').innerText = emp.division;
+        let shiftLabel = getShiftTime(emp.division);
+        document.getElementById('confirmShift').innerText = `Shift: ${shiftLabel}`;
+        
+        // MINIMIZE INFO JADWAL SHIFT
+        const shiftInfo = document.getElementById('securityShiftInfo');
+        if(shiftInfo) shiftInfo.classList.add('hidden');
 
-// ... (Helper & Security functions mostly same, except submitAbsence updated below) ...
-function toggleSidebar() {
-    const sb = document.getElementById('sidebar');
-    const ol = document.getElementById('sidebarOverlay');
-    if (sb.classList.contains('-translate-x-full')) {
-        sb.classList.remove('-translate-x-full');
-        ol.classList.remove('hidden');
-        setTimeout(() => ol.classList.remove('opacity-0'), 10);
+        if(scanStream) scanStream.getTracks().forEach(t=>t.stop());
+        startSelfie('user'); 
     } else {
-        sb.classList.add('-translate-x-full');
-        ol.classList.add('opacity-0');
-        setTimeout(() => ol.classList.add('hidden'), 300);
+        showToast("Karyawan Tidak Ditemukan", "error");
+        document.getElementById('manualInput').value = "";
     }
 }
 
-function previewImage(url) {
-    const modal = document.getElementById('imgModal');
-    document.getElementById('imgModalSrc').src = url;
-    document.getElementById('imgDownloadLink').href = url;
-    modal.classList.remove('hidden');
-    setTimeout(() => modal.classList.remove('opacity-0'), 10);
-}
+function resetSecurityFlow() {
+    scannedEmployee = null;
+    document.getElementById('secPage2').classList.add('hidden');
+    document.getElementById('secPage1').classList.remove('hidden');
+    
+    // TAMPILKAN KEMBALI INFO SHIFT
+    const shiftInfo = document.getElementById('securityShiftInfo');
+    if(shiftInfo) shiftInfo.classList.remove('hidden');
 
-function closePreview() {
-    const modal = document.getElementById('imgModal');
-    modal.classList.add('opacity-0');
-    setTimeout(() => modal.classList.add('hidden'), 300);
-}
-
-function switchTab(id) {
-    ['dashboard','employees','salaries'].forEach(t => document.getElementById('tab-'+t).classList.add('hidden'));
-    document.getElementById('tab-'+id).classList.remove('hidden');
-    if(window.innerWidth < 768) {
-        document.getElementById('sidebar').classList.add('-translate-x-full');
-        document.getElementById('sidebarOverlay').classList.add('hidden');
-    }
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    Array.from(document.querySelectorAll('.nav-item')).find(b => b.getAttribute('onclick').includes(id))?.classList.add('active');
-    const titles = { 'dashboard': 'Dashboard', 'employees': 'Data Karyawan', 'salaries': 'Laporan Gaji' };
-    document.getElementById('pageTitle').innerText = titles[id];
-}
-
-function initAdmin() { document.getElementById('adminLayout').classList.remove('hidden'); refreshUI(); }
-
-function addEmployee(e) {
-    e.preventDefault();
-    const name = document.getElementById('newEmpName').value;
-    const div = document.getElementById('newEmpDiv').value;
-    const salary = document.getElementById('newEmpSalary').value;
-    const id = 'EMP-' + Math.floor(1000 + Math.random() * 9000);
-    postData('addEmployee', { id, name, division: div, salary });
-    e.target.reset();
-}
-
-function initSecurity() {
-    document.getElementById('securityLayout').classList.remove('hidden');
-    updateSecurityDropdown();
-    updateSecurityInfo();
+    document.getElementById('manualInput').value = "";
+    if(faceStream) faceStream.getTracks().forEach(t=>t.stop());
     startQR();
-    startClockAndGPS();
 }
 
-function updateSecurityInfo() {
+async function submitAbsence(type) {
+    if (!isLocationLocked) return showToast("Tunggu GPS Terkunci!", "error");
+
+    const today = new Date().toISOString().split('T')[0];
     const now = new Date();
-    const onejan = new Date(now.getFullYear(), 0, 1);
-    const week = Math.ceil((((now.getTime() - onejan.getTime()) / 86400000) + onejan.getDay() + 1) / 7);
-    const badge = document.getElementById('weekInfoBadge');
-    if(badge) badge.innerText = week % 2 === 0 ? "Minggu Genap" : "Minggu Ganjil";
+    
+    const empLogs = logs.filter(l => l.empId === scannedEmployee.id).sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+    const lastLog = empLogs.length > 0 ? empLogs[0] : null;
+
+    if(type === 'IN') {
+        if(lastLog && lastLog.type === 'IN') {
+            showToast("Sesi Masih Aktif!", "error");
+            setTimeout(resetSecurityFlow, 1500); 
+            return;
+        }
+    }
+
+    let overtimeHours = 0;
+    let lateMinutes = 0;
+    let finalType = type;
+    let forcedTime = null; 
+    let toastMessage = "Absen Berhasil!";
+
+    if (type === 'IN') {
+        const divConfig = appConfig.shifts[scannedEmployee.division];
+        if (divConfig && typeof divConfig !== 'string') {
+            const shiftStartH = parseInt(divConfig.start.split(':')[0]);
+            const shiftStartM = parseInt(divConfig.start.split(':')[1]);
+            let expectedStart = new Date();
+            expectedStart.setHours(shiftStartH, shiftStartM, 0, 0);
+            const diffMs = now - expectedStart;
+            const diffMin = Math.floor(diffMs / 60000);
+
+            if (diffMin > 0) {
+                lateMinutes = diffMin;
+                if (diffMin < 30) {
+                    forcedTime = divConfig.start; 
+                    toastMessage = `Telat ${diffMin}m (Toleransi).`;
+                } else {
+                    finalType = 'PENDING';
+                    toastMessage = "Menunggu Konfirmasi Admin.";
+                }
+            }
+        }
+    }
+    
+    if(type === 'OUT') {
+        if(!lastLog || lastLog.type === 'OUT') return showToast("Belum Absen Masuk!", "error");
+        
+        const divConfig = appConfig.shifts[scannedEmployee.division];
+        if (divConfig && typeof divConfig !== 'string') {
+             const shiftEndH = parseInt(divConfig.end.split(':')[0]);
+             const shiftStartH = parseInt(divConfig.start.split(':')[0]);
+             let logDateParts = lastLog.date.split('-'); 
+             let logYear = parseInt(logDateParts[0]);
+             let logMonth = parseInt(logDateParts[1]) - 1; 
+             let logDay = parseInt(logDateParts[2]);
+             let expectedEnd = new Date(logYear, logMonth, logDay, shiftEndH, parseInt(divConfig.end.split(':')[1]));
+             if (shiftEndH < shiftStartH) expectedEnd.setDate(expectedEnd.getDate() + 1);
+             const diffMs = now - expectedEnd;
+             const diffMinutes = Math.floor(diffMs / 60000);
+             if (diffMinutes > 40) overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
+             toastMessage = `Lembur: ${overtimeHours} Jam`;
+        }
+    }
+
+    const video = document.getElementById('faceVideo');
+    const canvas = document.getElementById('snapCanvas');
+    canvas.width = 400; canvas.height = 533; 
+    const ctx = canvas.getContext('2d');
+    if(currentFacingMode === 'user') { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const photoBase64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1]; 
+
+    const payload = {
+        empId: scannedEmployee.id, name: scannedEmployee.name, type: finalType, overtime: overtimeHours,
+        location: currentLocation, image: photoBase64, date: today, lateMinutes: lateMinutes, forcedTime: forcedTime, note: "" 
+    };
+
+    if (finalType === 'PENDING') {
+        pendingAttendancePayload = payload;
+        document.getElementById('lateNoteInput').value = ""; 
+        document.getElementById('lateAlertModal').classList.remove('hidden');
+        setTimeout(() => document.getElementById('lateAlertModal').classList.remove('opacity-0'), 10);
+        return; 
+    }
+
+    const success = await postData('attendance', payload);
+    if(success) { toggleLoader(false); showToast(toastMessage, "success"); resetSecurityFlow(); }
+}
+
+async function submitLateReason() {
+    if (!pendingAttendancePayload) return;
+    const note = document.getElementById('lateNoteInput').value;
+    pendingAttendancePayload.note = note; 
+    const modal = document.getElementById('lateAlertModal');
+    modal.classList.add('opacity-0');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+    postData('attendance', pendingAttendancePayload).then(success => {
+        if(success) {
+            toggleLoader(false);
+            showToast("Laporan Telat Terkirim.", "success");
+            resetSecurityFlow();
+        }
+    });
+    pendingAttendancePayload = null; 
+}
+
+// --- HELPER FUNCTIONS ---
+function handleSort(table, value) { sortState[table] = value; refreshUI(); }
+function getSortedData(data, type) {
+    let sorted = [...data];
+    if (type === 'logs') {
+        if (sortState[type] === 'time_desc') return sorted.sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+        if (sortState[type] === 'time_asc') return sorted.sort((a, b) => new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time));
+        if (sortState[type] === 'name_asc') return sorted.sort((a, b) => a.name.localeCompare(b.name));
+        if (sortState[type] === 'status_asc') return sorted.sort((a, b) => a.type.localeCompare(b.type));
+    }
+    if (type === 'employees') {
+        if (sortState[type] === 'name_asc') return sorted.sort((a, b) => a.name.localeCompare(b.name));
+        if (sortState[type] === 'name_desc') return sorted.sort((a, b) => b.name.localeCompare(a.name));
+        if (sortState[type] === 'salary_desc') return sorted.sort((a, b) => b.salary - a.salary);
+        if (sortState[type] === 'div_asc') return sorted.sort((a, b) => a.division.localeCompare(b.division));
+    }
+    return sorted;
 }
 
 function startClockAndGPS() {
@@ -851,7 +653,6 @@ function startClockAndGPS() {
         document.getElementById('liveTime').innerText = now.toLocaleTimeString('id-ID', {hour12: false});
         document.getElementById('liveDate').innerText = now.toLocaleDateString('id-ID', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
     }, 1000);
-
     if (navigator.geolocation) {
         navigator.geolocation.watchPosition(
             (pos) => {
@@ -859,10 +660,9 @@ function startClockAndGPS() {
                 document.getElementById('liveLoc').innerText = currentLocation;
                 if (!isLocationLocked) {
                     isLocationLocked = true;
-                    const status = document.getElementById('gpsStatus');
-                    status.innerHTML = '<span class="text-white">GPS Terkunci</span>';
-                    status.parentElement.classList.replace('text-emerald-400', 'bg-emerald-500');
-                    status.parentElement.classList.add('px-2', 'rounded');
+                    document.getElementById('gpsStatus').innerHTML = '<span class="text-white">GPS Terkunci</span>';
+                    document.getElementById('gpsStatus').parentElement.classList.replace('text-emerald-400', 'bg-emerald-500');
+                    document.getElementById('gpsStatus').parentElement.classList.add('px-2', 'rounded');
                     document.getElementById('btnAbsenIn').disabled = false;
                     document.getElementById('btnAbsenOut').disabled = false;
                 }
@@ -909,25 +709,6 @@ function scanLoop() {
 }
 
 function manualSelect(val) { if(val) validateEmployee(val); }
-
-function validateEmployee(id) {
-    const emp = employees.find(e => e.id == id || e.name.toLowerCase() == id.toLowerCase());
-    if(emp) {
-        scannedEmployee = emp;
-        document.getElementById('secPage1').classList.add('hidden');
-        document.getElementById('secPage2').classList.remove('hidden');
-        document.getElementById('confirmName').innerText = emp.name;
-        document.getElementById('confirmDiv').innerText = emp.division;
-        let shiftLabel = getShiftTime(emp.division);
-        document.getElementById('confirmShift').innerText = `Shift: ${shiftLabel}`;
-        if(scanStream) scanStream.getTracks().forEach(t=>t.stop());
-        startSelfie('user'); 
-    } else {
-        showToast("Karyawan Tidak Ditemukan", "error");
-        document.getElementById('manualInput').value = "";
-    }
-}
-
 function startSelfie(mode) {
     currentFacingMode = mode;
     const video = document.getElementById('faceVideo');
@@ -939,200 +720,212 @@ function startSelfie(mode) {
         else video.style.transform = "scaleX(1)";
     }).catch(e => showToast("Gagal akses kamera selfie", "error"));
 }
+function toggleCamera() { const newMode = currentFacingMode === 'user' ? 'environment' : 'user'; startSelfie(newMode); }
 
-function toggleCamera() {
-    const newMode = currentFacingMode === 'user' ? 'environment' : 'user';
-    startSelfie(newMode);
-}
-
-// --- LOGIC UTAMA ABSENSI (UPDATED WITH LATE LOGIC) ---
-async function submitAbsence(type) {
-    if (!isLocationLocked) return showToast("Tunggu GPS Terkunci!", "error");
-
-    const today = new Date().toISOString().split('T')[0];
-    const now = new Date();
-    
-    const empLogs = logs.filter(l => l.empId === scannedEmployee.id).sort((a, b) => {
-        return new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time);
+// Config & Modal Functions
+function openConfigModal() {
+    const list = document.getElementById('configList');
+    list.innerHTML = '';
+    const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2"];
+    orderedKeys.forEach(key => {
+        const shiftData = appConfig.shifts[key] || { start: "00:00", end: "08:00" };
+        const startVal = typeof shiftData === 'string' ? shiftData : shiftData.start; 
+        const endVal = typeof shiftData === 'string' ? "00:00" : shiftData.end;
+        list.innerHTML += `
+        <div class="grid grid-cols-12 gap-2 items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+            <div class="col-span-4 text-xs font-bold text-slate-700">${key}</div>
+            <div class="col-span-4"><input type="text" inputmode="numeric" placeholder="HH:mm" maxlength="5" class="shift-start-input w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-emerald-600 focus:border-mbg-500 outline-none text-center" data-division="${key}" value="${startVal}" onchange="validateTimeInput(this); autoCalculateEndTime(this)"></div>
+            <div class="col-span-4"><input type="text" inputmode="numeric" placeholder="HH:mm" maxlength="5" class="shift-end-input w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-amber-600 focus:border-mbg-500 outline-none text-center" data-division="${key}" id="end-${key.replace(/\s/g, '-')}" value="${endVal}" onchange="validateTimeInput(this)"></div>
+        </div>`;
     });
-    
-    const lastLog = empLogs.length > 0 ? empLogs[0] : null;
-
-    if(type === 'IN') {
-        if(lastLog && lastLog.type === 'IN') {
-            showToast("Anda Belum Absen Pulang! (Sesi Masih Aktif)", "error");
-            setTimeout(resetSecurityFlow, 1500); 
-            return;
-        }
+    document.getElementById('configModal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('configModal').classList.remove('opacity-0'), 10);
+}
+function validateTimeInput(input) {
+    let val = input.value.replace(/[^0-9:]/g, ''); 
+    if (!val) return;
+    if(val.indexOf(':') === -1) {
+        if(val.length === 4) val = val.substring(0,2) + ':' + val.substring(2);
+        else if(val.length === 3) val = '0' + val.substring(0,1) + ':' + val.substring(1);
+        else if(val.length <= 2) val = val + ':00';
     }
-
-    let overtimeHours = 0;
-    let lateMinutes = 0;
-    let finalType = type;
-    let forcedTime = null; 
-    let toastMessage = "Absen Berhasil!";
-
-    // --- LOGIC HITUNG TELAT (Hanya saat Masuk / IN) ---
-    if (type === 'IN') {
-        const divConfig = appConfig.shifts[scannedEmployee.division];
-        if (divConfig && typeof divConfig !== 'string') {
-            const shiftStartH = parseInt(divConfig.start.split(':')[0]);
-            const shiftStartM = parseInt(divConfig.start.split(':')[1]);
-            let expectedStart = new Date();
-            expectedStart.setHours(shiftStartH, shiftStartM, 0, 0);
-
-            const diffMs = now - expectedStart;
-            const diffMin = Math.floor(diffMs / 60000);
-
-            if (diffMin > 0) {
-                lateMinutes = diffMin;
-
-                if (diffMin < 30) {
-                    forcedTime = divConfig.start; 
-                    toastMessage = `Telat ${diffMin}m (Toleransi). Jam Masuk disesuaikan.`;
-                } else {
-                    finalType = 'PENDING';
-                    toastMessage = "Terlambat Berat! Menunggu Konfirmasi Admin.";
-                }
-            }
-        }
-    }
-    
-    // --- LOGIC HITUNG LEMBUR (Hanya saat Pulang / OUT) ---
-    if(type === 'OUT') {
-        if(!lastLog || lastLog.type === 'OUT') {
-            return showToast("Belum Absen Masuk!", "error");
-        }
-        
-        const divConfig = appConfig.shifts[scannedEmployee.division];
-        if (!divConfig || typeof divConfig === 'string') {
-             let inDateStr = lastLog.date.replace(/\//g, '-'); 
-             const inTime = new Date(`${inDateStr}T${lastLog.time}`);
-             const diffMs = now - inTime;
-             const totalMinutes = Math.floor(diffMs / 60000);
-             if (totalMinutes > (8*60)) {
-                 const extraMinutes = totalMinutes - (8*60);
-                 if (extraMinutes > 40) overtimeHours = Math.floor((extraMinutes - 40) / 60) + 1;
-             }
-        } else {
-             const shiftEndH = parseInt(divConfig.end.split(':')[0]);
-             const shiftStartH = parseInt(divConfig.start.split(':')[0]);
-             
-             let logDateParts = lastLog.date.split('-'); 
-             let logYear = parseInt(logDateParts[0]);
-             let logMonth = parseInt(logDateParts[1]) - 1; 
-             let logDay = parseInt(logDateParts[2]);
-             
-             let expectedEnd = new Date(logYear, logMonth, logDay, shiftEndH, parseInt(divConfig.end.split(':')[1]));
-             
-             if (shiftEndH < shiftStartH) expectedEnd.setDate(expectedEnd.getDate() + 1);
-
-             const diffMs = now - expectedEnd;
-             const diffMinutes = Math.floor(diffMs / 60000);
-
-             if (diffMinutes > 40) {
-                 overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
-             }
-             
-             toastMessage = `Lembur: ${overtimeHours} Jam`;
-        }
-    }
-
-    // PREPARE IMAGE
-    const video = document.getElementById('faceVideo');
-    const canvas = document.getElementById('snapCanvas');
-    canvas.width = 400; canvas.height = 533; 
-    const ctx = canvas.getContext('2d');
-    
-    if(currentFacingMode === 'user') {
-        ctx.translate(canvas.width, 0); 
-        ctx.scale(-1, 1); 
-    }
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const photoBase64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1]; 
-
-    // CONSTRUCT PAYLOAD
-    const payload = {
-        empId: scannedEmployee.id,
-        name: scannedEmployee.name,
-        type: finalType, 
-        overtime: overtimeHours,
-        location: currentLocation,
-        image: photoBase64,
-        date: today,
-        lateMinutes: lateMinutes, 
-        forcedTime: forcedTime,
-        note: "" // Default empty
-    };
-
-    // --- HANDLE DELAYED SUBMISSION FOR NOTE (>= 30 MINS) ---
-    if (finalType === 'PENDING') {
-        // Simpan payload ke global variable untuk dikirim nanti via submitLateReason()
-        pendingAttendancePayload = payload;
-        
-        // Tampilkan Modal & Reset Input Note
-        document.getElementById('lateNoteInput').value = ""; 
-        document.getElementById('lateAlertModal').classList.remove('hidden');
-        setTimeout(() => document.getElementById('lateAlertModal').classList.remove('opacity-0'), 10);
-        return; // STOP EXECUTION HERE, WAIT FOR USER INPUT
-    }
-
-    // --- DIRECT SUBMISSION (< 30 MINS or OUT) ---
-    const success = await postData('attendance', payload);
-    
-    if(success) {
-        toggleLoader(false);
-        showToast(toastMessage, "success");
-        resetSecurityFlow(); 
-    }
+    let [h, m] = val.split(':').map(Number);
+    if(isNaN(h)) h = 0; if(isNaN(m)) m = 0;
+    h = Math.min(23, Math.max(0, h)); m = Math.min(59, Math.max(0, m));
+    input.value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+function autoCalculateEndTime(input) {
+    const div = input.dataset.division;
+    const startTime = input.value;
+    if(!startTime) return;
+    const [h, m] = startTime.split(':').map(Number);
+    let endH = (h + 8) % 24;
+    const endStr = `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    const endInput = document.getElementById(`end-${div.replace(/\s/g, '-')}`);
+    if(endInput) { endInput.value = endStr; endInput.classList.add('bg-amber-50'); setTimeout(() => endInput.classList.remove('bg-amber-50'), 300); }
+}
+function closeConfigModal() { document.getElementById('configModal').classList.add('opacity-0'); setTimeout(() => document.getElementById('configModal').classList.add('hidden'), 300); }
+function saveShiftConfig() {
+    const startInputs = document.querySelectorAll('.shift-start-input');
+    let newShifts = {};
+    startInputs.forEach(input => {
+        const div = input.dataset.division;
+        const endInput = document.getElementById(`end-${div.replace(/\s/g, '-')}`);
+        newShifts[div] = { start: input.value, end: endInput.value };
+    });
+    appConfig.shifts = newShifts;
+    postData('saveConfig', { shifts: newShifts });
+    closeConfigModal();
+}
+function getShiftTime(division) {
+    if (division === 'Keamanan') return "Shift (Rotasi)";
+    const shift = appConfig.shifts[division];
+    if (!shift) return "-";
+    if (typeof shift === 'string') return shift; 
+    return `${shift.start} - ${shift.end}`;
 }
 
-// NEW: Called when Security clicks "Kirim Laporan" in Modal
-async function submitLateReason() {
-    if (!pendingAttendancePayload) return;
+// Modal Helpers
+function showAllEmployees() { openModalList('Total Relawan Terdaftar', 'all'); }
+function showActiveVolunteers() { openModalList('Relawan Sedang Bekerja', 'active'); }
+function showPresentVolunteers() { openModalList('Relawan Hadir Hari Ini', 'present'); }
+function showOvertimeToday() { openModalList('Lembur Hari Ini', 'overtime'); }
+function showLateToday() { openModalList('Terlambat Hari Ini', 'late'); }
+function showDivisionDetails(division) { openModalList(`Divisi: ${division}`, 'division', division); }
 
-    const note = document.getElementById('lateNoteInput').value;
-    pendingAttendancePayload.note = note; // Attach Note
+function openModalList(title, mode, filterParam = null) {
+    const list = document.getElementById('activeWorkersList');
+    document.getElementById('activeModalTitle').innerText = title;
+    const render = () => {
+        const now = new Date();
+        const today = new Date().toISOString().split('T')[0];
+        let filtered = [];
+        if (mode === 'all') {
+            document.getElementById('activeModalSubtitle').innerText = "Seluruh database relawan";
+            filtered = employees;
+        } else if (mode === 'active') {
+            document.getElementById('activeModalSubtitle').innerText = "Realtime tracking";
+            filtered = employees.map(e => {
+                const myLogs = logs.filter(l => l.empId === e.id).sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+                if (myLogs.length > 0 && myLogs[0].type === 'IN') { return { ...e, inTime: myLogs[0].time, inDate: myLogs[0].date, status: 'working' }; }
+                return null;
+            }).filter(e => e !== null);
+        } else if (mode === 'present') {
+            document.getElementById('activeModalSubtitle').innerText = `Kehadiran ${today}`;
+            const todayInLogs = logs.filter(l => l.date === today && l.type === 'IN');
+            filtered = todayInLogs.map(log => {
+                const emp = employees.find(e => e.id === log.empId);
+                return emp ? { ...emp, inTime: log.time, status: 'present' } : null;
+            }).filter(e => e);
+        } else if (mode === 'overtime') {
+            document.getElementById('activeModalSubtitle').innerText = `Lembur ${today}`;
+            const todayOvertimeLogs = logs.filter(l => l.date === today && l.type === 'OUT' && l.overtime > 0);
+            filtered = todayOvertimeLogs.map(log => {
+                const emp = employees.find(e => e.id === log.empId);
+                return emp ? { ...emp, extraInfo: `+${log.overtime} Jam`, status: 'overtime' } : null;
+            }).filter(e => e);
+        } else if (mode === 'late') {
+            document.getElementById('activeModalSubtitle').innerText = `Terlambat ${today}`;
+            const todayLateLogs = logs.filter(l => l.date === today && (l.lateMinutes > 0 || l.type === 'PENDING'));
+            filtered = todayLateLogs.map(log => {
+                const emp = employees.find(e => e.id === log.empId);
+                const info = log.type === 'PENDING' ? 'Menunggu Konfirmasi' : `${formatDuration(log.lateMinutes)}`;
+                return emp ? { ...emp, extraInfo: info, status: 'late' } : null;
+            }).filter(e => e);
+        } else if (mode === 'division') {
+            document.getElementById('activeModalSubtitle').innerText = "Filter Divisi";
+            filtered = employees.filter(e => e.division === filterParam);
+        }
 
-    // Hide Modal
-    const modal = document.getElementById('lateAlertModal');
+        list.innerHTML = filtered.length ? filtered.map(w => {
+            let statusBadge = '', timeInfo = '';
+            if (mode === 'active') {
+                const start = new Date(`${w.inDate}T${w.inTime}`);
+                const diffMs = Math.max(now - start, 0);
+                const hrs = Math.floor(diffMs / 3600000);
+                const mins = Math.floor((diffMs % 3600000) / 60000);
+                const secs = Math.floor((diffMs % 60000) / 1000); 
+                statusBadge = '<span class="bg-emerald-100 text-emerald-600 text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse">Sedang Bekerja</span>';
+                timeInfo = `<div class="font-mono font-bold text-emerald-600 text-sm">${hrs}j ${mins}m ${secs}d</div>`; 
+            } else if (mode === 'present') {
+                statusBadge = '<span class="bg-blue-100 text-blue-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Hadir</span>';
+                timeInfo = `<div class="text-[10px] text-slate-400">Masuk: <span class="font-bold text-slate-700">${w.inTime}</span></div>`;
+            } else if (mode === 'overtime') {
+                statusBadge = '<span class="bg-amber-100 text-amber-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Lembur</span>';
+                timeInfo = `<div class="text-sm font-bold text-amber-600">${w.extraInfo}</div>`;
+            } else if (mode === 'late') {
+                statusBadge = '<span class="bg-red-100 text-red-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Terlambat</span>';
+                timeInfo = `<div class="text-sm font-bold text-red-600">${w.extraInfo}</div>`;
+            } else {
+                statusBadge = `<span class="bg-slate-100 text-slate-500 text-[10px] px-2 py-0.5 rounded-full font-bold">ID: ${w.id}</span>`;
+            }
+            return `
+            <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                <div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-400"><i class="fas fa-user"></i></div>
+                <div class="flex-1"><div class="font-bold text-sm text-slate-800">${w.name}</div><div class="flex items-center gap-2 mt-0.5">${statusBadge}</div></div>
+                <div class="text-right">${timeInfo}</div>
+            </div>`;
+        }).join('') : '<div class="text-center text-slate-400 py-10">Tidak ada data.</div>';
+    };
+    render();
+    document.getElementById('activeWorkersModal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('activeWorkersModal').classList.remove('opacity-0'), 10);
+    if(activeWorkerTimer) clearInterval(activeWorkerTimer);
+    if(mode === 'active') activeWorkerTimer = setInterval(render, 1000); 
+}
+function closeActiveWorkers() {
+    const modal = document.getElementById('activeWorkersModal');
     modal.classList.add('opacity-0');
     setTimeout(() => modal.classList.add('hidden'), 300);
-
-    // Post Data
-    const success = await postData('attendance', pendingAttendancePayload);
-    
-    if(success) {
-        toggleLoader(false);
-        showToast("Laporan Telat Terkirim. Menunggu Admin.", "success");
-        resetSecurityFlow(); 
-    }
-    
-    pendingAttendancePayload = null; // Clear
+    if(activeWorkerTimer) clearInterval(activeWorkerTimer);
 }
-
-function resetSecurityFlow() {
-    scannedEmployee = null;
-    document.getElementById('secPage2').classList.add('hidden');
-    document.getElementById('secPage1').classList.remove('hidden');
-    document.getElementById('manualInput').value = "";
-    if(faceStream) faceStream.getTracks().forEach(t=>t.stop());
-    startQR();
+// UI Helpers
+function toggleSidebar() {
+    const sb = document.getElementById('sidebar');
+    const ol = document.getElementById('sidebarOverlay');
+    if (sb.classList.contains('-translate-x-full')) { sb.classList.remove('-translate-x-full'); ol.classList.remove('hidden'); setTimeout(() => ol.classList.remove('opacity-0'), 10); } 
+    else { sb.classList.add('-translate-x-full'); ol.classList.add('opacity-0'); setTimeout(() => ol.classList.add('hidden'), 300); }
 }
-
+function previewImage(url) { document.getElementById('imgModalSrc').src = url; document.getElementById('imgDownloadLink').href = url; document.getElementById('imgModal').classList.remove('hidden'); setTimeout(() => document.getElementById('imgModal').classList.remove('opacity-0'), 10); }
+function closePreview() { document.getElementById('imgModal').classList.add('opacity-0'); setTimeout(() => document.getElementById('imgModal').classList.add('hidden'), 300); }
+function switchTab(id) {
+    ['dashboard','employees','salaries'].forEach(t => document.getElementById('tab-'+t).classList.add('hidden'));
+    document.getElementById('tab-'+id).classList.remove('hidden');
+    if(window.innerWidth < 768) { document.getElementById('sidebar').classList.add('-translate-x-full'); document.getElementById('sidebarOverlay').classList.add('hidden'); }
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    Array.from(document.querySelectorAll('.nav-item')).find(b => b.getAttribute('onclick').includes(id))?.classList.add('active');
+    const titles = { 'dashboard': 'Dashboard', 'employees': 'Data Karyawan', 'salaries': 'Laporan Gaji' };
+    document.getElementById('pageTitle').innerText = titles[id];
+}
+function initAdmin() { document.getElementById('adminLayout').classList.remove('hidden'); refreshUI(); }
+function initSecurity() { document.getElementById('securityLayout').classList.remove('hidden'); updateSecurityDropdown(); updateSecurityInfo(); startQR(); startClockAndGPS(); }
+function updateSecurityInfo() {
+    const now = new Date(); const onejan = new Date(now.getFullYear(), 0, 1);
+    const week = Math.ceil((((now.getTime() - onejan.getTime()) / 86400000) + onejan.getDay() + 1) / 7);
+    const badge = document.getElementById('weekInfoBadge'); if(badge) badge.innerText = week % 2 === 0 ? "Minggu Genap" : "Minggu Ganjil";
+}
+function addEmployee(e) { e.preventDefault(); const name = document.getElementById('newEmpName').value; const div = document.getElementById('newEmpDiv').value; const salary = document.getElementById('newEmpSalary').value; const id = 'EMP-' + Math.floor(1000 + Math.random() * 9000); postData('addEmployee', { id, name, division: div, salary }); e.target.reset(); }
+function deleteEmployee() { if (!editingEmployeeId) return; if(confirm("Hapus data relawan ini?")) { employees = employees.filter(e => e.id !== editingEmployeeId); refreshUI(); closeEditEmployee(); postData('deleteEmployee', { id: editingEmployeeId }); } }
+async function submitEditEmployee(e) {
+    e.preventDefault(); if (!editingEmployeeId) return;
+    const name = document.getElementById('editEmpName').value; const div = document.getElementById('editEmpDiv').value; const salary = document.getElementById('editEmpSalary').value; const fileInput = document.getElementById('editEmpPhoto');
+    let payload = { id: editingEmployeeId, name: name, division: div, salary: salary };
+    if(fileInput.files.length > 0) { const base64 = await readFile(fileInput.files[0]); payload.photo = base64; payload.image = base64.split(',')[1]; } 
+    else { const oldEmp = employees.find(e => e.id === editingEmployeeId); if(oldEmp && oldEmp.photo) payload.photo = oldEmp.photo; }
+    const empIndex = employees.findIndex(e => e.id === editingEmployeeId); if(empIndex !== -1) { employees[empIndex] = { ...employees[empIndex], ...payload }; refreshUI(); }
+    closeEditEmployee(); postData('addEmployee', payload);
+}
+function openEditEmployee(id) {
+    const emp = employees.find(e => e.id === id); if (!emp) return;
+    editingEmployeeId = id; document.getElementById('editEmpId').value = id; document.getElementById('editEmpName').value = emp.name; document.getElementById('editEmpDiv').value = emp.division; document.getElementById('editEmpSalary').value = emp.salary; document.getElementById('editEmpPhoto').value = "";
+    const previewContainer = document.getElementById('editPreviewContainer');
+    if (emp.photo && emp.photo.length > 20) { previewContainer.innerHTML = `<img src="${emp.photo}" class="w-full h-full object-cover">`; } else { previewContainer.innerHTML = '<i class="fas fa-user text-slate-300 text-2xl"></i>'; }
+    document.getElementById('editEmployeeModal').classList.remove('hidden'); setTimeout(() => document.getElementById('editEmployeeModal').classList.remove('opacity-0'), 10);
+}
+function closeEditEmployee() { document.getElementById('editEmployeeModal').classList.add('opacity-0'); setTimeout(() => document.getElementById('editEmployeeModal').classList.add('hidden'), 300); editingEmployeeId = null; }
 function showToast(msg, type='success') {
-    const t = document.getElementById('toast');
-    const i = document.getElementById('toastIcon');
-    document.getElementById('toastMsg').innerText = msg;
-    
-    if(type === 'error') {
-        i.className = "w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white text-xs";
-        i.innerHTML = '<i class="fas fa-times"></i>';
-    } else {
-        i.className = "w-8 h-8 rounded-full bg-mbg-500 flex items-center justify-center text-white text-xs";
-        i.innerHTML = '<i class="fas fa-check"></i>';
-    }
-
-    t.classList.remove('-translate-y-[200%]', 'opacity-0');
-    setTimeout(() => t.classList.add('-translate-y-[200%]', 'opacity-0'), 6000); 
+    const t = document.getElementById('toast'); const i = document.getElementById('toastIcon'); document.getElementById('toastMsg').innerText = msg;
+    if(type === 'error') { i.className = "w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white text-xs"; i.innerHTML = '<i class="fas fa-times"></i>'; } 
+    else { i.className = "w-8 h-8 rounded-full bg-mbg-500 flex items-center justify-center text-white text-xs"; i.innerHTML = '<i class="fas fa-check"></i>'; }
+    t.classList.remove('-translate-y-[200%]', 'opacity-0'); setTimeout(() => t.classList.add('-translate-y-[200%]', 'opacity-0'), 6000); 
 }

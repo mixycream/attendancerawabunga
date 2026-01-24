@@ -395,7 +395,8 @@
                                             <th class="px-6 py-4 font-bold">Waktu</th>
                                             <th class="px-6 py-4 font-bold">Nama</th>
                                             <th class="px-6 py-4 font-bold">Lokasi</th>
-                                            <th class="px-6 py-4 font-bold text-right">Telat/Lembur</th>
+                                            <th class="px-6 py-4 font-bold text-center text-red-500">Telat</th> <!-- SEPARATE COLUMN -->
+                                            <th class="px-6 py-4 font-bold text-center text-amber-500">Lembur</th> <!-- SEPARATE COLUMN -->
                                             <th class="px-6 py-4 font-bold text-center">Status</th>
                                         </tr>
                                     </thead>
@@ -603,7 +604,7 @@
                 </div>
                 
                 <!-- SECURITY SHIFT INFO -->
-                <div class="mt-4 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10">
+                <div id="securityShiftInfo" class="mt-4 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 transition-all duration-300">
                     <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
                         <span class="font-bold uppercase tracking-wider">Jadwal Shift Minggu Ini</span>
                         <span id="weekInfoBadge" class="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-[10px]">Minggu Ganjil</span>
