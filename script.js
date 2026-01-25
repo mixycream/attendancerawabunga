@@ -3,9 +3,9 @@
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxBbEsm6blMRoUYpCEYESMw6Y0XpIm-dBwSjoGvT2ZkIWDKFmXiyCbc_v04QccFfg7z/exec"; 
 
 const USERS = [
-    { u:'admin', p:'123', role:'admin' },
-    { u:'hasyim', p:'123', role:'security' },
-    { u:'syaiful', p:'123', role:'security' }
+    { u:'adminrawabunga1', p:'123', role:'admin' },
+    { u:'hasyim', p:'sppg123', role:'security' },
+    { u:'syaiful', p:'sppg123', role:'security' }
 ];
 
 // STATE
