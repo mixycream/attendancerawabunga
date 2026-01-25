@@ -2,20 +2,11 @@
 // Paste URL Google Apps Script kamu di sini (Wajib)
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxBbEsm6blMRoUYpCEYESMw6Y0XpIm-dBwSjoGvT2ZkIWDKFmXiyCbc_v04QccFfg7z/exec"; 
 
-// --- FALLBACK DEFAULTS (Konfigurasi Standar jika Cloud Kosong) ---
-const DEFAULT_SHIFTS_FALLBACK = {
-  "Helper Cook": { start: "15:00", end: "23:00" },
-  "Cook": { start: "23:00", end: "07:00" },
-  "Head Chef": { start: "23:00", end: "07:00" },
-  "Packing": { start: "03:00", end: "11:00" },
-  "Distribusi": { start: "06:00", end: "14:00" },
-  "Kenek Distribusi": { start: "06:00", end: "14:00" },
-  "Kebersihan": { start: "08:00", end: "16:00" },
-  "Asisten Lapangan": { start: "04:00", end: "12:00" },
-  "Gudang": { start: "10:00", end: "18:00" },
-  "Keamanan Shift 1": { start: "07:00", end: "19:00" }, 
-  "Keamanan Shift 2": { start: "19:00", end: "07:00" }
-};
+const USERS = [
+    { u:'admin', p:'123', role:'admin' },
+    { u:'hasyim', p:'123', role:'security' },
+    { u:'syaiful', p:'123', role:'security' }
+];
 
 // STATE
 let employees = []; 
@@ -23,8 +14,7 @@ let logs = [];
 let currentUser = null;
 let appConfig = { 
     overtimeRate: 15000,
-    // Inisialisasi shifts dengan default agar tidak 00:00 saat pertama load
-    shifts: JSON.parse(JSON.stringify(DEFAULT_SHIFTS_FALLBACK)) 
+    shifts: {} // Will be populated from cloud
 }; 
 let sortState = {
     logs: 'time_desc',
@@ -32,8 +22,8 @@ let sortState = {
     salary: 'name_asc'
 };
 let editingEmployeeId = null;
-let pendingAttendancePayload = null; 
-let trendChartInstance = null; 
+let pendingAttendancePayload = null; // Menyimpan data sementara jika telat > 30 menit
+let trendChartInstance = null; // Instance Chart.js
 
 // Camera & Geo State
 let scanStream = null, faceStream = null, scanInterval = null;
@@ -50,6 +40,7 @@ const readFile = (file) => new Promise((resolve) => {
     reader.readAsDataURL(file);
 });
 
+// Format Menit ke "X Jam Y Menit"
 function formatDuration(totalMinutes) {
     if (!totalMinutes || totalMinutes <= 0) return "-";
     const hours = Math.floor(totalMinutes / 60);
@@ -68,12 +59,9 @@ window.onload = () => {
     if(savedUser) {
         currentUser = JSON.parse(savedUser);
         document.getElementById('loginView').classList.add('hidden');
-        
-        // Load data dari server saat start
-        fetchData(true).then(() => {
-            if(currentUser.role === 'security') initSecurity();
-            else initAdmin();
-        });
+        fetchData(true);
+        if(currentUser.role === 'security') initSecurity();
+        else initAdmin();
     }
     
     const savedRate = localStorage.getItem('mbg_overtime_rate');
@@ -82,75 +70,28 @@ window.onload = () => {
 
 async function handleLogin(e) {
     e.preventDefault();
-    const u = document.getElementById('usernameInput').value.trim();
+    const u = document.getElementById('usernameInput').value.toLowerCase().trim();
     const p = document.getElementById('passwordInput').value;
 
     if(SCRIPT_URL.includes("GANTI_DENGAN") || SCRIPT_URL === "") {
         return alert("PENTING: Edit file script.js baris ke-3, masukkan URL Google Script Anda!");
     }
 
-    toggleLoader(true, "Memeriksa Akun...");
+    const acc = USERS.find(a => a.u === u && a.p === p);
+    if(acc) {
+        currentUser = acc;
+        localStorage.setItem('mbg_user', JSON.stringify(acc)); 
 
-    try {
-        const res = await fetch(SCRIPT_URL + "?action=getData");
-        const data = await res.json();
+        document.getElementById('loginView').classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => document.getElementById('loginView').classList.add('hidden'), 500);
         
-        if (data.status === 'success') {
-            employees = data.employees;
-            logs = data.logs;
-            
-            // 1. Cek Admin
-            if (u.toLowerCase() === 'admin' && p === '123') {
-                loginSuccess({ u: 'admin', role: 'admin', name: 'Administrator' });
-                return;
-            }
+        await fetchData(true); 
 
-            // 2. Cek Security dari Data Karyawan
-            const userMatch = employees.find(emp => 
-                emp.username && 
-                emp.username.toLowerCase() === u.toLowerCase() && 
-                emp.password === p && 
-                emp.division === 'Keamanan'
-            );
-
-            if (userMatch) {
-                // PENTING: Simpan nama security yang benar ke currentUser
-                loginSuccess({ 
-                    u: userMatch.username, 
-                    role: 'security', 
-                    name: userMatch.name, // Ini nama security yang akan muncul di log
-                    id: userMatch.id, 
-                    division: userMatch.division, 
-                    photo: userMatch.photo 
-                });
-            } else {
-                showToast("Username / Password Salah", "error");
-                toggleLoader(false);
-            }
-        } else {
-            showToast("Gagal koneksi server", "error");
-            toggleLoader(false);
-        }
-    } catch (e) {
-        console.error(e);
-        showToast("Error Login: " + e.message, "error");
-        toggleLoader(false);
+        if(acc.role === 'security') initSecurity();
+        else initAdmin();
+    } else {
+        showToast("Username / Password Salah", "error");
     }
-}
-
-function loginSuccess(user) {
-    currentUser = user;
-    localStorage.setItem('mbg_user', JSON.stringify(user));
-    
-    document.getElementById('loginView').classList.add('opacity-0', 'pointer-events-none');
-    setTimeout(() => document.getElementById('loginView').classList.add('hidden'), 500);
-    
-    toggleLoader(false);
-    
-    if(user.role === 'security') initSecurity();
-    else initAdmin();
-    
-    refreshUI(); 
 }
 
 function logout() {
@@ -174,7 +115,7 @@ function toggleLoader(show, text="Menghubungkan...") {
 }
 
 async function fetchData(force = false) {
-    if (force) toggleLoader(true, "Sinkronisasi Data...");
+    toggleLoader(true, "Sinkronisasi Data...");
     try {
         const res = await fetch(SCRIPT_URL + "?action=getData");
         const data = await res.json();
@@ -188,24 +129,27 @@ async function fetchData(force = false) {
                     appConfig.overtimeRate = parseInt(data.config.overtimeRate);
                     localStorage.setItem('mbg_overtime_rate', appConfig.overtimeRate);
                 }
-                
-                // FIX JAM DEFAULT: Gabungkan config server dengan default fallback
-                // Ini memastikan jika server kosong, fallback tetap dipakai
                 if(data.config.shifts) {
-                    // Merge strategies: Default + Server Config
-                    appConfig.shifts = { ...DEFAULT_SHIFTS_FALLBACK, ...data.config.shifts };
+                    appConfig.shifts = data.config.shifts;
                 }
             }
+
             refreshUI();
+        } else {
+            showToast("Gagal load data: " + data.message, "error");
         }
-    } catch(e) { console.error(e); }
-    finally { if (force) toggleLoader(false); }
+    } catch(e) {
+        console.error(e);
+        showToast("Mode Offline / Koneksi Error", "error");
+    } finally {
+        toggleLoader(false);
+    }
 }
 
 async function postData(action, payload) {
-    toggleLoader(true, "Menyimpan Data...");
+    toggleLoader(true, "Upload ke Cloud...");
     try {
-        await fetch(SCRIPT_URL, {
+        const res = fetch(SCRIPT_URL, {
             method: 'POST',
             mode: 'no-cors',
             headers: { 'Content-Type': 'application/json' }, 
@@ -213,31 +157,25 @@ async function postData(action, payload) {
         });
         
         await new Promise(r => setTimeout(r, 2000)); 
-        
-        showToast("Berhasil disimpan!", "success");
-        fetchData(false); 
+
+        showToast("Data Tersimpan!", "success");
+        fetchData(); 
         return true;
+
     } catch(e) {
         showToast("Gagal: " + e.message, "error");
-        return false;
-    } finally {
         toggleLoader(false);
+        return false;
     }
 }
 
-// --- UI RENDER LOGIC ---
+// --- UI UPDATES & LOGIC ---
 
 function saveConfig() {
     const rate = document.getElementById('configOvertimeRate').value;
-    
-    // UPDATE STATE LANGSUNG
-    appConfig.overtimeRate = parseInt(rate);
+    appConfig.overtimeRate = rate;
     localStorage.setItem('mbg_overtime_rate', rate);
-    
-    // UPDATE UI LANGSUNG
     renderSalary(); 
-    
-    // KIRIM KE SERVER
     postData('saveConfig', { overtimeRate: rate });
 }
 
@@ -252,9 +190,11 @@ function refreshUI() {
 
     const today = new Date().toISOString().split('T')[0];
     const todayLogs = logs.filter(l => l.date === today);
-    
     const present = todayLogs.filter(l => l.type === 'IN').length;
+    
+    // Hitung Late Count
     const lateCount = todayLogs.filter(l => l.lateMinutes > 0 || l.type === 'PENDING').length;
+    
     let overtimeCount = 0;
     todayLogs.filter(l => l.type === 'OUT').forEach(l => { if(l.overtime > 0) overtimeCount++; });
 
@@ -263,168 +203,88 @@ function refreshUI() {
         return myLogs.length > 0 && myLogs[0].type === 'IN';
     }).length;
 
+    // Update Stats Cards
     document.getElementById('statEmp').innerText = employees.length;
     document.getElementById('statPresent').innerText = present;
     document.getElementById('statWorking').innerText = workingCount + " Sedang Bekerja";
     document.getElementById('statOvertime').innerText = overtimeCount;
     document.getElementById('statLate').innerText = lateCount; 
 
-    try { renderTrendChart(); } catch(e) { console.log("Chart render error", e); }
-    try { renderDivisionGrid(); } catch(e) { console.log("Grid render error", e); }
-    
-    renderLogsTable();
-    renderEmployeeTable();
-    renderSalary();
-}
+    // Render Components
+    renderTrendChart();
+    renderDivisionGrid();
 
-function renderTrendChart() {
-    const canvas = document.getElementById('trendChart');
-    if (!canvas) return;
-    
-    if (trendChartInstance) {
-        trendChartInstance.destroy();
-        trendChartInstance = null;
-    }
-
-    const ctx = canvas.getContext('2d');
-    
-    const labels = [...Array(7)].map((_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }).reverse();
-
-    const presentData = labels.map(date => logs.filter(l => l.date === date && l.type === 'IN').length);
-    const lateData = labels.map(date => logs.filter(l => l.date === date && (l.lateMinutes > 0 || l.type === 'PENDING')).length);
-    const overtimeData = labels.map(date => logs.filter(l => l.date === date && l.type === 'OUT' && l.overtime > 0).length);
-
-    trendChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels.map(d => {
-                const parts = d.split('-');
-                return `${parts[2]}/${parts[1]}`; 
-            }),
-            datasets: [
-                { label: 'Hadir', data: presentData, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.4, fill: true },
-                { label: 'Telat', data: lateData, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', tension: 0.4 },
-                { label: 'Lembur', data: overtimeData, borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', tension: 0.4 }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { position: 'top' } },
-            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
-        }
-    });
-}
-
-function renderDivisionGrid() {
-    const container = document.getElementById('divisionGrid');
-    if(!container) return;
-    
-    const counts = {};
-    if (employees.length > 0) {
-        employees.forEach(e => {
-            counts[e.division] = (counts[e.division] || 0) + 1;
-        });
-    }
-
-    if (Object.keys(counts).length === 0) {
-        container.innerHTML = '<div class="col-span-full text-center text-slate-400 py-4 text-xs">Belum ada data karyawan.</div>';
-        return;
-    }
-
-    const colors = ['bg-emerald-500', 'bg-blue-500', 'bg-amber-500', 'bg-purple-500', 'bg-rose-500', 'bg-indigo-500', 'bg-cyan-500', 'bg-lime-500'];
-
-    container.innerHTML = Object.entries(counts).map(([div, count], index) => {
-        const colorClass = colors[index % colors.length];
-        return `
-        <div onclick="showDivisionDetails('${div}')" class="cursor-pointer group relative overflow-hidden bg-white border border-slate-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
-            <div class="absolute right-0 top-0 w-16 h-16 opacity-10 rounded-bl-full ${colorClass} group-hover:scale-150 transition-transform duration-500"></div>
-            <div class="relative z-10">
-                <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Divisi</div>
-                <div class="font-bold text-slate-800 text-sm truncate" title="${div}">${div}</div>
-                <div class="mt-2 text-2xl font-extrabold text-slate-800">${count} <span class="text-[10px] font-normal text-slate-400">Org</span></div>
-            </div>
-        </div>`;
-    }).join('');
-}
-
-function renderLogsTable() {
+    // --- RENDER LOGS (TABEL AKTIVITAS) ---
     const sortedLogs = getSortedData(logs, 'logs');
     const logBody = document.getElementById('logsTableBody');
-    
-    if (logBody) {
-        logBody.innerHTML = sortedLogs.slice(0, 20).map(l => {
-            let badge = '', statusText = '';
-            
-            if (l.type === 'IN') { badge = 'bg-emerald-100 text-emerald-700'; statusText = 'IN'; } 
-            else if (l.type === 'OUT') { badge = 'bg-amber-100 text-amber-700'; statusText = 'OUT'; } 
-            else if (l.type === 'PENDING') { badge = 'bg-red-100 text-red-600 animate-pulse'; statusText = 'KONFIRMASI TELAT'; } 
-            else if (l.type === 'REJECTED') { badge = 'bg-slate-200 text-slate-500 line-through'; statusText = 'DITOLAK'; }
+    logBody.innerHTML = sortedLogs.slice(0, 20).map(l => {
+        let badge = '', statusText = '';
+        
+        if (l.type === 'IN') {
+            badge = 'bg-emerald-100 text-emerald-700';
+            statusText = 'IN';
+        } else if (l.type === 'OUT') {
+            badge = 'bg-amber-100 text-amber-700';
+            statusText = 'OUT';
+        } else if (l.type === 'PENDING') {
+            badge = 'bg-red-100 text-red-600 animate-pulse';
+            statusText = 'KONFIRMASI TELAT';
+        } else if (l.type === 'REJECTED') {
+            badge = 'bg-slate-200 text-slate-500 line-through';
+            statusText = 'DITOLAK';
+        }
 
-            let actionArea = `<span class="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide ${badge}">${statusText}</span>`;
-            
-            if (l.type === 'PENDING') {
-                actionArea = `
-                <div class="flex flex-col gap-1 items-center">
-                    <div class="text-[9px] font-bold text-red-500 uppercase">Perlu Konfirmasi</div>
-                    <div class="flex gap-1">
-                        <button onclick="confirmLate('${l.row}', 'IN')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1 rounded text-[10px] font-bold shadow-sm transition">Terima</button>
-                        <button onclick="confirmLate('${l.row}', 'OUT')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-[10px] font-bold shadow-sm transition">Tolak</button>
-                    </div>
-                </div>`;
-            }
+        let actionArea = `<span class="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide ${badge}">${statusText}</span>`;
+        
+        if (l.type === 'PENDING') {
+            actionArea = `
+            <div class="flex flex-col gap-1 items-center">
+                <div class="text-[9px] font-bold text-red-500 uppercase">Perlu Konfirmasi</div>
+                <div class="flex gap-1">
+                    <button onclick="confirmLate('${l.row}', 'IN')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1 rounded text-[10px] font-bold shadow-sm transition">Terima</button>
+                    <button onclick="confirmLate('${l.row}', 'OUT')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-[10px] font-bold shadow-sm transition">Tolak</button>
+                </div>
+            </div>`;
+        }
 
-            let photoHtml = '<div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-300 mx-auto"><i class="fas fa-user"></i></div>';
-            if(l.photo && (l.photo.startsWith('http') || l.photo.startsWith('data:image'))) {
-                const safeUrl = l.photo.replace(/'/g, "\\'");
-                photoHtml = `<img src="${l.photo}" onclick="previewImage('${safeUrl}'); event.stopPropagation();" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md cursor-pointer hover:scale-110 transition mx-auto" onerror="this.onerror=null; this.src='https://via.placeholder.com/40?text=Err';">`;
+        let photoHtml = '<div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-300 mx-auto"><i class="fas fa-user"></i></div>';
+        if(l.photo && (l.photo.startsWith('http') || l.photo.startsWith('data:image'))) {
+             const safeUrl = l.photo.replace(/'/g, "\\'");
+             photoHtml = `<img src="${l.photo}" onclick="previewImage('${safeUrl}'); event.stopPropagation();" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md cursor-pointer hover:scale-110 transition mx-auto" onerror="this.onerror=null; this.src='https://via.placeholder.com/40?text=Err';">`;
+        }
+        
+        // Pemisahan Kolom & Format
+        let overtimeInfo = l.overtime > 0 ? `<span class="text-amber-600 font-bold">${l.overtime} Jam</span>` : '-';
+        
+        let lateInfo = '-';
+        if (l.lateMinutes > 0) {
+            lateInfo = `<span class="text-red-500 font-bold text-[10px]">${formatDuration(l.lateMinutes)}</span>`;
+            if (l.note) {
+                lateInfo += `<div class="text-[9px] text-slate-400 mt-1 italic max-w-[100px] truncate" title="${l.note}">"${l.note}"</div>`;
             }
+        }
             
-            let overtimeInfo = l.overtime > 0 ? `<span class="text-amber-600 font-bold">${l.overtime} Jam</span>` : '-';
-            let lateInfo = '-';
-            if (l.lateMinutes > 0) {
-                lateInfo = `<span class="text-red-500 font-bold text-[10px]">${formatDuration(l.lateMinutes)}</span>`;
-                if (l.note) {
-                    lateInfo += `<div class="text-[9px] text-slate-400 mt-1 italic max-w-[100px] truncate" title="${l.note}">"${l.note}"</div>`;
-                }
-            }
-            
-            // FIX: Menampilkan nama security yang melakukan scan (bukan System)
-            // Jika l.security ada isinya, tampilkan. Jika tidak, tampilkan '-'
-            let scannedBy = l.security ? `<span class="text-[10px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">${l.security}</span>` : '-';
-                
-            return `
-            <tr class="bg-white hover:bg-slate-50 border-b border-slate-50 transition group">
-                <td class="px-6 py-4 text-center">${photoHtml}</td>
-                <td class="px-6 py-4">
-                    <div class="font-bold text-slate-700">${l.time}</div>
-                    <div class="text-[10px] text-slate-400">${l.date}</div>
-                </td>
-                <td class="px-6 py-4 font-bold text-slate-700">${l.name}</td>
-                <td class="px-6 py-4">
-                    <div class="text-[10px] text-slate-500 truncate max-w-[150px]"><i class="fas fa-map-marker-alt text-slate-300 mr-1"></i>${l.location || '-'}</div>
-                </td>
-                <td class="px-6 py-4 text-center">${lateInfo}</td>
-                <td class="px-6 py-4 text-center">${overtimeInfo}</td>
-                <td class="px-6 py-4 text-center">${actionArea}</td>
-                <td class="px-6 py-4 text-center">${scannedBy}</td> <!-- COLUMN DIABSEN -->
-            </tr>`;
-        }).join('');
-    }
-}
+        return `
+        <tr class="bg-white hover:bg-slate-50 border-b border-slate-50 transition group">
+            <td class="px-6 py-4 text-center">${photoHtml}</td>
+            <td class="px-6 py-4">
+                <div class="font-bold text-slate-700">${l.time}</div>
+                <div class="text-[10px] text-slate-400">${l.date}</div>
+            </td>
+            <td class="px-6 py-4 font-bold text-slate-700">${l.name}</td>
+             <td class="px-6 py-4">
+                <div class="text-[10px] text-slate-500 truncate max-w-[150px]"><i class="fas fa-map-marker-alt text-slate-300 mr-1"></i>${l.location || '-'}</div>
+            </td>
+            <td class="px-6 py-4 text-center">${lateInfo}</td>
+            <td class="px-6 py-4 text-center">${overtimeInfo}</td>
+            <td class="px-6 py-4 text-center">${actionArea}</td>
+        </tr>`;
+    }).join('');
 
-function renderEmployeeTable() {
+    // --- RENDER EMPLOYEE LIST (DAFTAR RELAWAN) ---
     const sortedEmployees = getSortedData(employees, 'employees');
     const empBody = document.getElementById('employeeTableBody');
-    
-    if (empBody) {
+    if(empBody) {
         empBody.innerHTML = sortedEmployees.map(e => {
             let profilePic = `<div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400"><i class="fas fa-user"></i></div>`;
             if (e.photo && e.photo.length > 20) {
@@ -457,15 +317,26 @@ function renderEmployeeTable() {
             </tr>
         `}).join('');
     }
+
+    renderSalary();
 }
 
+async function confirmLate(row, newStatus) {
+    if(!confirm(`Konfirmasi status menjadi ${newStatus}?`)) return;
+    const logIndex = logs.findIndex(l => l.row == row);
+    if(logIndex !== -1) {
+        logs[logIndex].type = newStatus;
+        refreshUI();
+    }
+    await postData('confirmAttendance', { row: row, newStatus: newStatus });
+}
+
+// --- RENDER SALARY & REPORTS ---
 function renderSalary() {
     const body = document.getElementById('salaryTableBody');
     const detailBody = document.getElementById('overtimeDetailBody');
     const lateDetailBody = document.getElementById('lateDetailBody'); 
     
-    if (!body) return;
-
     let overtimeDetailsHtml = '';
     let lateDetailsHtml = ''; 
     
@@ -476,7 +347,7 @@ function renderSalary() {
         let totalOvertimeHours = 0;
         let totalLateCount = 0; 
         
-        // Hitung Lembur
+        // Detail Lembur
         empLogs.filter(l => l.type === 'OUT' && l.overtime > 0).forEach(l => {
             totalOvertimeHours += (parseInt(l.overtime) || 0);
             const shift = appConfig.shifts[e.division];
@@ -493,7 +364,7 @@ function renderSalary() {
             </tr>`;
         });
 
-        // Hitung Telat
+        // Detail Telat
         empLogs.filter(l => l.type === 'IN' && l.lateMinutes > 0).forEach(l => {
             totalLateCount++;
             const shift = appConfig.shifts[e.division];
@@ -548,23 +419,70 @@ function renderSalary() {
     }).join('');
 }
 
-function initSecurity() {
-    document.getElementById('securityLayout').classList.remove('hidden');
+// --- CHART & GRID ---
+function renderTrendChart() {
+    const ctx = document.getElementById('trendChart').getContext('2d');
     
-    if (currentUser) {
-        document.getElementById('secProfileName').innerText = currentUser.name || 'Security';
-        document.getElementById('secProfileId').innerText = currentUser.id || 'SEC-001';
-        if (currentUser.photo && currentUser.photo.length > 20) {
-            document.getElementById('secProfileImg').src = currentUser.photo;
-        }
-    }
+    const labels = [...Array(7)].map((_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        return d.toISOString().split('T')[0];
+    }).reverse();
 
-    updateSecurityDropdown();
-    updateSecurityInfo();
-    startQR();
-    startClockAndGPS();
+    const presentData = labels.map(date => logs.filter(l => l.date === date && l.type === 'IN').length);
+    const lateData = labels.map(date => logs.filter(l => l.date === date && (l.lateMinutes > 0 || l.type === 'PENDING')).length);
+    const overtimeData = labels.map(date => logs.filter(l => l.date === date && l.type === 'OUT' && l.overtime > 0).length);
+
+    if (trendChartInstance) trendChartInstance.destroy();
+
+    trendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels.map(d => {
+                const parts = d.split('-');
+                return `${parts[2]}/${parts[1]}`; 
+            }),
+            datasets: [
+                { label: 'Hadir', data: presentData, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.4, fill: true },
+                { label: 'Telat', data: lateData, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', tension: 0.4 },
+                { label: 'Lembur', data: overtimeData, borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', tension: 0.4 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'top' } },
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+    });
 }
 
+function renderDivisionGrid() {
+    const container = document.getElementById('divisionGrid');
+    if(!container) return;
+    
+    const counts = {};
+    employees.forEach(e => {
+        counts[e.division] = (counts[e.division] || 0) + 1;
+    });
+
+    const colors = ['bg-emerald-500', 'bg-blue-500', 'bg-amber-500', 'bg-purple-500', 'bg-rose-500', 'bg-indigo-500', 'bg-cyan-500', 'bg-lime-500'];
+
+    container.innerHTML = Object.entries(counts).map(([div, count], index) => {
+        const colorClass = colors[index % colors.length];
+        return `
+        <div onclick="showDivisionDetails('${div}')" class="cursor-pointer group relative overflow-hidden bg-white border border-slate-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
+            <div class="absolute right-0 top-0 w-16 h-16 opacity-10 rounded-bl-full ${colorClass} group-hover:scale-150 transition-transform duration-500"></div>
+            <div class="relative z-10">
+                <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Divisi</div>
+                <div class="font-bold text-slate-800 text-sm truncate" title="${div}">${div}</div>
+                <div class="mt-2 text-2xl font-extrabold text-slate-800">${count} <span class="text-[10px] font-normal text-slate-400">Org</span></div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// --- SECURITY LOGIC UPDATED ---
 function validateEmployee(id) {
     const emp = employees.find(e => e.id == id || e.name.toLowerCase() == id.toLowerCase());
     if(emp) {
@@ -576,7 +494,7 @@ function validateEmployee(id) {
         let shiftLabel = getShiftTime(emp.division);
         document.getElementById('confirmShift').innerText = `Shift: ${shiftLabel}`;
         
-        // MINIMIZE SHIFT INFO (HIDE IT)
+        // MINIMIZE INFO JADWAL SHIFT
         const shiftInfo = document.getElementById('securityShiftInfo');
         if(shiftInfo) shiftInfo.classList.add('hidden');
 
@@ -593,7 +511,7 @@ function resetSecurityFlow() {
     document.getElementById('secPage2').classList.add('hidden');
     document.getElementById('secPage1').classList.remove('hidden');
     
-    // SHOW SHIFT INFO AGAIN
+    // TAMPILKAN KEMBALI INFO SHIFT
     const shiftInfo = document.getElementById('securityShiftInfo');
     if(shiftInfo) shiftInfo.classList.remove('hidden');
 
@@ -632,7 +550,6 @@ async function submitAbsence(type) {
             const shiftStartM = parseInt(divConfig.start.split(':')[1]);
             let expectedStart = new Date();
             expectedStart.setHours(shiftStartH, shiftStartM, 0, 0);
-            
             const diffMs = now - expectedStart;
             const diffMin = Math.floor(diffMs / 60000);
 
@@ -656,23 +573,15 @@ async function submitAbsence(type) {
         if (divConfig && typeof divConfig !== 'string') {
              const shiftEndH = parseInt(divConfig.end.split(':')[0]);
              const shiftStartH = parseInt(divConfig.start.split(':')[0]);
-             
              let logDateParts = lastLog.date.split('-'); 
              let logYear = parseInt(logDateParts[0]);
              let logMonth = parseInt(logDateParts[1]) - 1; 
              let logDay = parseInt(logDateParts[2]);
-             
              let expectedEnd = new Date(logYear, logMonth, logDay, shiftEndH, parseInt(divConfig.end.split(':')[1]));
-             
              if (shiftEndH < shiftStartH) expectedEnd.setDate(expectedEnd.getDate() + 1);
-
              const diffMs = now - expectedEnd;
              const diffMinutes = Math.floor(diffMs / 60000);
-
-             if (diffMinutes > 40) {
-                 overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
-             }
-             
+             if (diffMinutes > 40) overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
              toastMessage = `Lembur: ${overtimeHours} Jam`;
         }
     }
@@ -685,11 +594,9 @@ async function submitAbsence(type) {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const photoBase64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1]; 
 
-    // FIX: Sertakan nama security di payload
     const payload = {
         empId: scannedEmployee.id, name: scannedEmployee.name, type: finalType, overtime: overtimeHours,
-        location: currentLocation, image: photoBase64, date: today, lateMinutes: lateMinutes, forcedTime: forcedTime, note: "",
-        security: currentUser ? currentUser.name : "System"
+        location: currentLocation, image: photoBase64, date: today, lateMinutes: lateMinutes, forcedTime: forcedTime, note: "" 
     };
 
     if (finalType === 'PENDING') {
@@ -721,8 +628,7 @@ async function submitLateReason() {
     pendingAttendancePayload = null; 
 }
 
-// --- STANDARD HELPER FUNCTIONS ---
-
+// --- HELPER FUNCTIONS ---
 function handleSort(table, value) { sortState[table] = value; refreshUI(); }
 function getSortedData(data, type) {
     let sorted = [...data];
@@ -773,17 +679,10 @@ function startClockAndGPS() {
 }
 
 function updateSecurityDropdown() {
-    // Hidden in current UI revision, but kept for logic safety
     const sel = document.getElementById('manualInput');
     if(!sel) return;
     sel.innerHTML = '<option value="">Cari Nama Manual (Jika Scan Gagal)</option>';
     employees.forEach(e => sel.innerHTML += `<option value="${e.id}">${e.name} - ${e.division}</option>`);
-}
-
-function updateSecurityInfo() {
-    const now = new Date(); const onejan = new Date(now.getFullYear(), 0, 1);
-    const week = Math.ceil((((now.getTime() - onejan.getTime()) / 86400000) + onejan.getDay() + 1) / 7);
-    const badge = document.getElementById('weekInfoBadge'); if(badge) badge.innerText = week % 2 === 0 ? "Minggu Genap" : "Minggu Ganjil";
 }
 
 function startQR() {
@@ -828,17 +727,10 @@ function openConfigModal() {
     const list = document.getElementById('configList');
     list.innerHTML = '';
     const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2"];
-    
     orderedKeys.forEach(key => {
-        // FIX: Use Fallback if shift data is missing
-        let shiftData = appConfig.shifts[key];
-        if (!shiftData || !shiftData.start) {
-            shiftData = DEFAULT_SHIFTS_FALLBACK[key] || { start: "00:00", end: "08:00" };
-        }
-        
+        const shiftData = appConfig.shifts[key] || { start: "00:00", end: "08:00" };
         const startVal = typeof shiftData === 'string' ? shiftData : shiftData.start; 
         const endVal = typeof shiftData === 'string' ? "00:00" : shiftData.end;
-        
         list.innerHTML += `
         <div class="grid grid-cols-12 gap-2 items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
             <div class="col-span-4 text-xs font-bold text-slate-700">${key}</div>
@@ -887,8 +779,7 @@ function saveShiftConfig() {
 }
 function getShiftTime(division) {
     if (division === 'Keamanan') return "Shift (Rotasi)";
-    // Use fallback if shifts are empty or not loaded yet
-    const shift = appConfig.shifts[division] || DEFAULT_SHIFTS_FALLBACK[division];
+    const shift = appConfig.shifts[division];
     if (!shift) return "-";
     if (typeof shift === 'string') return shift; 
     return `${shift.start} - ${shift.end}`;
@@ -1007,21 +898,18 @@ function switchTab(id) {
     document.getElementById('pageTitle').innerText = titles[id];
 }
 function initAdmin() { document.getElementById('adminLayout').classList.remove('hidden'); refreshUI(); }
-
-function toggleCredsField(division, mode) {
-    const container = mode === 'new' ? document.getElementById('newCredsContainer') : document.getElementById('editCredsContainer');
-    if (container) {
-        if (division === 'Keamanan') container.classList.remove('hidden');
-        else container.classList.add('hidden');
-    }
+function initSecurity() { document.getElementById('securityLayout').classList.remove('hidden'); updateSecurityDropdown(); updateSecurityInfo(); startQR(); startClockAndGPS(); }
+function updateSecurityInfo() {
+    const now = new Date(); const onejan = new Date(now.getFullYear(), 0, 1);
+    const week = Math.ceil((((now.getTime() - onejan.getTime()) / 86400000) + onejan.getDay() + 1) / 7);
+    const badge = document.getElementById('weekInfoBadge'); if(badge) badge.innerText = week % 2 === 0 ? "Minggu Genap" : "Minggu Ganjil";
 }
-
-function addEmployee(e) { e.preventDefault(); const name = document.getElementById('newEmpName').value; const div = document.getElementById('newEmpDiv').value; const salary = document.getElementById('newEmpSalary').value; const user = document.getElementById('newEmpUsername').value; const pass = document.getElementById('newEmpPassword').value; const id = 'EMP-' + Math.floor(1000 + Math.random() * 9000); postData('addEmployee', { id, name, division: div, salary, username: user, password: pass }); e.target.reset(); document.getElementById('newCredsContainer').classList.add('hidden'); }
+function addEmployee(e) { e.preventDefault(); const name = document.getElementById('newEmpName').value; const div = document.getElementById('newEmpDiv').value; const salary = document.getElementById('newEmpSalary').value; const id = 'EMP-' + Math.floor(1000 + Math.random() * 9000); postData('addEmployee', { id, name, division: div, salary }); e.target.reset(); }
 function deleteEmployee() { if (!editingEmployeeId) return; if(confirm("Hapus data relawan ini?")) { employees = employees.filter(e => e.id !== editingEmployeeId); refreshUI(); closeEditEmployee(); postData('deleteEmployee', { id: editingEmployeeId }); } }
 async function submitEditEmployee(e) {
     e.preventDefault(); if (!editingEmployeeId) return;
-    const name = document.getElementById('editEmpName').value; const div = document.getElementById('editEmpDiv').value; const salary = document.getElementById('editEmpSalary').value; const user = document.getElementById('editEmpUsername').value; const pass = document.getElementById('editEmpPassword').value; const fileInput = document.getElementById('editEmpPhoto');
-    let payload = { id: editingEmployeeId, name: name, division: div, salary: salary, username: user, password: pass };
+    const name = document.getElementById('editEmpName').value; const div = document.getElementById('editEmpDiv').value; const salary = document.getElementById('editEmpSalary').value; const fileInput = document.getElementById('editEmpPhoto');
+    let payload = { id: editingEmployeeId, name: name, division: div, salary: salary };
     if(fileInput.files.length > 0) { const base64 = await readFile(fileInput.files[0]); payload.photo = base64; payload.image = base64.split(',')[1]; } 
     else { const oldEmp = employees.find(e => e.id === editingEmployeeId); if(oldEmp && oldEmp.photo) payload.photo = oldEmp.photo; }
     const empIndex = employees.findIndex(e => e.id === editingEmployeeId); if(empIndex !== -1) { employees[empIndex] = { ...employees[empIndex], ...payload }; refreshUI(); }
@@ -1030,13 +918,6 @@ async function submitEditEmployee(e) {
 function openEditEmployee(id) {
     const emp = employees.find(e => e.id === id); if (!emp) return;
     editingEmployeeId = id; document.getElementById('editEmpId').value = id; document.getElementById('editEmpName').value = emp.name; document.getElementById('editEmpDiv').value = emp.division; document.getElementById('editEmpSalary').value = emp.salary; document.getElementById('editEmpPhoto').value = "";
-    
-    toggleCredsField(emp.division, 'edit');
-    if (emp.division === 'Keamanan') {
-        document.getElementById('editEmpUsername').value = emp.username || '';
-        document.getElementById('editEmpPassword').value = emp.password || '';
-    }
-
     const previewContainer = document.getElementById('editPreviewContainer');
     if (emp.photo && emp.photo.length > 20) { previewContainer.innerHTML = `<img src="${emp.photo}" class="w-full h-full object-cover">`; } else { previewContainer.innerHTML = '<i class="fas fa-user text-slate-300 text-2xl"></i>'; }
     document.getElementById('editEmployeeModal').classList.remove('hidden'); setTimeout(() => document.getElementById('editEmployeeModal').classList.remove('opacity-0'), 10);

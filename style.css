@@ -57,20 +57,22 @@ body {
     background-color: #f0fdf4;
     color: #16a34a;
 }
+.nav-item.active i {
+    color: #16a34a;
+}
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-/* Print */
+/* Print Styles */
 @media print {
-    .no-print, #securityLayout, #loginView, aside, header, #editEmployeeModal, #activeWorkersModal, #imgModal { display: none !important; }
-    #tab-salaries, #printAreaSalary { display: block !important; }
-    body, #app, #adminLayout, main { 
-        height: auto !important; 
-        overflow: visible !important; 
-        background: white !important; 
-    }
+    .no-print { display: none !important; }
+    .print-only { display: block !important; }
+    body { background-color: white; color: black; }
+    #adminLayout { display: block !important; }
+    #sidebar, header { display: none !important; }
+    #mainContent { margin: 0 !important; padding: 0 !important; overflow: visible !important; }
 }
