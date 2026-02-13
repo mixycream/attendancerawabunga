@@ -2,11 +2,114 @@
 // Paste URL Google Apps Script kamu di sini (Wajib)
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxBbEsm6blMRoUYpCEYESMw6Y0XpIm-dBwSjoGvT2ZkIWDKFmXiyCbc_v04QccFfg7z/exec"; 
 
-const USERS = [
+// Local demo accounts (fallback untuk offline + admin)
+const LOCAL_USERS = [
     { u:'adminrawabunga1', p:'123', role:'admin' },
-    { u:'hasyim', p:'sppg123', role:'security' },
-    { u:'syaiful', p:'sppg123', role:'security' }
 ];
+
+// ===== COSMIC LOGIN EFFECTS =====
+// Particle System Initialization
+let particles = [];
+const particleCanvas = document.getElementById('particleCanvas');
+const ctx = particleCanvas ? particleCanvas.getContext('2d') : null;
+
+class Particle {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 0.5;
+        this.vy = (Math.random() - 0.5) * 0.5;
+        this.size = Math.random() * 1.5 + 0.5;
+        this.opacity = Math.random() * 0.5 + 0.2;
+        this.color = Math.random() > 0.5 ? '#3B82F6' : '#8B5CF6';
+    }
+    
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.opacity -= 0.002;
+    }
+    
+    draw(ctx) {
+        ctx.fillStyle = this.color + Math.floor(this.opacity * 255).toString(16).padStart(2, '0');
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+function initParticleSystem() {
+    if (!particleCanvas || !ctx) return;
+    
+    particleCanvas.width = window.innerWidth;
+    particleCanvas.height = window.innerHeight;
+    
+    function animate() {
+        ctx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+        
+        particles = particles.filter(p => p.opacity > 0);
+        particles.forEach(p => {
+            p.update();
+            p.draw(ctx);
+        });
+        
+        requestAnimationFrame(animate);
+    }
+    
+    animate();
+    
+    // Spawn particles on mouse move
+    document.addEventListener('mousemove', (e) => {
+        if (Math.random() > 0.8) {
+            particles.push(new Particle(e.clientX, e.clientY));
+        }
+    });
+    
+    window.addEventListener('resize', () => {
+        particleCanvas.width = window.innerWidth;
+        particleCanvas.height = window.innerHeight;
+    });
+}
+
+// Initialize particles when DOM ready
+document.addEventListener('DOMContentLoaded', initParticleSystem);
+
+// Mouse tracking for card glow effect
+const loginCard = document.getElementById('loginCard');
+if (loginCard) {
+    document.addEventListener('mousemove', (e) => {
+        const rect = loginCard.getBoundingClientRect();
+        const x = e.clientX - rect.left - rect.width / 2;
+        const y = e.clientY - rect.top - rect.height / 2;
+        
+        const glow = Math.sqrt(x * x + y * y) / 300;
+        loginCard.style.boxShadow = `
+            0 0 ${60 + glow * 30}px rgba(59, 130, 246, ${0.3 + glow * 0.2}),
+            0 0 ${120 + glow * 60}px rgba(59, 130, 246, ${0.15 + glow * 0.15}),
+            0 25px 50px rgba(0, 0, 0, 0.5)
+        `;
+    });
+}
+
+// Helper to call API and return parsed JSON (kept separate from postData which returns boolean)
+async function callApi(action, payload) {
+    try {
+        const form = new URLSearchParams();
+        const dataObj = { action, ...payload };
+        Object.keys(dataObj).forEach(k => {
+            if (dataObj[k] === undefined || dataObj[k] === null) return;
+            form.append(k, String(dataObj[k]));
+        });
+
+        const res = await fetch(SCRIPT_URL, { method: 'POST', body: form });
+        let json = null;
+        try { json = await res.json(); } catch (e) { json = null; }
+        return { ok: res.ok, data: json };
+    } catch (e) {
+        console.error('callApi error', e);
+        return { ok: false, error: e };
+    }
+}
 
 // STATE
 let employees = []; 
@@ -34,6 +137,50 @@ let isLocationLocked = false;
 let activeWorkerTimer = null; 
 
 // --- HELPER FUNCTIONS ---
+// Initialize event listeners
+document.addEventListener('DOMContentLoaded', () => {
+    const newEmpPhotoInput = document.getElementById('newEmpPhoto');
+    const editEmpPhotoInput = document.getElementById('editEmpPhoto');
+    
+    if (newEmpPhotoInput) {
+        newEmpPhotoInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    showPhotoPreview(event.target.result, 'newEmpPhotoPreview');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+    
+    if (editEmpPhotoInput) {
+        editEmpPhotoInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    showPhotoPreview(event.target.result, 'editEmpPhotoPreview');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+});
+
+function showPhotoPreview(dataUrl, containerId) {
+    let preview = document.getElementById(containerId);
+    if (!preview) {
+        preview = document.createElement('div');
+        preview.id = containerId;
+        preview.className = 'mt-2 text-center';
+        const input = document.getElementById(containerId === 'newEmpPhotoPreview' ? 'newEmpPhoto' : 'editEmpPhoto');
+        input.parentNode.insertBefore(preview, input.nextSibling);
+    }
+    preview.innerHTML = `<img src="${dataUrl}" alt="Photo preview" class="w-16 h-16 rounded-full object-cover mx-auto border-2 border-blue-200">`;
+}
+
 const readFile = (file) => new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = (e) => resolve(e.target.result);
@@ -68,6 +215,18 @@ window.onload = () => {
     if(savedRate) appConfig.overtimeRate = parseInt(savedRate);
 };
 
+// Populate remembered username if exists
+try {
+    window.addEventListener('load', () => {
+        const saved = localStorage.getItem('remembered_username');
+        if (saved) {
+            const el = document.getElementById('usernameInput');
+            if (el) el.value = saved;
+            const chk = document.getElementById('rememberMe'); if (chk) chk.checked = true;
+        }
+    });
+} catch(e) {}
+
 async function handleLogin(e) {
     e.preventDefault();
     const u = document.getElementById('usernameInput').value.toLowerCase().trim();
@@ -77,21 +236,50 @@ async function handleLogin(e) {
         return alert("PENTING: Edit file script.js baris ke-3, masukkan URL Google Script Anda!");
     }
 
-    const acc = USERS.find(a => a.u === u && a.p === p);
-    if(acc) {
-        currentUser = acc;
-        localStorage.setItem('mbg_user', JSON.stringify(acc)); 
+    // Cek admin lokal dulu (fallback offline)
+    const localAcc = LOCAL_USERS.find(a => a.u === u && a.p === p);
+    if(localAcc) {
+        currentUser = localAcc;
+        localStorage.setItem('mbg_user', JSON.stringify(localAcc));
 
         document.getElementById('loginView').classList.add('opacity-0', 'pointer-events-none');
         setTimeout(() => document.getElementById('loginView').classList.add('hidden'), 500);
-        
-        await fetchData(true); 
 
-        if(acc.role === 'security') initSecurity();
-        else initAdmin();
-    } else {
-        showToast("Username / Password Salah", "error");
+        await fetchData(true);
+        if(localAcc.role === 'security') initSecurity(); else initAdmin();
+        // Remember username if checkbox checked
+        const remember = document.getElementById('rememberMe')?.checked;
+        if (remember) localStorage.setItem('remembered_username', u); else localStorage.removeItem('remembered_username');
+        return;
     }
+
+    // Jika bukan admin lokal, coba server untuk security accounts
+    const resp = await callApi('login', { username: u, password: p });
+    if (!resp.ok || !resp.data) return showToast('Gagal terhubung ke server / Username/Password Salah', 'error');
+    if (resp.data.status === 'success') {
+        const user = resp.data.user || { u: u, role: 'security' };
+        currentUser = user;
+        localStorage.setItem('mbg_user', JSON.stringify(user));
+
+        document.getElementById('loginView').classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => document.getElementById('loginView').classList.add('hidden'), 500);
+
+        await fetchData(true);
+        if (user.role === 'security') initSecurity(); else initAdmin();
+        // Remember username if checkbox checked
+        const remember = document.getElementById('rememberMe')?.checked;
+        if (remember) localStorage.setItem('remembered_username', u); else localStorage.removeItem('remembered_username');
+    } else {
+        showToast(resp.data.message || 'Username / Password Salah', 'error');
+    }
+}
+
+function togglePasswordVisibility() {
+    const inp = document.getElementById('passwordInput');
+    const icon = document.getElementById('pwdToggleIcon');
+    if (!inp) return;
+    if (inp.type === 'password') { inp.type = 'text'; if(icon) { icon.className = 'fas fa-eye-slash'; } }
+    else { inp.type = 'password'; if(icon) { icon.className = 'fas fa-eye'; } }
 }
 
 function logout() {
@@ -116,56 +304,104 @@ function toggleLoader(show, text="Menghubungkan...") {
 
 async function fetchData(force = false) {
     toggleLoader(true, "Sinkronisasi Data...");
-    try {
-        const res = await fetch(SCRIPT_URL + "?action=getData");
-        const data = await res.json();
-        
-        if(data.status === 'success') {
-            employees = data.employees;
-            logs = data.logs;
-            
-            if(data.config) {
-                if(data.config.overtimeRate) {
-                    appConfig.overtimeRate = parseInt(data.config.overtimeRate);
-                    localStorage.setItem('mbg_overtime_rate', appConfig.overtimeRate);
-                }
-                if(data.config.shifts) {
-                    appConfig.shifts = data.config.shifts;
-                }
-            }
+    let retries = 3;
+    let lastError = null;
 
-            refreshUI();
-        } else {
-            showToast("Gagal load data: " + data.message, "error");
+    while (retries > 0) {
+        try {
+            const res = await fetch(SCRIPT_URL + "?action=getData", { timeout: 10000 });
+            const data = await res.json();
+
+            if(data.status === 'success') {
+                employees = data.employees;
+                logs = data.logs;
+
+                if(data.config) {
+                    if(data.config.overtimeRate) {
+                        appConfig.overtimeRate = parseInt(data.config.overtimeRate);
+                        localStorage.setItem('mbg_overtime_rate', appConfig.overtimeRate);
+                    }
+                    if(data.config.shifts) {
+                        appConfig.shifts = data.config.shifts;
+                    }
+                }
+
+                refreshUI();
+                toggleLoader(false);
+                return;
+            } else {
+                lastError = data.message || 'Status gagal';
+                retries--;
+                if (retries > 0) await new Promise(r => setTimeout(r, 500));
+            }
+        } catch(e) {
+            console.error('fetchData error:', e);
+            lastError = e.message;
+            retries--;
+            if (retries > 0) await new Promise(r => setTimeout(r, 500));
         }
-    } catch(e) {
-        console.error(e);
-        showToast("Mode Offline / Koneksi Error", "error");
-    } finally {
-        toggleLoader(false);
     }
+
+    // Semua retry gagal
+    showToast("Koneksi Error. Menggunakan data lokal terakhir.", "error");
+    toggleLoader(false);
 }
 
 async function postData(action, payload) {
     toggleLoader(true, "Upload ke Cloud...");
     try {
-        const res = fetch(SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ action, ...payload })
-        });
+        const dataObj = { action, ...payload };
         
-        await new Promise(r => setTimeout(r, 2000)); 
+        // Use JSON for requests with large data (photos), form-encoded for small data
+        const hasLargeData = (payload.photo || payload.image) ? true : false;
+        
+        let res;
+        if (hasLargeData) {
+            // Send as JSON for photo uploads
+            res = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dataObj)
+            });
+        } else {
+            // Send as form-encoded for other requests
+            const form = new URLSearchParams();
+            Object.keys(dataObj).forEach(k => {
+                if (dataObj[k] === undefined || dataObj[k] === null) return;
+                form.append(k, String(dataObj[k]));
+            });
+            res = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: form
+            });
+        }
 
-        showToast("Data Tersimpan!", "success");
-        fetchData(); 
-        return true;
+        // Try to parse JSON response from server
+        let json;
+        try { json = await res.json(); } catch (parseErr) { json = null; }
 
-    } catch(e) {
-        showToast("Gagal: " + e.message, "error");
-        toggleLoader(false);
+        if (!res.ok) {
+            const msg = (json && json.message) ? json.message : `HTTP ${res.status}`;
+            showToast("Gagal menyimpan: " + msg, "error");
+            return false;
+        }
+
+        if (json && json.status && json.status === 'success') {
+            showToast("Data Tersimpan!", "success");
+            fetchData();
+            return true;
+        } else {
+            const msg = (json && json.message) ? json.message : 'Respons server tidak valid';
+            showToast("Gagal menyimpan: " + msg, "error");
+            return false;
+        }
+
+    } catch (e) {
+        console.error('postData error', e);
+        showToast("Gagal terhubung ke server: " + e.message, "error");
         return false;
+    } finally {
+        toggleLoader(false);
     }
 }
 
@@ -250,7 +486,9 @@ function refreshUI() {
         let photoHtml = '<div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-300 mx-auto"><i class="fas fa-user"></i></div>';
         if(l.photo && (l.photo.startsWith('http') || l.photo.startsWith('data:image'))) {
              const safeUrl = l.photo.replace(/'/g, "\\'");
-             photoHtml = `<img src="${l.photo}" onclick="previewImage('${safeUrl}'); event.stopPropagation();" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md cursor-pointer hover:scale-110 transition mx-auto" onerror="this.onerror=null; this.src='https://via.placeholder.com/40?text=Err';">`;
+             // Add crossOrigin and better error handling; fallback to user icon SVG
+             const fallbackSvg = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2260%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2240%22%3E%26%238287;%3C/text%3E%3C/svg%3E';
+             photoHtml = `<img src="${l.photo}" onclick="previewImage('${safeUrl}'); event.stopPropagation();" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md cursor-pointer hover:scale-110 transition mx-auto" crossorigin="anonymous" onerror="console.warn('Photo failed to load:', this.src); this.onerror=null; this.src='${fallbackSvg}';">`;
         }
         
         // Pemisahan Kolom & Format
@@ -288,7 +526,7 @@ function refreshUI() {
         empBody.innerHTML = sortedEmployees.map(e => {
             let profilePic = `<div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400"><i class="fas fa-user"></i></div>`;
             if (e.photo && e.photo.length > 20) {
-                 profilePic = `<img src="${e.photo}" class="w-8 h-8 rounded-full object-cover border border-slate-200">`;
+                 profilePic = `<img src="${e.photo}" crossorigin="anonymous" class="w-8 h-8 rounded-full object-cover border border-slate-200" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2260%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2240%22%3E%26%238287;%3C/text%3E%3C/svg%3E';">`;
             }
 
             const shiftTime = getShiftTime(e.division);
@@ -904,28 +1142,94 @@ function updateSecurityInfo() {
     const week = Math.ceil((((now.getTime() - onejan.getTime()) / 86400000) + onejan.getDay() + 1) / 7);
     const badge = document.getElementById('weekInfoBadge'); if(badge) badge.innerText = week % 2 === 0 ? "Minggu Genap" : "Minggu Ganjil";
 }
-function addEmployee(e) { e.preventDefault(); const name = document.getElementById('newEmpName').value; const div = document.getElementById('newEmpDiv').value; const salary = document.getElementById('newEmpSalary').value; const id = 'EMP-' + Math.floor(1000 + Math.random() * 9000); postData('addEmployee', { id, name, division: div, salary }); e.target.reset(); }
+function toggleNewEmpCreds(div) {
+    const el = document.getElementById('newEmpCreds');
+    if (!el) return;
+    if (String(div).toLowerCase().includes('keamanan')) el.classList.remove('hidden'); else el.classList.add('hidden');
+}
+function toggleEditEmpCreds(div) {
+    const el = document.getElementById('editEmpCreds');
+    if (!el) return;
+    if (String(div).toLowerCase().includes('keamanan')) el.classList.remove('hidden'); else el.classList.add('hidden');
+}
+async function addEmployee(e) {
+    e.preventDefault();
+    const name = document.getElementById('newEmpName').value;
+    const div = document.getElementById('newEmpDiv').value;
+    const salary = document.getElementById('newEmpSalary').value;
+    const fileInput = document.getElementById('newEmpPhoto');
+    const id = 'EMP-' + Math.floor(1000 + Math.random() * 9000);
+
+    let payload = { id, name, division: div, salary };
+    
+    // Handle photo upload if file selected
+    if(fileInput.files.length > 0) {
+        const base64 = await readFile(fileInput.files[0]);
+        payload.photo = base64;
+        payload.image = base64.split(',')[1];
+    }
+    
+    // Include username/password for security division if provided
+    if (String(div).toLowerCase().includes('keamanan')) {
+        const uname = document.getElementById('newEmpUsername').value;
+        const pwd = document.getElementById('newEmpPassword').value;
+        if (uname) payload.username = uname;
+        if (pwd) payload.password = pwd;
+    }
+
+    postData('addEmployee', payload);
+    e.target.reset();
+    const creds = document.getElementById('newEmpCreds'); if (creds) creds.classList.add('hidden');
+}
 function deleteEmployee() { if (!editingEmployeeId) return; if(confirm("Hapus data relawan ini?")) { employees = employees.filter(e => e.id !== editingEmployeeId); refreshUI(); closeEditEmployee(); postData('deleteEmployee', { id: editingEmployeeId }); } }
 async function submitEditEmployee(e) {
     e.preventDefault(); if (!editingEmployeeId) return;
-    const name = document.getElementById('editEmpName').value; const div = document.getElementById('editEmpDiv').value; const salary = document.getElementById('editEmpSalary').value; const fileInput = document.getElementById('editEmpPhoto');
+    const name = document.getElementById('editEmpName').value;
+    const div = document.getElementById('editEmpDiv').value;
+    const salary = document.getElementById('editEmpSalary').value;
+    const fileInput = document.getElementById('editEmpPhoto');
     let payload = { id: editingEmployeeId, name: name, division: div, salary: salary };
-    if(fileInput.files.length > 0) { const base64 = await readFile(fileInput.files[0]); payload.photo = base64; payload.image = base64.split(',')[1]; } 
-    else { const oldEmp = employees.find(e => e.id === editingEmployeeId); if(oldEmp && oldEmp.photo) payload.photo = oldEmp.photo; }
-    const empIndex = employees.findIndex(e => e.id === editingEmployeeId); if(empIndex !== -1) { employees[empIndex] = { ...employees[empIndex], ...payload }; refreshUI(); }
+    if(fileInput.files.length > 0) {
+        const base64 = await readFile(fileInput.files[0]);
+        payload.photo = base64; payload.image = base64.split(',')[1];
+    } else {
+        const oldEmp = employees.find(e => e.id === editingEmployeeId);
+        if(oldEmp && oldEmp.photo) payload.photo = oldEmp.photo;
+    }
+
+    // Include username/password for security division if provided
+    if (String(div).toLowerCase().includes('keamanan')) {
+        const uname = document.getElementById('editEmpUsername').value;
+        const pwd = document.getElementById('editEmpPassword').value;
+        if (uname) payload.username = uname;
+        if (pwd) payload.password = pwd;
+    }
+
+    const empIndex = employees.findIndex(e => e.id === editingEmployeeId);
+    if(empIndex !== -1) { employees[empIndex] = { ...employees[empIndex], ...payload }; refreshUI(); }
     closeEditEmployee(); postData('addEmployee', payload);
 }
 function openEditEmployee(id) {
     const emp = employees.find(e => e.id === id); if (!emp) return;
     editingEmployeeId = id; document.getElementById('editEmpId').value = id; document.getElementById('editEmpName').value = emp.name; document.getElementById('editEmpDiv').value = emp.division; document.getElementById('editEmpSalary').value = emp.salary; document.getElementById('editEmpPhoto').value = "";
     const previewContainer = document.getElementById('editPreviewContainer');
-    if (emp.photo && emp.photo.length > 20) { previewContainer.innerHTML = `<img src="${emp.photo}" class="w-full h-full object-cover">`; } else { previewContainer.innerHTML = '<i class="fas fa-user text-slate-300 text-2xl"></i>'; }
+    if (emp.photo && emp.photo.length > 20) { 
+        previewContainer.innerHTML = `<img src="${emp.photo}" crossorigin="anonymous" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2260%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2240%22%3E%26%238287;%3C/text%3E%3C/svg%3E';"> 
+    `; 
+    } else { 
+        previewContainer.innerHTML = '<i class="fas fa-user text-slate-300 text-2xl"></i>'; 
+    }
+    // Populate credentials if present
+    const unameEl = document.getElementById('editEmpUsername'); const pwdEl = document.getElementById('editEmpPassword');
+    if (unameEl) unameEl.value = emp.username || '';
+    if (pwdEl) pwdEl.value = '';
+    toggleEditEmpCreds(emp.division);
     document.getElementById('editEmployeeModal').classList.remove('hidden'); setTimeout(() => document.getElementById('editEmployeeModal').classList.remove('opacity-0'), 10);
 }
 function closeEditEmployee() { document.getElementById('editEmployeeModal').classList.add('opacity-0'); setTimeout(() => document.getElementById('editEmployeeModal').classList.add('hidden'), 300); editingEmployeeId = null; }
 function showToast(msg, type='success') {
     const t = document.getElementById('toast'); const i = document.getElementById('toastIcon'); document.getElementById('toastMsg').innerText = msg;
     if(type === 'error') { i.className = "w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white text-xs"; i.innerHTML = '<i class="fas fa-times"></i>'; } 
-    else { i.className = "w-8 h-8 rounded-full bg-mbg-500 flex items-center justify-center text-white text-xs"; i.innerHTML = '<i class="fas fa-check"></i>'; }
+    else { i.className = "w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs"; i.innerHTML = '<i class="fas fa-check"></i>'; }
     t.classList.remove('-translate-y-[200%]', 'opacity-0'); setTimeout(() => t.classList.add('-translate-y-[200%]', 'opacity-0'), 6000); 
 }

@@ -11,19 +11,52 @@ body {
 .input-field {
     width: 100%;
     background-color: #f8fafc;
-    border: 1px solid #e2e8f0;
+    border: 1.5px solid #e2e8f0;
     border-radius: 0.75rem;
     padding: 0.75rem 1rem;
     font-size: 0.875rem;
     color: #1e293b;
     font-weight: 600;
     outline: none;
-    transition: all 0.2s;
+    transition: all 0.3s;
 }
 .input-field:focus {
     background-color: white;
-    border-color: #22c55e;
-    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Typography: Eyebrow Text */
+.eyebrow-text {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #06b6d4;
+    margin-bottom: 0.75rem;
+    text-shadow: 0 0 20px rgba(6, 182, 212, 0.5);
+}
+
+/* Typography: Main Headline */
+.headline-main {
+    display: block;
+    font-size: 2.25rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: #ffffff;
+    margin-bottom: 1rem;
+    letter-spacing: -0.01em;
+}
+
+/* Typography: Body Text */
+.body-text {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 400;
+    line-height: 1.6;
+    color: rgba(191, 219, 254, 0.85);
+    margin: 0;
 }
 
 /* Animations */
@@ -52,13 +85,30 @@ body {
     100% { top: 95%; opacity: 0; }
 }
 
+/* Floating bubbles on login */
+.floating-bubble-1, .floating-bubble-2 {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(12px);
+    opacity: 0.15;
+}
+.floating-bubble-1 { width: 220px; height: 220px; background: linear-gradient(135deg,#0b3b73,#0b2a5a); left: -60px; top: -40px; animation: bob 6s ease-in-out infinite; }
+.floating-bubble-2 { width: 140px; height: 140px; background: linear-gradient(135deg,#16a34a,#059669); right: -30px; bottom: -30px; animation: bob 5s ease-in-out infinite; }
+@keyframes bob { 0% { transform: translateY(0) } 50% { transform: translateY(-12px) } 100% { transform: translateY(0) } }
+
+/* Make login card comfortable on small screens */
+@media (max-width: 768px) {
+    #loginView .bg-white { border-radius: 1rem; padding: 1rem; }
+    .floating-bubble-1, .floating-bubble-2 { display: none; }
+}
+
 /* Nav Item Active State */
 .nav-item.active {
-    background-color: #f0fdf4;
-    color: #16a34a;
+    background-color: #dbeafe;
+    color: #2563eb;
 }
 .nav-item.active i {
-    color: #16a34a;
+    color: #2563eb;
 }
 
 /* Custom Scrollbar */
@@ -75,4 +125,272 @@ body {
     #adminLayout { display: block !important; }
     #sidebar, header { display: none !important; }
     #mainContent { margin: 0 !important; padding: 0 !important; overflow: visible !important; }
+}
+
+/* Cosmic Login Container */
+.login-container {
+    background: radial-gradient(ellipse at 50% 30%, #1a3a52 0%, #0a1428 40%, #000000 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Cosmic Background Layers */
+.cosmic-bg {
+    position: absolute;
+    inset: 0;
+    background: 
+        radial-gradient(ellipse at 20% 50%, rgba(30, 58, 138, 0.3) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(59, 130, 246, 0.2) 0%, transparent 50%),
+        linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1729 100%);
+    animation: cosmicPulse 8s ease-in-out infinite;
+}
+
+@keyframes cosmicPulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.6; }
+}
+
+/* Bokeh Lights - Floating Atmospheric Effect */
+.bokeh {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(40px);
+    opacity: 0;
+    mix-blend-mode: screen;
+}
+
+.bokeh-1 {
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.4) 0%, transparent 70%);
+    top: 10%;
+    left: 10%;
+    animation: float 15s ease-in-out infinite;
+}
+
+.bokeh-2 {
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.3) 0%, transparent 70%);
+    top: 50%;
+    right: 5%;
+    animation: float 20s ease-in-out infinite reverse;
+    animation-delay: 2s;
+}
+
+.bokeh-3 {
+    width: 250px;
+    height: 250px;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
+    bottom: 10%;
+    left: 5%;
+    animation: float 18s ease-in-out infinite;
+    animation-delay: 4s;
+}
+
+.bokeh-4 {
+    width: 180px;
+    height: 180px;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, transparent 70%);
+    top: 20%;
+    right: 20%;
+    animation: float 22s ease-in-out infinite reverse;
+    animation-delay: 1s;
+}
+
+.bokeh-5 {
+    width: 220px;
+    height: 220px;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+    bottom: 20%;
+    right: 30%;
+    animation: float 16s ease-in-out infinite;
+    animation-delay: 3s;
+}
+
+@keyframes float {
+    0%, 100% { 
+        transform: translate(0, 0); 
+        opacity: 0.3;
+    }
+    50% { 
+        transform: translate(50px, 50px); 
+        opacity: 0.6;
+    }
+}
+
+/* Geometric Constellations */
+.constellations {
+    pointer-events: none;
+}
+
+.constellation-svg {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.5));
+}
+
+.constellation {
+    animation: constellationGlow 4s ease-in-out infinite;
+}
+
+.constellation:nth-child(2) {
+    animation-delay: 1s;
+}
+
+.constellation:nth-child(3) {
+    animation-delay: 2s;
+}
+
+@keyframes constellationGlow {
+    0%, 100% { 
+        stroke-width: 1.5;
+        opacity: 0.4;
+    }
+    50% { 
+        stroke-width: 2;
+        opacity: 0.8;
+    }
+}
+
+/* Particle Canvas */
+#particleCanvas {
+    filter: blur(0.5px);
+}
+
+/* Login Card Enhancements */
+.login-card {
+    box-shadow: 
+        0 0 60px rgba(59, 130, 246, 0.3),
+        0 0 120px rgba(59, 130, 246, 0.15),
+        0 25px 50px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    animation: cardGlow 3s ease-in-out infinite;
+}
+
+@keyframes cardGlow {
+    0%, 100% { 
+        box-shadow: 
+            0 0 60px rgba(59, 130, 246, 0.3),
+            0 0 120px rgba(59, 130, 246, 0.15),
+            0 25px 50px rgba(0, 0, 0, 0.5);
+    }
+    50% { 
+        box-shadow: 
+            0 0 80px rgba(59, 130, 246, 0.4),
+            0 0 140px rgba(59, 130, 246, 0.25),
+            0 25px 50px rgba(0, 0, 0, 0.6);
+    }
+}
+
+/* Input Field Enhancements */
+.input-field {
+    background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+    border: 1.5px solid rgba(226, 232, 240, 0.5);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.input-field:focus {
+    background: linear-gradient(135deg, #ffffff 0%, #f0f4f8 100%);
+    border-color: #2563eb;
+    box-shadow: 
+        0 0 0 3px rgba(37, 99, 235, 0.1),
+        inset 0 2px 4px rgba(59, 130, 246, 0.05);
+}
+
+/* Left Panel Enhancement */
+.login-card > div:first-child {
+    background: linear-gradient(135deg, #04172e 0%, #05264b 50%, #0a1f3a 100%);
+    box-shadow: inset 0 0 60px rgba(59, 130, 246, 0.1);
+}
+
+/* Feature Mini Cards */
+.feature-mini-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 0.875rem;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+}
+
+.feature-mini-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, transparent 100%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+}
+
+.feature-mini-card:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(59, 130, 246, 0.4);
+    box-shadow: 
+        0 0 20px rgba(59, 130, 246, 0.3),
+        inset 0 0 20px rgba(59, 130, 246, 0.05);
+}
+
+.feature-mini-card:hover::before {
+    opacity: 1;
+}
+
+.feature-mini-card:hover .feature-card-icon {
+    color: #60a5fa;
+    text-shadow: 0 0 12px rgba(96, 165, 250, 0.6);
+}
+
+.feature-card-icon {
+    min-width: 2.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(59, 130, 246, 0.15);
+    border-radius: 0.625rem;
+    color: #93c5fd;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.feature-card-content {
+    flex: 1;
+    position: relative;
+    z-index: 1;
+}
+
+.feature-card-content h3 {
+    color: #ffffff;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.feature-card-content p {
+    color: rgba(191, 219, 254, 0.7);
+    margin: 0.25rem 0 0 0;
+    line-height: 1.3;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .login-container {
+        align-items: flex-start;
+        padding-top: 60px;
+    }
+    
+    .bokeh {
+        filter: blur(30px);
+    }
+    
+    .constellation-svg {
+        opacity: 0.5;
+    }
 }
