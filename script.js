@@ -345,12 +345,26 @@ async function postData(action, payload) {
         
         let res;
         if (hasLargeData) {
-            // Send as JSON for photo uploads
-            res = await fetch(SCRIPT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dataObj)
-            });
+            // Send as JSON for photo uploads (primary)
+            try {
+                res = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dataObj)
+                });
+            } catch (jsonErr) {
+                // Fallback to form-encoded when JSON/preflight fails (common: Failed to fetch)
+                console.warn('JSON upload failed, retrying with form-encoded:', jsonErr);
+                const form = new URLSearchParams();
+                Object.keys(dataObj).forEach(k => {
+                    if (dataObj[k] === undefined || dataObj[k] === null) return;
+                    form.append(k, String(dataObj[k]));
+                });
+                res = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: form
+                });
+            }
         } else {
             // Send as form-encoded for other requests
             const form = new URLSearchParams();
