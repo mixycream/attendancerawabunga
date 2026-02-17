@@ -116,7 +116,7 @@
                     </div>
                     <div class="flex-1">
                         <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Foto Profil</label>
-                        <input type="file" id="editEmpPhoto" accept="image/*" class="text-xs text-slate-500 file:mr-2 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+                        <p class="text-xs text-slate-500">Upload foto sementara dinonaktifkan.</p>
                     </div>
                 </div>
                 <div>
@@ -531,6 +531,7 @@
                                             <th class="px-6 py-4 font-bold text-center text-red-500">Telat</th> <!-- SEPARATE COLUMN -->
                                             <th class="px-6 py-4 font-bold text-center text-amber-500">Lembur</th> <!-- SEPARATE COLUMN -->
                                             <th class="px-6 py-4 font-bold text-center">Status</th>
+                                            <th class="px-6 py-4 font-bold text-center">Pengabsen</th>
                                         </tr>
                                     </thead>
                                     <tbody id="logsTableBody" class="divide-y divide-slate-50"></tbody>
@@ -571,7 +572,7 @@
                                     </div>
                                     <div class="md:col-span-2 space-y-1">
                                         <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Foto Profil</label>
-                                        <input type="file" id="newEmpPhoto" accept="image/*" class="text-xs text-slate-500 file:mr-2 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+                                        <p class="h-[46px] flex items-center text-xs text-slate-500">Upload foto sementara dinonaktifkan.</p>
                                     </div>
                                     <div class="md:col-span-3">
                                         <button type="submit" class="w-full bg-slate-900 text-white font-bold h-[46px] rounded-xl hover:bg-slate-800 transition shadow-lg shadow-slate-200">Simpan</button>
@@ -579,8 +580,8 @@
                                     <div id="newEmpCreds" class="md:col-span-12 hidden space-y-1">
                                         <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Akun Keamanan (username / password)</label>
                                         <div class="grid grid-cols-2 gap-2">
-                                            <input type="text" id="newEmpUsername" placeholder="Username keamanan" class="input-field">
-                                            <input type="password" id="newEmpPassword" placeholder="Password keamanan" class="input-field">
+                                            <input type="text" id="newEmpUsername" placeholder="Username keamanan" class="input-field" autocomplete="off">
+                                            <input type="password" id="newEmpPassword" placeholder="Password keamanan" class="input-field" autocomplete="new-password">
                                         </div>
                                     </div>
                                 </form>
@@ -738,6 +739,10 @@
                     <div>
                         <div id="liveTime" class="text-3xl font-extrabold font-mono leading-none tracking-tight">00:00:00</div>
                         <div id="liveDate" class="text-xs text-slate-400 font-medium mt-1">Senin, 1 Januari 2024</div>
+                        <div id="securityProfileIndicator" class="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-blue-500/15 border border-blue-400/20 text-[10px] text-blue-200">
+                            <i class="fas fa-user-shield text-blue-300"></i>
+                            <span id="securityProfileText">Security: -</span>
+                        </div>
                     </div>
                     <div class="text-right max-w-[50%]">
                         <div class="flex items-center justify-end gap-1 text-[10px] text-blue-400 uppercase tracking-wider font-bold mb-0.5">
@@ -766,6 +771,25 @@
                 </div>
             </div>
 
+            <!-- Page 0: Security Self Check-In -->
+            <div id="secGatePage" class="flex-1 flex flex-col items-center justify-center p-6 relative pt-48">
+                <div class="w-full max-w-sm bg-slate-800/60 border border-white/10 rounded-3xl p-6 backdrop-blur-md shadow-2xl">
+                    <div class="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-300 text-2xl mb-4">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white">Absen Security Dulu</h3>
+                    <p class="text-xs text-slate-300 mt-2 leading-relaxed">Sebelum scan QR relawan divisi lain, Security yang sedang login wajib absen masuk terlebih dahulu.</p>
+                    <div class="mt-4 text-[11px] text-slate-300 bg-black/30 border border-white/10 rounded-xl p-3">
+                        <div class="font-bold text-blue-300">Status Shift Security</div>
+                        <div id="securityEntryStatus" class="mt-1">Belum absen masuk.</div>
+                    </div>
+                    <button onclick="startSecuritySelfCheck()" class="mt-5 w-full py-3.5 rounded-2xl bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white font-bold shadow-lg shadow-blue-600/30 transition active:scale-95">
+                        Mulai Absen Saya
+                    </button>
+                </div>
+                <div class="absolute bottom-4 text-[10px] text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
+            </div>
+
             <!-- Page 1: QR Scanner -->
             <div id="secPage1" class="flex-1 flex flex-col items-center justify-center p-6 relative pt-48">
                 <!-- Camera Frame -->
@@ -788,16 +812,6 @@
                         <span class="bg-black/50 text-white/80 text-[10px] px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10 font-medium">
                             Scan QR Karyawan
                         </span>
-                    </div>
-                </div>
-
-                <!-- Manual Input -->
-                <div class="w-full max-w-sm space-y-4">
-                    <div class="relative group">
-                        <select id="manualInput" onchange="manualSelect(this.value)" class="w-full appearance-none bg-slate-800 border border-white/10 text-slate-300 text-sm rounded-2xl p-4 pl-5 outline-none focus:border-blue-500 focus:bg-slate-800/80 transition-all shadow-lg cursor-pointer">
-                            <option value="">Cari Nama Manual (Jika Scan Gagal)</option>
-                        </select>
-                        <div class="absolute right-5 top-1/2 -translate-y-1/2 text-slate-500 group-hover:text-blue-400 pointer-events-none transition"><i class="fas fa-search"></i></div>
                     </div>
                 </div>
 

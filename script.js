@@ -7,6 +7,19 @@ const LOCAL_USERS = [
     { u:'adminrawabunga1', p:'123', role:'admin' },
 ];
 
+// Convert old Google Drive URLs to CDN format (for direct embedding with CORS support)
+function convertDriveUrl(url) {
+    if (!url || !url.startsWith('http')) return url;
+    
+    // Handle old formats: drive.google.com/uc?...&id=FILE_ID
+    const idMatch = url.match(/[?&]id=([a-zA-Z0-9-_]+)/);
+    if (idMatch) {
+        return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+    }
+    
+    return url; // Return as-is if not a Drive URL
+}
+
 // ===== COSMIC LOGIN EFFECTS =====
 // Particle System Initialization
 let particles = [];
@@ -127,6 +140,8 @@ let sortState = {
 let editingEmployeeId = null;
 let pendingAttendancePayload = null; // Menyimpan data sementara jika telat > 30 menit
 let trendChartInstance = null; // Instance Chart.js
+let securitySelfAttendanceDone = false;
+let securitySelfAttendanceMode = false;
 
 // Camera & Geo State
 let scanStream = null, faceStream = null, scanInterval = null;
@@ -137,55 +152,6 @@ let isLocationLocked = false;
 let activeWorkerTimer = null; 
 
 // --- HELPER FUNCTIONS ---
-// Initialize event listeners
-document.addEventListener('DOMContentLoaded', () => {
-    const newEmpPhotoInput = document.getElementById('newEmpPhoto');
-    const editEmpPhotoInput = document.getElementById('editEmpPhoto');
-    
-    if (newEmpPhotoInput) {
-        newEmpPhotoInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                const file = e.target.files[0];
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    showPhotoPreview(event.target.result, 'newEmpPhotoPreview');
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-    }
-    
-    if (editEmpPhotoInput) {
-        editEmpPhotoInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                const file = e.target.files[0];
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    showPhotoPreview(event.target.result, 'editEmpPhotoPreview');
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-    }
-});
-
-function showPhotoPreview(dataUrl, containerId) {
-    let preview = document.getElementById(containerId);
-    if (!preview) {
-        preview = document.createElement('div');
-        preview.id = containerId;
-        preview.className = 'mt-2 text-center';
-        const input = document.getElementById(containerId === 'newEmpPhotoPreview' ? 'newEmpPhoto' : 'editEmpPhoto');
-        input.parentNode.insertBefore(preview, input.nextSibling);
-    }
-    preview.innerHTML = `<img src="${dataUrl}" alt="Photo preview" class="w-16 h-16 rounded-full object-cover mx-auto border-2 border-blue-200">`;
-}
-
-const readFile = (file) => new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target.result);
-    reader.readAsDataURL(file);
-});
 
 // Format Menit ke "X Jam Y Menit"
 function formatDuration(totalMinutes) {
@@ -205,10 +171,25 @@ window.onload = () => {
     const savedUser = localStorage.getItem('mbg_user');
     if(savedUser) {
         currentUser = JSON.parse(savedUser);
-        document.getElementById('loginView').classList.add('hidden');
-        fetchData(true);
-        if(currentUser.role === 'security') initSecurity();
-        else initAdmin();
+        if (currentUser.role === 'security') {
+            callApi('checkSecuritySession', { username: currentUser.u || '' }).then(resp => {
+                if (!resp.ok || !resp.data || resp.data.status !== 'success') {
+                    localStorage.removeItem('mbg_user');
+                    showToast(resp?.data?.message || 'Session security sudah tidak aktif. Silakan login ulang.', 'error');
+                    return;
+                }
+                document.getElementById('loginView').classList.add('hidden');
+                fetchData(true);
+                initSecurity();
+            }).catch(() => {
+                localStorage.removeItem('mbg_user');
+                showToast('Gagal validasi session security. Silakan login ulang.', 'error');
+            });
+        } else {
+            document.getElementById('loginView').classList.add('hidden');
+            fetchData(true);
+            initAdmin();
+        }
     }
     
     const savedRate = localStorage.getItem('mbg_overtime_rate');
@@ -282,8 +263,15 @@ function togglePasswordVisibility() {
     else { inp.type = 'password'; if(icon) { icon.className = 'fas fa-eye'; } }
 }
 
-function logout() {
+async function logout() {
     if(confirm("Keluar dari aplikasi?")) {
+        if (currentUser && currentUser.role === 'security') {
+            try {
+                await callApi('securityLogout', { username: currentUser.u || '' });
+            } catch (e) {
+                console.warn('securityLogout failed', e);
+            }
+        }
         localStorage.removeItem('mbg_user'); 
         location.reload();
     }
@@ -485,10 +473,11 @@ function refreshUI() {
 
         let photoHtml = '<div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-300 mx-auto"><i class="fas fa-user"></i></div>';
         if(l.photo && (l.photo.startsWith('http') || l.photo.startsWith('data:image'))) {
-             const safeUrl = l.photo.replace(/'/g, "\\'");
+             const photoUrl = convertDriveUrl(l.photo);
+             const safeUrl = photoUrl.replace(/'/g, "\\'");
              // Add crossOrigin and better error handling; fallback to user icon SVG
              const fallbackSvg = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2260%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2240%22%3E%26%238287;%3C/text%3E%3C/svg%3E';
-             photoHtml = `<img src="${l.photo}" onclick="previewImage('${safeUrl}'); event.stopPropagation();" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md cursor-pointer hover:scale-110 transition mx-auto" crossorigin="anonymous" onerror="console.warn('Photo failed to load:', this.src); this.onerror=null; this.src='${fallbackSvg}';">`;
+             photoHtml = `<img src="${photoUrl}" onclick="previewImage('${safeUrl}'); event.stopPropagation();" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md cursor-pointer hover:scale-110 transition mx-auto" crossorigin="anonymous" onerror="console.warn('Photo failed to load:', this.src); this.onerror=null; this.src='${fallbackSvg}';">`;
         }
         
         // Pemisahan Kolom & Format
@@ -516,6 +505,7 @@ function refreshUI() {
             <td class="px-6 py-4 text-center">${lateInfo}</td>
             <td class="px-6 py-4 text-center">${overtimeInfo}</td>
             <td class="px-6 py-4 text-center">${actionArea}</td>
+            <td class="px-6 py-4 text-center text-xs font-semibold text-slate-600">${l.absentBy || '-'}</td>
         </tr>`;
     }).join('');
 
@@ -526,7 +516,8 @@ function refreshUI() {
         empBody.innerHTML = sortedEmployees.map(e => {
             let profilePic = `<div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400"><i class="fas fa-user"></i></div>`;
             if (e.photo && e.photo.length > 20) {
-                 profilePic = `<img src="${e.photo}" crossorigin="anonymous" class="w-8 h-8 rounded-full object-cover border border-slate-200" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2260%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2240%22%3E%26%238287;%3C/text%3E%3C/svg%3E';">`;
+                 const photoUrl = convertDriveUrl(e.photo);
+                 profilePic = `<img src="${photoUrl}" crossorigin="anonymous" class="w-8 h-8 rounded-full object-cover border border-slate-200" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2260%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2240%22%3E%26%238287;%3C/text%3E%3C/svg%3E';">`;
             }
 
             const shiftTime = getShiftTime(e.division);
@@ -724,7 +715,12 @@ function renderDivisionGrid() {
 function validateEmployee(id) {
     const emp = employees.find(e => e.id == id || e.name.toLowerCase() == id.toLowerCase());
     if(emp) {
+        if (!securitySelfAttendanceMode && String(emp.division || '').toLowerCase().includes('keamanan')) {
+            showToast("Security tidak bisa di-scan dari halaman relawan.", "error");
+            return;
+        }
         scannedEmployee = emp;
+        document.getElementById('secGatePage')?.classList.add('hidden');
         document.getElementById('secPage1').classList.add('hidden');
         document.getElementById('secPage2').classList.remove('hidden');
         document.getElementById('confirmName').innerText = emp.name;
@@ -740,26 +736,32 @@ function validateEmployee(id) {
         startSelfie('user'); 
     } else {
         showToast("Karyawan Tidak Ditemukan", "error");
-        document.getElementById('manualInput').value = "";
     }
 }
 
 function resetSecurityFlow() {
     scannedEmployee = null;
+    securitySelfAttendanceMode = false;
     document.getElementById('secPage2').classList.add('hidden');
-    document.getElementById('secPage1').classList.remove('hidden');
+    if (securitySelfAttendanceDone) {
+        document.getElementById('secPage1').classList.remove('hidden');
+        document.getElementById('secGatePage')?.classList.add('hidden');
+    } else {
+        document.getElementById('secPage1').classList.add('hidden');
+        document.getElementById('secGatePage')?.classList.remove('hidden');
+    }
     
     // TAMPILKAN KEMBALI INFO SHIFT
     const shiftInfo = document.getElementById('securityShiftInfo');
     if(shiftInfo) shiftInfo.classList.remove('hidden');
 
-    document.getElementById('manualInput').value = "";
     if(faceStream) faceStream.getTracks().forEach(t=>t.stop());
-    startQR();
+    if (securitySelfAttendanceDone) startQR();
 }
 
 async function submitAbsence(type) {
     if (!isLocationLocked) return showToast("Tunggu GPS Terkunci!", "error");
+    if (securitySelfAttendanceMode && type !== 'IN') return showToast("Gunakan Absen Masuk untuk absen security awal shift.", "error");
 
     const today = new Date().toISOString().split('T')[0];
     const now = new Date();
@@ -834,7 +836,8 @@ async function submitAbsence(type) {
 
     const payload = {
         empId: scannedEmployee.id, name: scannedEmployee.name, type: finalType, overtime: overtimeHours,
-        location: currentLocation, image: photoBase64, date: today, lateMinutes: lateMinutes, forcedTime: forcedTime, note: "" 
+        location: currentLocation, image: photoBase64, date: today, lateMinutes: lateMinutes, forcedTime: forcedTime, note: "",
+        absentBy: currentUser ? (currentUser.name || currentUser.u || '-') : '-'
     };
 
     if (finalType === 'PENDING') {
@@ -846,7 +849,16 @@ async function submitAbsence(type) {
     }
 
     const success = await postData('attendance', payload);
-    if(success) { toggleLoader(false); showToast(toastMessage, "success"); resetSecurityFlow(); }
+    if(success) {
+        toggleLoader(false);
+        showToast(toastMessage, "success");
+        if (securitySelfAttendanceMode && finalType === 'IN' && currentUser && String(scannedEmployee.id) === String(currentUser.id)) {
+            securitySelfAttendanceDone = true;
+            securitySelfAttendanceMode = false;
+            updateSecurityEntryGate();
+        }
+        resetSecurityFlow();
+    }
 }
 
 async function submitLateReason() {
@@ -917,10 +929,7 @@ function startClockAndGPS() {
 }
 
 function updateSecurityDropdown() {
-    const sel = document.getElementById('manualInput');
-    if(!sel) return;
-    sel.innerHTML = '<option value="">Cari Nama Manual (Jika Scan Gagal)</option>';
-    employees.forEach(e => sel.innerHTML += `<option value="${e.id}">${e.name} - ${e.division}</option>`);
+    return;
 }
 
 function startQR() {
@@ -946,7 +955,7 @@ function scanLoop() {
     if(!scannedEmployee) requestAnimationFrame(scanLoop);
 }
 
-function manualSelect(val) { if(val) validateEmployee(val); }
+function manualSelect(val) { return; }
 function startSelfie(mode) {
     currentFacingMode = mode;
     const video = document.getElementById('faceVideo');
@@ -1136,38 +1145,98 @@ function switchTab(id) {
     document.getElementById('pageTitle').innerText = titles[id];
 }
 function initAdmin() { document.getElementById('adminLayout').classList.remove('hidden'); refreshUI(); }
-function initSecurity() { document.getElementById('securityLayout').classList.remove('hidden'); updateSecurityDropdown(); updateSecurityInfo(); startQR(); startClockAndGPS(); }
 function updateSecurityInfo() {
     const now = new Date(); const onejan = new Date(now.getFullYear(), 0, 1);
     const week = Math.ceil((((now.getTime() - onejan.getTime()) / 86400000) + onejan.getDay() + 1) / 7);
     const badge = document.getElementById('weekInfoBadge'); if(badge) badge.innerText = week % 2 === 0 ? "Minggu Genap" : "Minggu Ganjil";
 }
+function updateSecurityProfileIndicator() {
+    const el = document.getElementById('securityProfileText');
+    if (!el || !currentUser) return;
+    el.innerText = `${currentUser.name || currentUser.u || '-'} • ${currentUser.division || 'Keamanan'}`;
+}
+
+function hasSecurityCheckedInToday() {
+    if (!currentUser || !currentUser.id) return false;
+    const today = new Date().toISOString().split('T')[0];
+    return logs.some(l => String(l.empId) === String(currentUser.id) && l.date === today && l.type === 'IN');
+}
+
+function updateSecurityEntryGate() {
+    const gate = document.getElementById('secGatePage');
+    const scanner = document.getElementById('secPage1');
+    const status = document.getElementById('securityEntryStatus');
+    if (!gate || !scanner) return;
+
+    securitySelfAttendanceDone = hasSecurityCheckedInToday();
+    if (securitySelfAttendanceDone) {
+        gate.classList.add('hidden');
+        scanner.classList.remove('hidden');
+        if (status) status.innerText = 'Sudah absen masuk. QR relawan aktif.';
+        if (!scanStream) startQR();
+    } else {
+        gate.classList.remove('hidden');
+        scanner.classList.add('hidden');
+        document.getElementById('secPage2')?.classList.add('hidden');
+        if (status) status.innerText = 'Belum absen masuk.';
+        if (scanStream) {
+            scanStream.getTracks().forEach(t => t.stop());
+            scanStream = null;
+        }
+    }
+}
+
+function startSecuritySelfCheck() {
+    if (!currentUser || !currentUser.id) {
+        showToast('Data security login tidak lengkap', 'error');
+        return;
+    }
+    securitySelfAttendanceMode = true;
+    validateEmployee(String(currentUser.id));
+}
+
+function initSecurity() {
+    document.getElementById('securityLayout').classList.remove('hidden');
+    updateSecurityDropdown();
+    updateSecurityInfo();
+    updateSecurityProfileIndicator();
+    startClockAndGPS();
+    updateSecurityEntryGate();
+}
 function toggleNewEmpCreds(div) {
     const el = document.getElementById('newEmpCreds');
+    const unameEl = document.getElementById('newEmpUsername');
+    const pwdEl = document.getElementById('newEmpPassword');
     if (!el) return;
-    if (String(div).toLowerCase().includes('keamanan')) el.classList.remove('hidden'); else el.classList.add('hidden');
+    if (String(div).toLowerCase().includes('keamanan')) {
+        if (unameEl) unameEl.value = '';
+        if (pwdEl) pwdEl.value = '';
+        el.classList.remove('hidden');
+    } else {
+        el.classList.add('hidden');
+    }
 }
 function toggleEditEmpCreds(div) {
     const el = document.getElementById('editEmpCreds');
+    const unameEl = document.getElementById('editEmpUsername');
+    const pwdEl = document.getElementById('editEmpPassword');
     if (!el) return;
-    if (String(div).toLowerCase().includes('keamanan')) el.classList.remove('hidden'); else el.classList.add('hidden');
+    if (String(div).toLowerCase().includes('keamanan')) {
+        el.classList.remove('hidden');
+    } else {
+        if (unameEl) unameEl.value = '';
+        if (pwdEl) pwdEl.value = '';
+        el.classList.add('hidden');
+    }
 }
-async function addEmployee(e) {
+function addEmployee(e) {
     e.preventDefault();
     const name = document.getElementById('newEmpName').value;
     const div = document.getElementById('newEmpDiv').value;
     const salary = document.getElementById('newEmpSalary').value;
-    const fileInput = document.getElementById('newEmpPhoto');
     const id = 'EMP-' + Math.floor(1000 + Math.random() * 9000);
 
     let payload = { id, name, division: div, salary };
-    
-    // Handle photo upload if file selected
-    if(fileInput.files.length > 0) {
-        const base64 = await readFile(fileInput.files[0]);
-        payload.photo = base64;
-        payload.image = base64.split(',')[1];
-    }
     
     // Include username/password for security division if provided
     if (String(div).toLowerCase().includes('keamanan')) {
@@ -1182,20 +1251,14 @@ async function addEmployee(e) {
     const creds = document.getElementById('newEmpCreds'); if (creds) creds.classList.add('hidden');
 }
 function deleteEmployee() { if (!editingEmployeeId) return; if(confirm("Hapus data relawan ini?")) { employees = employees.filter(e => e.id !== editingEmployeeId); refreshUI(); closeEditEmployee(); postData('deleteEmployee', { id: editingEmployeeId }); } }
-async function submitEditEmployee(e) {
+function submitEditEmployee(e) {
     e.preventDefault(); if (!editingEmployeeId) return;
     const name = document.getElementById('editEmpName').value;
     const div = document.getElementById('editEmpDiv').value;
     const salary = document.getElementById('editEmpSalary').value;
-    const fileInput = document.getElementById('editEmpPhoto');
     let payload = { id: editingEmployeeId, name: name, division: div, salary: salary };
-    if(fileInput.files.length > 0) {
-        const base64 = await readFile(fileInput.files[0]);
-        payload.photo = base64; payload.image = base64.split(',')[1];
-    } else {
-        const oldEmp = employees.find(e => e.id === editingEmployeeId);
-        if(oldEmp && oldEmp.photo) payload.photo = oldEmp.photo;
-    }
+    const oldEmp = employees.find(e => e.id === editingEmployeeId);
+    if(oldEmp && oldEmp.photo) payload.photo = oldEmp.photo;
 
     // Include username/password for security division if provided
     if (String(div).toLowerCase().includes('keamanan')) {
@@ -1203,6 +1266,9 @@ async function submitEditEmployee(e) {
         const pwd = document.getElementById('editEmpPassword').value;
         if (uname) payload.username = uname;
         if (pwd) payload.password = pwd;
+    } else {
+        payload.username = '';
+        payload.password = '';
     }
 
     const empIndex = employees.findIndex(e => e.id === editingEmployeeId);
@@ -1211,10 +1277,11 @@ async function submitEditEmployee(e) {
 }
 function openEditEmployee(id) {
     const emp = employees.find(e => e.id === id); if (!emp) return;
-    editingEmployeeId = id; document.getElementById('editEmpId').value = id; document.getElementById('editEmpName').value = emp.name; document.getElementById('editEmpDiv').value = emp.division; document.getElementById('editEmpSalary').value = emp.salary; document.getElementById('editEmpPhoto').value = "";
+    editingEmployeeId = id; document.getElementById('editEmpId').value = id; document.getElementById('editEmpName').value = emp.name; document.getElementById('editEmpDiv').value = emp.division; document.getElementById('editEmpSalary').value = emp.salary;
     const previewContainer = document.getElementById('editPreviewContainer');
     if (emp.photo && emp.photo.length > 20) { 
-        previewContainer.innerHTML = `<img src="${emp.photo}" crossorigin="anonymous" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2260%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2240%22%3E%26%238287;%3C/text%3E%3C/svg%3E';"> 
+        const photoUrl = convertDriveUrl(emp.photo);
+        previewContainer.innerHTML = `<img src="${photoUrl}" crossorigin="anonymous" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2260%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2240%22%3E%26%238287;%3C/text%3E%3C/svg%3E';"> 
     `; 
     } else { 
         previewContainer.innerHTML = '<i class="fas fa-user text-slate-300 text-2xl"></i>'; 
