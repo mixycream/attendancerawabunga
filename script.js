@@ -171,8 +171,16 @@ function normalizeRole(role, division = '') {
     const rawRole = String(role || '').toLowerCase().trim();
     const rawDivision = String(division || '').toLowerCase().trim();
 
+    if (rawRole === 'relawan') {
+        if (rawDivision.includes('keamanan')) return 'security';
+        if (rawDivision.includes('yayasan')) return 'foundation';
+        if (rawDivision.includes('ahli gizi')) return 'nutrition';
+        if (rawDivision.includes('gudang')) return 'warehouse';
+        if (rawDivision.includes('akuntan')) return 'accountant';
+    }
+
     if (rawRole) {
-        if (rawRole === 'ahli-gizi' || rawRole === 'ahligizi') return 'nutrition';
+        if (rawRole === 'ahli-gizi' || rawRole === 'ahligizi' || rawRole === 'ahli gizi') return 'nutrition';
         if (rawRole === 'yayasan') return 'foundation';
         if (rawRole === 'akuntan') return 'accountant';
         return rawRole;
@@ -1417,15 +1425,16 @@ function switchTab(id) {
 }
 function applyRoleAccess() {
     const role = normalizeRole(currentUser?.role);
+    const accessRole = role === 'foundation' ? 'admin' : role;
     document.querySelectorAll('.nav-item').forEach(btn => {
         const roles = (btn.dataset.roles || 'admin').split(',').map(item => item.trim());
-        btn.classList.toggle('hidden', !(roles.includes(role) || role === 'admin'));
+        btn.classList.toggle('hidden', !(roles.includes(accessRole) || accessRole === 'admin'));
     });
 
     const titleEl = document.getElementById('layoutTitle');
     const subtitleEl = document.getElementById('layoutSubtitle');
-    if (titleEl) titleEl.innerText = role === 'admin' ? 'SPPG Yayasan' : `Portal ${getRoleLabel(role)}`;
-    if (subtitleEl) subtitleEl.innerText = role === 'admin' ? 'Manager Mode' : `${getRoleLabel(role)} Mode`;
+    if (titleEl) titleEl.innerText = accessRole === 'admin' ? 'SPPG Yayasan' : `Portal ${getRoleLabel(role)}`;
+    if (subtitleEl) subtitleEl.innerText = accessRole === 'admin' ? 'Manager Mode' : `${getRoleLabel(role)} Mode`;
 }
 
 function initRoleLayout() {
@@ -1501,10 +1510,10 @@ function toggleNewEmpCreds(role) {
     const pwdEl = document.getElementById('newEmpPassword');
     if (!el) return;
     if (needsRoleCredentials(role)) {
-        if (unameEl) unameEl.value = '';
-        if (pwdEl) pwdEl.value = '';
         el.classList.remove('hidden');
     } else {
+        if (unameEl) unameEl.value = '';
+        if (pwdEl) pwdEl.value = '';
         el.classList.add('hidden');
     }
 }
@@ -1521,7 +1530,7 @@ function toggleEditEmpCreds(role) {
         el.classList.add('hidden');
     }
 }
-function addEmployee(e) {
+async function addEmployee(e) {
     e.preventDefault();
     const name = document.getElementById('newEmpName').value;
     const div = document.getElementById('newEmpDiv').value;
@@ -1532,8 +1541,8 @@ function addEmployee(e) {
     let payload = { id, name, division: div, salary, role };
     
     if (needsRoleCredentials(role)) {
-        const uname = document.getElementById('newEmpUsername').value;
-        const pwd = document.getElementById('newEmpPassword').value;
+        const uname = document.getElementById('newEmpUsername').value.toLowerCase().trim();
+        const pwd = document.getElementById('newEmpPassword').value.trim();
         if (!uname || !pwd) {
             showToast(`Username dan password wajib diisi untuk role ${getRoleLabel(role)}.`, 'error');
             return;
@@ -1545,12 +1554,25 @@ function addEmployee(e) {
         payload.password = '';
     }
 
-    postData('addEmployee', payload);
+    const success = await postData('addEmployee', payload);
+    if (!success) return;
+
     e.target.reset();
     const creds = document.getElementById('newEmpCreds'); if (creds) creds.classList.add('hidden');
 }
-function deleteEmployee() { if (!editingEmployeeId) return; if(confirm("Hapus data relawan ini?")) { employees = employees.filter(e => e.id !== editingEmployeeId); refreshUI(); closeEditEmployee(); postData('deleteEmployee', { id: editingEmployeeId }); } }
-function submitEditEmployee(e) {
+async function deleteEmployee() {
+    if (!editingEmployeeId) return;
+    if (!confirm("Hapus data relawan ini?")) return;
+
+    const targetId = editingEmployeeId;
+    const success = await postData('deleteEmployee', { id: targetId });
+    if (!success) return;
+
+    employees = employees.filter(e => String(e.id) !== String(targetId));
+    refreshUI();
+    closeEditEmployee();
+}
+async function submitEditEmployee(e) {
     e.preventDefault(); if (!editingEmployeeId) return;
     const name = document.getElementById('editEmpName').value;
     const div = document.getElementById('editEmpDiv').value;
@@ -1561,8 +1583,8 @@ function submitEditEmployee(e) {
     if(oldEmp && oldEmp.photo) payload.photo = oldEmp.photo;
 
     if (needsRoleCredentials(role)) {
-        const uname = document.getElementById('editEmpUsername').value;
-        const pwd = document.getElementById('editEmpPassword').value;
+        const uname = document.getElementById('editEmpUsername').value.toLowerCase().trim();
+        const pwd = document.getElementById('editEmpPassword').value.trim();
         if (!uname || !pwd) {
             showToast(`Username dan password wajib diisi untuk role ${getRoleLabel(role)}.`, 'error');
             return;
@@ -1574,9 +1596,10 @@ function submitEditEmployee(e) {
         payload.password = '';
     }
 
-    const empIndex = employees.findIndex(e => e.id === editingEmployeeId);
-    if(empIndex !== -1) { employees[empIndex] = { ...employees[empIndex], ...payload }; refreshUI(); }
-    closeEditEmployee(); postData('addEmployee', payload);
+    const success = await postData('addEmployee', payload);
+    if (!success) return;
+
+    closeEditEmployee();
 }
 function openEditEmployee(id) {
     const emp = employees.find(e => e.id === id); if (!emp) return;
