@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxBbEsm6blMRoUYpCEYESMw6Y0XpIm-dBwSjoGvT2ZkIWDKFmXiyCbc_v04QccFfg7z/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyW5Pmj7wTX53bBVSgnxrOVMR6IPdEeP3V3x9-QtrhiM86Ubw9JSCzU9edobFD3FCZK/exec"; 
 
 // Local demo accounts (fallback untuk offline + admin)
 const LOCAL_USERS = [
@@ -26,6 +26,17 @@ const ROLE_LABELS = {
     head_sppg: 'Ka SPPG',
     foundation: 'Yayasan'
 };
+
+function inferRoleFromDivision(division) {
+    const normalized = String(division || '').toLowerCase().trim().replace(/\s+/g, ' ');
+    if (normalized.includes('keamanan')) return 'security';
+    if (normalized.includes('ahli gizi') || normalized.includes('ahligizi')) return 'nutritionist';
+    if (normalized.includes('akuntan')) return 'accountant';
+    if (normalized.includes('gudang')) return 'warehouse';
+    if (normalized.includes('ka sppg') || normalized.includes('kasppg')) return 'head_sppg';
+    if (normalized.includes('yayasan')) return 'foundation';
+    return 'employee';
+}
 
 // Convert old Google Drive URLs to CDN format (for direct embedding with CORS support)
 function convertDriveUrl(url) {
@@ -577,7 +588,7 @@ function refreshUI() {
             }
 
             const shiftTime = getShiftTime(e.division);
-            const roleKey = e.role || 'employee';
+            const roleKey = e.role || inferRoleFromDivision(e.division);
             const roleLabel = ROLE_LABELS[roleKey] || roleKey;
             const roleClass = roleKey === 'employee' ? 'bg-slate-100 text-slate-600' : 'bg-blue-50 text-blue-700';
 
