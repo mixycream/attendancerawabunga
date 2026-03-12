@@ -105,7 +105,7 @@
     <div id="editEmployeeModal" class="fixed inset-0 z-[260] bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
         <div class="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden animate-zoom-in relative">
             <div class="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                <h3 class="font-bold text-lg text-slate-800">Edit Data SDM / User</h3>
+                <h3 class="font-bold text-lg text-slate-800">Edit Data Relawan</h3>
                 <button onclick="closeEditEmployee()" class="w-8 h-8 rounded-full bg-white text-slate-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition shadow-sm"><i class="fas fa-times"></i></button>
             </div>
             <form onsubmit="submitEditEmployee(event)" class="p-6 space-y-4">
@@ -125,7 +125,7 @@
                 </div>
                 <div>
                     <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Divisi</label>
-                    <select id="editEmpDiv" onchange="syncRoleFromDivision('edit')" class="input-field cursor-pointer">
+                    <select id="editEmpDiv" onchange="handleDivisionRolePreset('edit')" class="input-field cursor-pointer">
                         <option>Helper Cook</option>
                         <option>Cook</option>
                         <option>Head Chef</option>
@@ -134,22 +134,24 @@
                         <option>Kenek Distribusi</option>
                         <option>Kebersihan</option>
                         <option>Asisten Lapangan</option>
-                        <option>Ahli Gizi</option>
                         <option>Gudang</option>
-                        <option>Akuntan</option>
-                        <option>Yayasan</option>
                         <option>Keamanan</option>
+                        <option>Ahli Gizi</option>
+                        <option>Akuntan</option>
+                        <option>Ka SPPG</option>
+                        <option>Yayasan</option>
                     </select>
                 </div>
                 <div>
-                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Role Akses</label>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Akses Login</label>
                     <select id="editEmpRole" onchange="toggleEditEmpCreds(this.value)" class="input-field cursor-pointer">
-                        <option value="relawan">Relawan / Operasional</option>
+                        <option value="employee">Relawan Biasa</option>
                         <option value="security">Security</option>
-                        <option value="foundation">Yayasan</option>
-                        <option value="nutrition">Ahli Gizi</option>
-                        <option value="warehouse">Gudang</option>
+                        <option value="nutritionist">Ahli Gizi</option>
                         <option value="accountant">Akuntan</option>
+                        <option value="warehouse">Gudang</option>
+                        <option value="head_sppg">Ka SPPG</option>
+                        <option value="foundation">Yayasan</option>
                     </select>
                 </div>
                 <div>
@@ -157,10 +159,10 @@
                     <input type="number" id="editEmpSalary" class="input-field" required>
                 </div>
                 <div id="editEmpCreds" class="hidden">
-                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Akun Login Role (ubah jika perlu)</label>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Akun Login Khusus (ubah jika perlu)</label>
                     <div class="grid grid-cols-2 gap-2 mt-2">
-                        <input type="text" id="editEmpUsername" placeholder="Username role" class="input-field" autocomplete="off">
-                        <input type="password" id="editEmpPassword" placeholder="Password role" class="input-field" autocomplete="new-password">
+                        <input type="text" id="editEmpUsername" placeholder="Username login" class="input-field">
+                        <input type="password" id="editEmpPassword" placeholder="Password login" class="input-field">
                     </div>
                 </div>
                 <div class="pt-4 flex gap-3">
@@ -376,32 +378,20 @@
                             <img src="/yayasankaryarasanusantara.png" alt="Yayasan logo" class="w-full h-full object-contain">
                         </div>
                         <div>
-                            <h1 id="layoutTitle" class="font-bold text-lg leading-tight">SPPG Yayasan</h1>
-                            <p id="layoutSubtitle" class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Manager Mode</p>
+                            <h1 class="font-bold text-lg leading-tight">Admin Panel</h1>
+                            <p class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Manager Mode</p>
                         </div>
                     </div>
                 </div>
                 <nav class="p-6 space-y-2 flex-1 overflow-y-auto">
-                    <button data-roles="admin,foundation" onclick="switchTab('dashboard')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group active">
+                    <button onclick="switchTab('dashboard')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group active">
                         <i class="fas fa-chart-pie w-5 text-center group-hover:scale-110 transition-transform"></i> Dashboard
                     </button>
-                    <button data-roles="admin,foundation" onclick="switchTab('employees')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
+                    <button onclick="switchTab('employees')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
                         <i class="fas fa-users w-5 text-center group-hover:scale-110 transition-transform"></i> Data Karyawan
                     </button>
-                    <button data-roles="admin,foundation" onclick="switchTab('salaries')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
+                    <button onclick="switchTab('salaries')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
                         <i class="fas fa-file-invoice-dollar w-5 text-center group-hover:scale-110 transition-transform"></i> Rekap Gaji & Lembur
-                    </button>
-                    <button data-roles="admin,foundation" onclick="switchTab('foundation')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
-                        <i class="fas fa-building-columns w-5 text-center group-hover:scale-110 transition-transform"></i> Yayasan
-                    </button>
-                    <button data-roles="admin,nutrition" onclick="switchTab('nutrition')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
-                        <i class="fas fa-apple-whole w-5 text-center group-hover:scale-110 transition-transform"></i> Ahli Gizi
-                    </button>
-                    <button data-roles="admin,warehouse" onclick="switchTab('warehouse')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
-                        <i class="fas fa-warehouse w-5 text-center group-hover:scale-110 transition-transform"></i> Gudang
-                    </button>
-                    <button data-roles="admin,accountant" onclick="switchTab('accounting')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
-                        <i class="fas fa-calculator w-5 text-center group-hover:scale-110 transition-transform"></i> Akuntan
                     </button>
                 </nav>
                 <div class="p-6 border-t border-slate-50 space-y-4">
@@ -416,15 +406,12 @@
             <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-slate-900/50 z-30 hidden md:hidden backdrop-blur-sm transition-opacity"></div>
 
             <!-- Main Content -->
-            <main id="adminMainLayout" class="flex-1 flex flex-col overflow-hidden relative md:ml-72 transition-all duration-300">
+            <main class="flex-1 flex flex-col overflow-hidden relative md:ml-72 transition-all">
                 <!-- Header -->
                 <header class="h-20 bg-white/80 backdrop-blur-xl border-b border-slate-200 flex items-center justify-between px-5 md:px-8 shrink-0 z-30 sticky top-0">
                     <div class="flex items-center gap-4">
                         <button onclick="toggleSidebar()" class="w-10 h-10 bg-white border border-slate-200 text-slate-600 rounded-xl flex items-center justify-center md:hidden active:scale-95 shadow-sm">
                             <i class="fas fa-bars"></i>
-                        </button>
-                        <button id="desktopSidebarToggle" onclick="toggleSidebar()" class="hidden md:flex w-10 h-10 bg-white border border-slate-200 text-slate-600 rounded-xl items-center justify-center active:scale-95 shadow-sm hover:bg-slate-50 transition" title="Sembunyikan sidebar">
-                            <i id="desktopSidebarToggleIcon" class="fas fa-panel-left"></i>
                         </button>
                         <div class="font-bold text-slate-800 text-lg" id="pageTitle">Dashboard</div>
                     </div>
@@ -574,7 +561,7 @@
                         <!-- ... (Keep Tab 2 Content) ... -->
                         <div class="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-slate-100 relative overflow-hidden">
                             <div class="relative z-10">
-                                <h3 class="font-bold text-slate-800 mb-6 text-lg">Input SDM / User Baru</h3>
+                                <h3 class="font-bold text-slate-800 mb-6 text-lg">Input Karyawan Baru</h3>
                                 <form onsubmit="addEmployee(event)" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                                     <div class="md:col-span-3 space-y-1">
                                         <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Nama Lengkap</label>
@@ -582,7 +569,7 @@
                                     </div>
                                     <div class="md:col-span-2 space-y-1">
                                         <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Divisi</label>
-                                        <select id="newEmpDiv" onchange="syncRoleFromDivision('new')" class="input-field cursor-pointer">
+                                        <select id="newEmpDiv" onchange="handleDivisionRolePreset('new')" class="input-field cursor-pointer">
                                             <option>Helper Cook</option>
                                             <option>Cook</option>
                                             <option>Head Chef</option>
@@ -591,22 +578,24 @@
                                             <option>Kenek Distribusi</option>
                                             <option>Kebersihan</option>
                                             <option>Asisten Lapangan</option>
-                                            <option>Ahli Gizi</option>
                                             <option>Gudang</option>
-                                            <option>Akuntan</option>
-                                            <option>Yayasan</option>
                                             <option>Keamanan</option>
+                                            <option>Ahli Gizi</option>
+                                            <option>Akuntan</option>
+                                            <option>Ka SPPG</option>
+                                            <option>Yayasan</option>
                                         </select>
                                     </div>
                                     <div class="md:col-span-2 space-y-1">
-                                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Role Akses</label>
+                                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Akses Login</label>
                                         <select id="newEmpRole" onchange="toggleNewEmpCreds(this.value)" class="input-field cursor-pointer">
-                                            <option value="relawan">Relawan / Operasional</option>
+                                            <option value="employee">Relawan Biasa</option>
                                             <option value="security">Security</option>
-                                            <option value="foundation">Yayasan</option>
-                                            <option value="nutrition">Ahli Gizi</option>
-                                            <option value="warehouse">Gudang</option>
+                                            <option value="nutritionist">Ahli Gizi</option>
                                             <option value="accountant">Akuntan</option>
+                                            <option value="warehouse">Gudang</option>
+                                            <option value="head_sppg">Ka SPPG</option>
+                                            <option value="foundation">Yayasan</option>
                                         </select>
                                     </div>
                                     <div class="md:col-span-2 space-y-1">
@@ -621,10 +610,10 @@
                                         <button type="submit" class="w-full bg-slate-900 text-white font-bold h-[46px] rounded-xl hover:bg-slate-800 transition shadow-lg shadow-slate-200">Simpan</button>
                                     </div>
                                     <div id="newEmpCreds" class="md:col-span-12 hidden space-y-1">
-                                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Akun Login Role (username / password)</label>
+                                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Akun Login Khusus (username / password)</label>
                                         <div class="grid grid-cols-2 gap-2">
-                                            <input type="text" id="newEmpUsername" placeholder="Username role" class="input-field" autocomplete="off">
-                                            <input type="password" id="newEmpPassword" placeholder="Password role" class="input-field" autocomplete="new-password">
+                                            <input type="text" id="newEmpUsername" placeholder="Username login" class="input-field" autocomplete="off">
+                                            <input type="password" id="newEmpPassword" placeholder="Password login" class="input-field" autocomplete="new-password">
                                         </div>
                                     </div>
                                 </form>
@@ -634,7 +623,7 @@
                         <!-- TABLE KARYAWAN -->
                         <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
                             <div class="p-6 border-b border-slate-50 flex justify-between items-center bg-white sticky left-0">
-                                <h3 class="font-bold text-slate-800">Daftar SDM & Akun</h3>
+                                <h3 class="font-bold text-slate-800">Daftar Relawan</h3>
                                 <select onchange="handleSort('employees', this.value)" class="bg-slate-50 border border-slate-200 text-slate-600 text-xs rounded-lg px-3 py-2 outline-none focus:border-blue-600 cursor-pointer">
                                     <option value="name_asc">Nama (A-Z)</option>
                                     <option value="name_desc">Nama (Z-A)</option>
@@ -647,7 +636,8 @@
                                     <thead class="text-xs text-slate-400 uppercase bg-slate-50 border-b border-slate-100">
                                         <tr>
                                             <th class="px-6 py-4 font-bold">ID & Nama</th>
-                                            <th class="px-6 py-4 font-bold">Divisi & Role</th>
+                                            <th class="px-6 py-4 font-bold">Divisi & Jam Kerja</th>
+                                            <th class="px-6 py-4 font-bold text-center">Akses</th>
                                             <th class="px-6 py-4 font-bold text-right">Gaji Pokok</th>
                                             <th class="px-6 py-4 font-bold text-center w-20">Aksi</th>
                                         </tr>
@@ -752,199 +742,6 @@
                                     <p class="text-xs text-slate-500 mb-16">Disetujui Oleh,</p>
                                     <p class="font-bold underline">Manager Operasional</p>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="tab-foundation" class="hidden animate-fade-in space-y-6">
-                        <div class="grid md:grid-cols-3 gap-6">
-                            <div class="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm">
-                                <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Page Yayasan</div>
-                                <div class="mt-2 text-2xl font-extrabold text-slate-800">Ringkasan Program</div>
-                                <p class="mt-3 text-sm text-slate-500 leading-relaxed">Halaman khusus yayasan untuk melihat overview operasional SPPG, performa tim, dan ringkasan kebutuhan lintas divisi.</p>
-                            </div>
-                            <div class="bg-gradient-to-br from-blue-600 to-blue-700 rounded-[2rem] p-6 text-white shadow-lg shadow-blue-600/20">
-                                <div class="text-xs font-bold uppercase tracking-wider text-blue-100">Monitoring</div>
-                                <div class="mt-2 text-3xl font-extrabold" id="foundationPresentCount">0</div>
-                                <p class="mt-2 text-sm text-blue-100">Total relawan hadir hari ini.</p>
-                            </div>
-                            <div class="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm">
-                                <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Fokus Yayasan</div>
-                                <ul class="mt-4 space-y-3 text-sm text-slate-600">
-                                    <li>Validasi progres SPPG harian</li>
-                                    <li>Monitoring divisi prioritas</li>
-                                    <li>Review kebutuhan program & approval</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="tab-nutrition" class="hidden animate-fade-in space-y-6">
-                        <div class="grid xl:grid-cols-[1.4fr_0.9fr] gap-6">
-                            <div class="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm">
-                                <div class="flex items-center justify-between gap-4 flex-wrap">
-                                    <div>
-                                        <h3 class="font-bold text-slate-800 text-lg">MVP Ahli Gizi</h3>
-                                        <p class="text-sm text-slate-500 mt-1">Susun rencana menu, hitung kebutuhan bahan baku per porsi, dan simpan histori plan harian.</p>
-                                    </div>
-                                    <div class="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl text-xs font-bold">Menu Planner SPPG</div>
-                                </div>
-
-                                <form onsubmit="submitNutritionPlan(event)" class="mt-6 space-y-6">
-                                    <div class="grid md:grid-cols-3 gap-4">
-                                        <div>
-                                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Tanggal Plan</label>
-                                            <input type="date" id="nutritionDate" class="input-field" oninput="syncNutritionPreview()" required>
-                                        </div>
-                                        <div>
-                                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Nama Menu</label>
-                                            <input type="text" id="nutritionMenuName" class="input-field" placeholder="Contoh: Menu SPPG Reguler A" oninput="syncNutritionPreview()" required>
-                                        </div>
-                                        <div>
-                                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Target Porsi</label>
-                                            <input type="number" id="nutritionPortions" class="input-field" placeholder="Contoh: 250" min="1" oninput="syncNutritionPreview()" required>
-                                        </div>
-                                    </div>
-
-                                    <div class="grid md:grid-cols-2 xl:grid-cols-5 gap-4">
-                                        <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4 space-y-3">
-                                            <div class="text-xs uppercase font-bold text-slate-400">Pokok</div>
-                                            <input type="text" id="nutritionRiceType" class="input-field" placeholder="Beras" oninput="syncNutritionPreview()">
-                                            <input type="number" id="nutritionRiceGram" class="input-field" placeholder="Gram / porsi" min="0" oninput="syncNutritionPreview()">
-                                            <input type="number" id="nutritionRicePrice" class="input-field" placeholder="Harga / kg" min="0" oninput="syncNutritionPreview()">
-                                        </div>
-                                        <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4 space-y-3">
-                                            <div class="text-xs uppercase font-bold text-slate-400">Protein</div>
-                                            <input type="text" id="nutritionProteinType" class="input-field" placeholder="Ayam / Telur" oninput="syncNutritionPreview()">
-                                            <input type="number" id="nutritionProteinGram" class="input-field" placeholder="Gram / porsi" min="0" oninput="syncNutritionPreview()">
-                                            <input type="number" id="nutritionProteinPrice" class="input-field" placeholder="Harga / kg" min="0" oninput="syncNutritionPreview()">
-                                        </div>
-                                        <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4 space-y-3">
-                                            <div class="text-xs uppercase font-bold text-slate-400">Sayur</div>
-                                            <input type="text" id="nutritionVegetableType" class="input-field" placeholder="Bayam / Wortel" oninput="syncNutritionPreview()">
-                                            <input type="number" id="nutritionVegetableGram" class="input-field" placeholder="Gram / porsi" min="0" oninput="syncNutritionPreview()">
-                                            <input type="number" id="nutritionVegetablePrice" class="input-field" placeholder="Harga / kg" min="0" oninput="syncNutritionPreview()">
-                                        </div>
-                                        <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4 space-y-3">
-                                            <div class="text-xs uppercase font-bold text-slate-400">Buah</div>
-                                            <input type="text" id="nutritionFruitType" class="input-field" placeholder="Pisang / Jeruk" oninput="syncNutritionPreview()">
-                                            <input type="number" id="nutritionFruitGram" class="input-field" placeholder="Gram / porsi" min="0" oninput="syncNutritionPreview()">
-                                            <input type="number" id="nutritionFruitPrice" class="input-field" placeholder="Harga / kg" min="0" oninput="syncNutritionPreview()">
-                                        </div>
-                                        <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4 space-y-3">
-                                            <div class="text-xs uppercase font-bold text-slate-400">Susu / Pelengkap</div>
-                                            <input type="text" id="nutritionMilkType" class="input-field" placeholder="Susu / Snack" oninput="syncNutritionPreview()">
-                                            <input type="number" id="nutritionMilkGram" class="input-field" placeholder="Gram / ml per porsi" min="0" oninput="syncNutritionPreview()">
-                                            <input type="number" id="nutritionMilkPrice" class="input-field" placeholder="Harga / kg/liter" min="0" oninput="syncNutritionPreview()">
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Catatan Ahli Gizi</label>
-                                        <textarea id="nutritionNotes" rows="3" class="input-field resize-none" placeholder="Catatan menu, alergi, substitusi bahan, atau perhatian khusus" oninput="syncNutritionPreview()"></textarea>
-                                    </div>
-
-                                    <div class="flex items-center gap-3">
-                                        <button type="submit" class="px-6 py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-600/20">Simpan Plan Gizi</button>
-                                        <button type="button" onclick="resetNutritionForm()" class="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50">Reset</button>
-                                    </div>
-                                </form>
-                            </div>
-
-                            <div class="space-y-6">
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div class="bg-white border border-slate-100 rounded-[2rem] p-5 shadow-sm">
-                                        <div class="text-xs uppercase font-bold text-slate-400">Plan Tersimpan</div>
-                                        <div id="nutritionPlanCount" class="mt-2 text-3xl font-extrabold text-slate-800">0</div>
-                                    </div>
-                                    <div class="bg-white border border-slate-100 rounded-[2rem] p-5 shadow-sm">
-                                        <div class="text-xs uppercase font-bold text-slate-400">Total Gram / Porsi</div>
-                                        <div id="nutritionPerPortionTotal" class="mt-2 text-3xl font-extrabold text-blue-600">0 g</div>
-                                    </div>
-                                    <div class="bg-white border border-slate-100 rounded-[2rem] p-5 shadow-sm col-span-2">
-                                        <div class="text-xs uppercase font-bold text-slate-400">Estimasi Kebutuhan Total</div>
-                                        <div id="nutritionTotalNeed" class="mt-2 text-2xl font-extrabold text-slate-800">0 kg</div>
-                                        <div id="nutritionEstimatedCost" class="mt-1 text-sm text-slate-500">Estimasi biaya: Rp 0</div>
-                                    </div>
-                                </div>
-
-                                <div class="bg-slate-900 text-white rounded-[2rem] p-6 shadow-xl">
-                                    <div class="text-xs uppercase tracking-widest font-bold text-blue-300">Preview Kebutuhan Bahan</div>
-                                    <div id="nutritionPreviewTitle" class="mt-3 text-2xl font-extrabold">Belum ada menu</div>
-                                    <div id="nutritionPreviewDate" class="text-sm text-slate-400 mt-1">Isi form untuk mulai hitung.</div>
-                                    <div id="nutritionBreakdown" class="mt-5 space-y-3 text-sm text-slate-200"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm">
-                            <div class="flex items-center justify-between gap-4 flex-wrap">
-                                <div>
-                                    <h4 class="font-bold text-slate-800 text-lg">Histori Plan Gizi</h4>
-                                    <p class="text-sm text-slate-500 mt-1">Ringkasan menu dan kebutuhan bahan baku yang sudah disimpan.</p>
-                                </div>
-                            </div>
-                            <div class="overflow-x-auto mt-6">
-                                <table class="w-full text-sm text-left whitespace-nowrap">
-                                    <thead class="text-xs text-slate-400 uppercase bg-slate-50 border-b border-slate-100">
-                                        <tr>
-                                            <th class="px-4 py-3 font-bold">Tanggal</th>
-                                            <th class="px-4 py-3 font-bold">Menu</th>
-                                            <th class="px-4 py-3 font-bold text-center">Porsi</th>
-                                            <th class="px-4 py-3 font-bold">Jenis Pokok</th>
-                                            <th class="px-4 py-3 font-bold">Bahan Baku Utama</th>
-                                            <th class="px-4 py-3 font-bold text-right">Estimasi Biaya</th>
-                                            <th class="px-4 py-3 font-bold text-center">Aksi</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="nutritionPlanTableBody" class="divide-y divide-slate-50"></tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="tab-warehouse" class="hidden animate-fade-in space-y-6">
-                        <div class="grid lg:grid-cols-2 gap-6">
-                            <div class="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm">
-                                <h3 class="font-bold text-slate-800 text-lg">Page Gudang</h3>
-                                <p class="text-sm text-slate-500 mt-2">Tempat pencatatan stok gudang, bahan masuk/keluar, dan monitoring kebutuhan bahan pokok.</p>
-                                <div class="mt-6 grid grid-cols-2 gap-4">
-                                    <div class="rounded-2xl bg-slate-50 border border-slate-100 p-4">
-                                        <div class="text-xs text-slate-400 uppercase font-bold">Stok Aman</div>
-                                        <div class="mt-2 text-2xl font-extrabold text-slate-800">24</div>
-                                    </div>
-                                    <div class="rounded-2xl bg-red-50 border border-red-100 p-4">
-                                        <div class="text-xs text-red-400 uppercase font-bold">Perlu Restock</div>
-                                        <div class="mt-2 text-2xl font-extrabold text-red-500">6</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm">
-                                <h4 class="font-bold text-slate-800">Modul Gudang yang Disiapkan</h4>
-                                <ul class="mt-4 space-y-3 text-sm text-slate-600">
-                                    <li>Stok bahan baku & bahan pokok</li>
-                                    <li>Kartu stok masuk / keluar</li>
-                                    <li>Histori mutasi gudang</li>
-                                    <li>Notifikasi stok minimum</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="tab-accounting" class="hidden animate-fade-in space-y-6">
-                        <div class="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm">
-                            <div class="flex items-center justify-between flex-wrap gap-4">
-                                <div>
-                                    <h3 class="font-bold text-slate-800 text-lg">Page Akuntan</h3>
-                                    <p class="text-sm text-slate-500 mt-1">Ruang kerja hitungan bon, rembes, harga bahan pokok, dan rekap biaya operasional.</p>
-                                </div>
-                                <div class="bg-amber-50 text-amber-700 px-4 py-2 rounded-xl text-xs font-bold">Terhubung dengan data gaji & operasional</div>
-                            </div>
-                            <div class="grid md:grid-cols-4 gap-4 mt-6">
-                                <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4"><div class="text-xs uppercase font-bold text-slate-400">Bon</div><div class="mt-2 text-lg font-extrabold text-slate-800">Input Bon</div></div>
-                                <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4"><div class="text-xs uppercase font-bold text-slate-400">Rembes</div><div class="mt-2 text-lg font-extrabold text-slate-800">Biaya Kecil</div></div>
-                                <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4"><div class="text-xs uppercase font-bold text-slate-400">Bahan Pokok</div><div class="mt-2 text-lg font-extrabold text-slate-800">Harga Harian</div></div>
-                                <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4"><div class="text-xs uppercase font-bold text-slate-400">Rekap</div><div class="mt-2 text-lg font-extrabold text-slate-800">Laporan Biaya</div></div>
                             </div>
                         </div>
                     </div>
@@ -1111,6 +908,124 @@
                     </button>
                     
                     <div class="mt-auto pt-6 text-center text-[10px] text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="nutritionistLayout" class="hidden flex flex-col h-full bg-[radial-gradient(circle_at_top,#15345e_0%,#0b1730_45%,#050b18_100%)] text-white font-sans relative overflow-hidden">
+            <div class="absolute inset-0 pointer-events-none opacity-40">
+                <div class="absolute top-10 left-8 w-40 h-40 rounded-full bg-cyan-400/10 blur-3xl"></div>
+                <div class="absolute bottom-10 right-8 w-48 h-48 rounded-full bg-emerald-400/10 blur-3xl"></div>
+            </div>
+            <div class="relative z-10 p-6 md:p-8 flex items-center justify-between border-b border-white/10 bg-black/10 backdrop-blur-md">
+                <div>
+                    <div class="text-[10px] uppercase tracking-[0.35em] text-cyan-300 font-bold">Ahli Gizi Panel</div>
+                    <h2 class="text-2xl md:text-3xl font-extrabold mt-2" id="nutritionistGreeting">Dashboard Ahli Gizi</h2>
+                    <p class="text-sm text-slate-300 mt-1">Kelola bahan pokok, komposisi menu, dan kebutuhan gizi harian SPPG.</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="fetchData(true)" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 border border-white/10 flex items-center justify-center transition-all">
+                        <i class="fas fa-sync-alt text-sm"></i>
+                    </button>
+                    <button onclick="logout()" class="px-4 py-2 rounded-full bg-red-500/20 hover:bg-red-500 text-white border border-red-400/20 text-sm font-bold transition-all">
+                        Keluar
+                    </button>
+                </div>
+            </div>
+            <div class="relative z-10 flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="rounded-3xl border border-cyan-400/15 bg-white/5 backdrop-blur-md p-5">
+                        <div class="text-xs uppercase tracking-[0.2em] text-cyan-300 font-bold">Bahan Pokok</div>
+                        <div class="text-3xl font-extrabold mt-3" id="nutritionistIngredientCount">0</div>
+                        <p class="text-xs text-slate-300 mt-2">Jumlah item bahan baku yang terdata untuk perencanaan menu.</p>
+                    </div>
+                    <div class="rounded-3xl border border-emerald-400/15 bg-white/5 backdrop-blur-md p-5">
+                        <div class="text-xs uppercase tracking-[0.2em] text-emerald-300 font-bold">Relawan Aktif</div>
+                        <div class="text-3xl font-extrabold mt-3" id="nutritionistActiveWorkers">0</div>
+                        <p class="text-xs text-slate-300 mt-2">Dasar estimasi kebutuhan bahan pokok dan distribusi menu hari ini.</p>
+                    </div>
+                    <div class="rounded-3xl border border-amber-400/15 bg-white/5 backdrop-blur-md p-5">
+                        <div class="text-xs uppercase tracking-[0.2em] text-amber-300 font-bold">Fokus Hari Ini</div>
+                        <div class="text-lg font-bold mt-3" id="nutritionistFocusText">Validasi komposisi menu</div>
+                        <p class="text-xs text-slate-300 mt-2">Ringkasan kerja cepat untuk Ahli Gizi sebelum input lebih lanjut.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-6">
+                    <div class="rounded-[2rem] border border-white/10 bg-white/5 backdrop-blur-md p-6">
+                        <div class="flex items-center justify-between gap-3 mb-5">
+                            <div>
+                                <h3 class="font-bold text-lg">Daftar Bahan Pokok Awal</h3>
+                                <p class="text-sm text-slate-300 mt-1">Placeholder awal untuk modul bahan baku Ahli Gizi.</p>
+                            </div>
+                            <span class="text-[10px] px-3 py-1 rounded-full bg-cyan-400/10 text-cyan-300 border border-cyan-400/20">Initial Module</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
+                            <label class="rounded-2xl bg-black/20 border border-white/10 p-4 block">
+                                <span class="text-[11px] uppercase tracking-[0.2em] text-slate-300 font-bold">Target Porsi</span>
+                                <input id="nutritionistPortions" type="number" min="1" value="250" oninput="recalcNutritionPlanner()" class="mt-2 w-full input-field bg-white/10 border-white/10 text-white placeholder:text-slate-500">
+                            </label>
+                            <label class="rounded-2xl bg-black/20 border border-white/10 p-4 block">
+                                <span class="text-[11px] uppercase tracking-[0.2em] text-slate-300 font-bold">Cadangan Produksi (%)</span>
+                                <input id="nutritionistReserve" type="number" min="0" value="10" oninput="recalcNutritionPlanner()" class="mt-2 w-full input-field bg-white/10 border-white/10 text-white placeholder:text-slate-500">
+                            </label>
+                        </div>
+                        <div id="nutritionistIngredientList" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+                    </div>
+                    <div class="rounded-[2rem] border border-white/10 bg-white/5 backdrop-blur-md p-6">
+                        <h3 class="font-bold text-lg">Catatan Formula</h3>
+                        <div class="mt-4 space-y-3 text-sm text-slate-200">
+                            <div class="rounded-2xl bg-black/20 border border-white/10 p-4">
+                                <div class="font-bold text-cyan-300">Komposisi Pokok</div>
+                                <p class="text-slate-300 mt-1">Beras, protein hewani, sayur, buah, dan susu disusun per siklus menu harian.</p>
+                            </div>
+                            <div class="rounded-2xl bg-black/20 border border-white/10 p-4">
+                                <div class="font-bold text-emerald-300">Perencanaan Bahan Baku</div>
+                                <p class="text-slate-300 mt-1">Jumlah relawan aktif digunakan sebagai basis estimasi kebutuhan bahan pokok.</p>
+                            </div>
+                            <div class="rounded-2xl bg-black/20 border border-white/10 p-4">
+                                <div class="font-bold text-amber-300">Tahap Berikutnya</div>
+                                <p class="text-slate-300 mt-1">Modul ini siap dikembangkan ke hitungan kalori, menu mingguan, dan stok bahan.</p>
+                            </div>
+                        </div>
+                        <div class="mt-5 rounded-2xl bg-black/30 border border-white/10 p-4">
+                            <div class="text-xs uppercase tracking-[0.25em] text-slate-300 font-bold">Total Kebutuhan Harian</div>
+                            <div id="nutritionistTotals" class="mt-3 space-y-2 text-sm text-white"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="specialRoleLayout" class="hidden flex flex-col h-full bg-[linear-gradient(135deg,#0f172a_0%,#1e293b_45%,#0b1120_100%)] text-white font-sans relative overflow-hidden">
+            <div class="absolute inset-0 pointer-events-none opacity-40">
+                <div class="absolute top-16 right-16 w-48 h-48 rounded-full bg-blue-400/10 blur-3xl"></div>
+                <div class="absolute bottom-16 left-16 w-52 h-52 rounded-full bg-cyan-400/10 blur-3xl"></div>
+            </div>
+            <div class="relative z-10 p-6 md:p-8 flex items-center justify-between border-b border-white/10 bg-black/10 backdrop-blur-md">
+                <div>
+                    <div id="specialRoleEyebrow" class="text-[10px] uppercase tracking-[0.35em] text-cyan-300 font-bold">SPPG Role Panel</div>
+                    <h2 id="specialRoleTitle" class="text-2xl md:text-3xl font-extrabold mt-2">Dashboard Role Khusus</h2>
+                    <p id="specialRoleDesc" class="text-sm text-slate-300 mt-1">Halaman awal untuk role khusus SPPG.</p>
+                </div>
+                <button onclick="logout()" class="px-4 py-2 rounded-full bg-red-500/20 hover:bg-red-500 text-white border border-red-400/20 text-sm font-bold transition-all">Keluar</button>
+            </div>
+            <div class="relative z-10 flex-1 p-6 md:p-8">
+                <div class="max-w-4xl rounded-[2rem] border border-white/10 bg-white/5 backdrop-blur-md p-6 md:p-8">
+                    <div class="text-sm text-slate-300 leading-relaxed">Role ini sudah aktif untuk login dan dibuat dari admin web. Placeholder ini disiapkan supaya akun khusus seperti Akuntan, Gudang, Ka SPPG, dan Yayasan tidak masuk ke dashboard admin. Tahap berikutnya kita bisa isi modul khusus sesuai kebutuhan operasional masing-masing.</div>
+                    <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="rounded-2xl bg-black/20 border border-white/10 p-4">
+                            <div class="text-xs uppercase tracking-[0.2em] text-cyan-300 font-bold">Role Aktif</div>
+                            <div id="specialRoleCardLabel" class="mt-2 text-lg font-bold">-</div>
+                        </div>
+                        <div class="rounded-2xl bg-black/20 border border-white/10 p-4">
+                            <div class="text-xs uppercase tracking-[0.2em] text-emerald-300 font-bold">Pengguna</div>
+                            <div id="specialRoleUserName" class="mt-2 text-lg font-bold">-</div>
+                        </div>
+                        <div class="rounded-2xl bg-black/20 border border-white/10 p-4">
+                            <div class="text-xs uppercase tracking-[0.2em] text-amber-300 font-bold">Divisi</div>
+                            <div id="specialRoleDivision" class="mt-2 text-lg font-bold">-</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

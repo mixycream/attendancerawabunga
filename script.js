@@ -7,6 +7,26 @@ const LOCAL_USERS = [
     { u:'adminrawabunga1', p:'123', role:'admin' },
 ];
 
+const DIVISION_ROLE_PRESETS = {
+    'Keamanan': 'security',
+    'Ahli Gizi': 'nutritionist',
+    'Akuntan': 'accountant',
+    'Gudang': 'warehouse',
+    'Ka SPPG': 'head_sppg',
+    'Yayasan': 'foundation'
+};
+
+const ROLE_LABELS = {
+    admin: 'Admin',
+    employee: 'Relawan Biasa',
+    security: 'Security',
+    nutritionist: 'Ahli Gizi',
+    accountant: 'Akuntan',
+    warehouse: 'Gudang',
+    head_sppg: 'Ka SPPG',
+    foundation: 'Yayasan'
+};
+
 // Convert old Google Drive URLs to CDN format (for direct embedding with CORS support)
 function convertDriveUrl(url) {
     if (!url || !url.startsWith('http')) return url;
@@ -137,7 +157,6 @@ let sortState = {
     employees: 'name_asc',
     salary: 'name_asc'
 };
-let nutritionPlans = [];
 let editingEmployeeId = null;
 let pendingAttendancePayload = null; // Menyimpan data sementara jika telat > 30 menit
 let trendChartInstance = null; // Instance Chart.js
@@ -167,91 +186,11 @@ function formatDuration(totalMinutes) {
     return result.join(" ");
 }
 
-function normalizeRole(role, division = '') {
-    const rawRole = String(role || '').toLowerCase().trim();
-    const rawDivision = String(division || '').toLowerCase().trim();
-
-    if (rawRole === 'relawan') {
-        if (rawDivision.includes('keamanan')) return 'security';
-        if (rawDivision.includes('yayasan')) return 'foundation';
-        if (rawDivision.includes('ahli gizi')) return 'nutrition';
-        if (rawDivision.includes('gudang')) return 'warehouse';
-        if (rawDivision.includes('akuntan')) return 'accountant';
-    }
-
-    if (rawRole) {
-        if (rawRole === 'ahli-gizi' || rawRole === 'ahligizi' || rawRole === 'ahli gizi') return 'nutrition';
-        if (rawRole === 'yayasan') return 'foundation';
-        if (rawRole === 'akuntan') return 'accountant';
-        return rawRole;
-    }
-
-    if (rawDivision.includes('keamanan')) return 'security';
-    if (rawDivision.includes('yayasan')) return 'foundation';
-    if (rawDivision.includes('ahli gizi')) return 'nutrition';
-    if (rawDivision.includes('gudang')) return 'warehouse';
-    if (rawDivision.includes('akuntan')) return 'accountant';
-    return 'relawan';
-}
-
-function isBackofficeRole(role) {
-    return ['admin', 'foundation', 'nutrition', 'warehouse', 'accountant'].includes(normalizeRole(role));
-}
-
-function needsRoleCredentials(role) {
-    return ['security', 'foundation', 'nutrition', 'warehouse', 'accountant'].includes(normalizeRole(role));
-}
-
-function getRoleLabel(role) {
-    const labels = {
-        admin: 'Admin',
-        relawan: 'Relawan',
-        security: 'Security',
-        foundation: 'Yayasan',
-        nutrition: 'Ahli Gizi',
-        warehouse: 'Gudang',
-        accountant: 'Akuntan'
-    };
-    return labels[normalizeRole(role)] || 'Relawan';
-}
-
-function getDefaultTabForRole(role) {
-    const normalized = normalizeRole(role);
-    if (normalized === 'foundation') return 'foundation';
-    if (normalized === 'nutrition') return 'nutrition';
-    if (normalized === 'warehouse') return 'warehouse';
-    if (normalized === 'accountant') return 'accounting';
-    return 'dashboard';
-}
-
-function inferRoleFromDivision(division) {
-    const rawDivision = String(division || '').toLowerCase().trim();
-    if (rawDivision.includes('keamanan')) return 'security';
-    if (rawDivision.includes('yayasan')) return 'foundation';
-    if (rawDivision.includes('ahli gizi')) return 'nutrition';
-    if (rawDivision.includes('gudang')) return 'warehouse';
-    if (rawDivision.includes('akuntan')) return 'accountant';
-    return 'relawan';
-}
-
-function syncRoleFromDivision(mode) {
-    const isEdit = mode === 'edit';
-    const divisionEl = document.getElementById(isEdit ? 'editEmpDiv' : 'newEmpDiv');
-    const roleEl = document.getElementById(isEdit ? 'editEmpRole' : 'newEmpRole');
-    if (!divisionEl || !roleEl) return;
-
-    const inferredRole = inferRoleFromDivision(divisionEl.value);
-    roleEl.value = inferredRole;
-    if (isEdit) toggleEditEmpCreds(inferredRole);
-    else toggleNewEmpCreds(inferredRole);
-}
-
 // --- AUTH & INIT ---
 window.onload = () => {
     const savedUser = localStorage.getItem('mbg_user');
     if(savedUser) {
         currentUser = JSON.parse(savedUser);
-        currentUser.role = normalizeRole(currentUser.role, currentUser.division);
         if (currentUser.role === 'security') {
             callApi('checkSecuritySession', { username: currentUser.u || '' }).then(resp => {
                 if (!resp.ok || !resp.data || resp.data.status !== 'success') {
@@ -269,7 +208,9 @@ window.onload = () => {
         } else {
             document.getElementById('loginView').classList.add('hidden');
             fetchData(true);
-            initRoleLayout();
+            if (currentUser.role === 'nutritionist') initNutritionist();
+            else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(currentUser.role)) initSpecialRoleDashboard();
+            else initAdmin();
         }
     }
     
@@ -302,14 +243,16 @@ async function handleLogin(e) {
     const localAcc = LOCAL_USERS.find(a => a.u === u && a.p === p);
     if(localAcc) {
         currentUser = localAcc;
-        currentUser.role = normalizeRole(currentUser.role, currentUser.division);
         localStorage.setItem('mbg_user', JSON.stringify(localAcc));
 
         document.getElementById('loginView').classList.add('opacity-0', 'pointer-events-none');
         setTimeout(() => document.getElementById('loginView').classList.add('hidden'), 500);
 
         await fetchData(true);
-        if(currentUser.role === 'security') initSecurity(); else initRoleLayout();
+        if (localAcc.role === 'security') initSecurity();
+        else if (localAcc.role === 'nutritionist') initNutritionist();
+        else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(localAcc.role)) initSpecialRoleDashboard();
+        else initAdmin();
         // Remember username if checkbox checked
         const remember = document.getElementById('rememberMe')?.checked;
         if (remember) localStorage.setItem('remembered_username', u); else localStorage.removeItem('remembered_username');
@@ -321,7 +264,6 @@ async function handleLogin(e) {
     if (!resp.ok || !resp.data) return showToast('Gagal terhubung ke server / Username/Password Salah', 'error');
     if (resp.data.status === 'success') {
         const user = resp.data.user || { u: u, role: 'security' };
-        user.role = normalizeRole(user.role, user.division);
         currentUser = user;
         localStorage.setItem('mbg_user', JSON.stringify(user));
 
@@ -329,7 +271,10 @@ async function handleLogin(e) {
         setTimeout(() => document.getElementById('loginView').classList.add('hidden'), 500);
 
         await fetchData(true);
-        if (user.role === 'security') initSecurity(); else initRoleLayout();
+        if (user.role === 'security') initSecurity();
+        else if (user.role === 'nutritionist') initNutritionist();
+        else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(user.role)) initSpecialRoleDashboard();
+        else initAdmin();
         // Remember username if checkbox checked
         const remember = document.getElementById('rememberMe')?.checked;
         if (remember) localStorage.setItem('remembered_username', u); else localStorage.removeItem('remembered_username');
@@ -386,7 +331,6 @@ async function fetchData(force = false) {
             if(data.status === 'success') {
                 employees = data.employees;
                 logs = data.logs;
-                nutritionPlans = Array.isArray(data.nutritionPlans) ? data.nutritionPlans : [];
 
                 if(data.config) {
                     if(data.config.overtimeRate) {
@@ -506,7 +450,17 @@ function refreshUI() {
         return;
     }
 
-    if(currentUser.role === 'security') {
+    if (currentUser.role === 'nutritionist') {
+        renderNutritionistDashboard();
+        return;
+    }
+
+    if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(currentUser.role)) {
+        renderSpecialRoleDashboard();
+        return;
+    }
+
+    if(currentUser.role !== 'admin') {
         updateSecurityDropdown();
         updateSecurityInfo();
         return;
@@ -535,13 +489,10 @@ function refreshUI() {
     document.getElementById('statWorking').innerText = workingCount + " Sedang Bekerja";
     document.getElementById('statOvertime').innerText = overtimeCount;
     document.getElementById('statLate').innerText = lateCount; 
-    const foundationPresentCount = document.getElementById('foundationPresentCount');
-    if (foundationPresentCount) foundationPresentCount.innerText = present;
 
     // Render Components
     renderTrendChart();
     renderDivisionGrid();
-    renderNutritionPlans();
 
     // --- RENDER LOGS (TABEL AKTIVITAS) ---
     const sortedLogs = getSortedData(logs, 'logs');
@@ -626,6 +577,9 @@ function refreshUI() {
             }
 
             const shiftTime = getShiftTime(e.division);
+            const roleKey = e.role || 'employee';
+            const roleLabel = ROLE_LABELS[roleKey] || roleKey;
+            const roleClass = roleKey === 'employee' ? 'bg-slate-100 text-slate-600' : 'bg-blue-50 text-blue-700';
 
             return `
             <tr class="border-b border-slate-50 hover:bg-slate-50 transition">
@@ -640,7 +594,10 @@ function refreshUI() {
                 </td>
                 <td class="px-6 py-4">
                     <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">${e.division}</span>
-                    <div class="text-[10px] text-slate-400 mt-1 flex items-center gap-2 flex-wrap"><span><i class="far fa-clock"></i> ${shiftTime}</span><span class="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-bold">${getRoleLabel(e.role)}</span></div>
+                    <div class="text-[10px] text-slate-400 mt-1"><i class="far fa-clock"></i> ${shiftTime}</div>
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${roleClass}">${roleLabel}</span>
                 </td>
                 <td class="px-6 py-4 text-right font-bold text-emerald-600">Rp ${parseInt(e.salary).toLocaleString()}</td>
                 <td class="px-6 py-4 text-center">
@@ -751,138 +708,6 @@ function renderSalary() {
             <td class="p-4 text-right font-extrabold text-slate-800 text-base">Rp ${e.total.toLocaleString()}</td>
         </tr>`;
     }).join('');
-}
-
-function getNutritionNumericValue(id) {
-    const el = document.getElementById(id);
-    return el ? (parseFloat(el.value) || 0) : 0;
-}
-
-function calculateNutritionDraft() {
-    const portions = getNutritionNumericValue('nutritionPortions');
-    const items = [
-        { label: document.getElementById('nutritionRiceType')?.value || 'Pokok', gram: getNutritionNumericValue('nutritionRiceGram'), price: getNutritionNumericValue('nutritionRicePrice') },
-        { label: document.getElementById('nutritionProteinType')?.value || 'Protein', gram: getNutritionNumericValue('nutritionProteinGram'), price: getNutritionNumericValue('nutritionProteinPrice') },
-        { label: document.getElementById('nutritionVegetableType')?.value || 'Sayur', gram: getNutritionNumericValue('nutritionVegetableGram'), price: getNutritionNumericValue('nutritionVegetablePrice') },
-        { label: document.getElementById('nutritionFruitType')?.value || 'Buah', gram: getNutritionNumericValue('nutritionFruitGram'), price: getNutritionNumericValue('nutritionFruitPrice') },
-        { label: document.getElementById('nutritionMilkType')?.value || 'Susu / Pelengkap', gram: getNutritionNumericValue('nutritionMilkGram'), price: getNutritionNumericValue('nutritionMilkPrice') }
-    ];
-
-    const perPortionTotal = items.reduce((sum, item) => sum + item.gram, 0);
-    const totalNeedGram = perPortionTotal * portions;
-    const totalEstimatedCost = items.reduce((sum, item) => sum + ((((item.gram * portions) / 1000) * item.price) || 0), 0);
-
-    return { portions, items, perPortionTotal, totalNeedGram, totalEstimatedCost };
-}
-
-function syncNutritionPreview() {
-    const titleEl = document.getElementById('nutritionPreviewTitle');
-    if (!titleEl) return;
-
-    const draft = calculateNutritionDraft();
-    const menuName = document.getElementById('nutritionMenuName')?.value || 'Belum ada menu';
-    const planDate = document.getElementById('nutritionDate')?.value || 'Isi form untuk mulai hitung.';
-
-    titleEl.innerText = menuName;
-    document.getElementById('nutritionPreviewDate').innerText = `${planDate} • ${draft.portions || 0} porsi`;
-    document.getElementById('nutritionPerPortionTotal').innerText = `${draft.perPortionTotal.toFixed(0)} g`;
-    document.getElementById('nutritionTotalNeed').innerText = `${(draft.totalNeedGram / 1000).toFixed(2)} kg`;
-    document.getElementById('nutritionEstimatedCost').innerText = `Estimasi biaya: Rp ${Math.round(draft.totalEstimatedCost).toLocaleString('id-ID')}`;
-
-    document.getElementById('nutritionBreakdown').innerHTML = draft.items.map(item => {
-        const totalKg = (item.gram * draft.portions) / 1000;
-        const totalCost = totalKg * item.price;
-        return `<div class="flex items-center justify-between gap-4 border-b border-white/10 pb-3">
-            <div>
-                <div class="font-bold text-white">${item.label}</div>
-                <div class="text-xs text-slate-400">${item.gram || 0} g / porsi</div>
-            </div>
-            <div class="text-right">
-                <div class="font-bold text-blue-300">${totalKg.toFixed(2)} kg</div>
-                <div class="text-xs text-slate-400">Rp ${Math.round(totalCost).toLocaleString('id-ID')}</div>
-            </div>
-        </div>`;
-    }).join('');
-}
-
-function resetNutritionForm() {
-    const dateEl = document.getElementById('nutritionDate');
-    if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
-    ['nutritionMenuName','nutritionPortions','nutritionRiceType','nutritionRiceGram','nutritionRicePrice','nutritionProteinType','nutritionProteinGram','nutritionProteinPrice','nutritionVegetableType','nutritionVegetableGram','nutritionVegetablePrice','nutritionFruitType','nutritionFruitGram','nutritionFruitPrice','nutritionMilkType','nutritionMilkGram','nutritionMilkPrice','nutritionNotes'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-    });
-    if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
-    syncNutritionPreview();
-}
-
-function renderNutritionPlans() {
-    const countEl = document.getElementById('nutritionPlanCount');
-    if (countEl) countEl.innerText = nutritionPlans.length;
-
-    const dateEl = document.getElementById('nutritionDate');
-    if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().split('T')[0];
-
-    const body = document.getElementById('nutritionPlanTableBody');
-    if (!body) {
-        syncNutritionPreview();
-        return;
-    }
-
-    if (!nutritionPlans.length) {
-        body.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">Belum ada plan gizi tersimpan.</td></tr>';
-        syncNutritionPreview();
-        return;
-    }
-
-    body.innerHTML = nutritionPlans.map(plan => {
-        const estimatedCost = ((((plan.riceGram || 0) * (plan.portions || 0)) / 1000) * (plan.ricePrice || 0)) + ((((plan.proteinGram || 0) * (plan.portions || 0)) / 1000) * (plan.proteinPrice || 0)) + ((((plan.vegetableGram || 0) * (plan.portions || 0)) / 1000) * (plan.vegetablePrice || 0)) + ((((plan.fruitGram || 0) * (plan.portions || 0)) / 1000) * (plan.fruitPrice || 0)) + ((((plan.milkGram || 0) * (plan.portions || 0)) / 1000) * (plan.milkPrice || 0));
-        return `<tr class="hover:bg-slate-50 transition">
-            <td class="px-4 py-3 text-slate-500">${plan.date || '-'}</td>
-            <td class="px-4 py-3"><div class="font-bold text-slate-700">${plan.menuName || '-'}</div><div class="text-[10px] text-slate-400">${plan.updatedBy || '-'}</div></td>
-            <td class="px-4 py-3 text-center font-bold text-slate-700">${plan.portions || 0}</td>
-            <td class="px-4 py-3 text-slate-600">${plan.riceType || '-'}</td>
-            <td class="px-4 py-3 text-slate-600 text-xs">${[plan.proteinType, plan.vegetableType, plan.fruitType, plan.milkType].filter(Boolean).join(', ') || '-'}</td>
-            <td class="px-4 py-3 text-right font-bold text-emerald-600">Rp ${Math.round(estimatedCost).toLocaleString('id-ID')}</td>
-            <td class="px-4 py-3 text-center"><button onclick="deleteNutritionPlan('${plan.id}')" class="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-100 transition flex items-center justify-center mx-auto"><i class="fas fa-trash text-xs"></i></button></td>
-        </tr>`;
-    }).join('');
-
-    syncNutritionPreview();
-}
-
-async function submitNutritionPlan(e) {
-    e.preventDefault();
-    const payload = {
-        date: document.getElementById('nutritionDate').value,
-        menuName: document.getElementById('nutritionMenuName').value,
-        portions: document.getElementById('nutritionPortions').value,
-        riceType: document.getElementById('nutritionRiceType').value,
-        riceGram: document.getElementById('nutritionRiceGram').value,
-        ricePrice: document.getElementById('nutritionRicePrice').value,
-        proteinType: document.getElementById('nutritionProteinType').value,
-        proteinGram: document.getElementById('nutritionProteinGram').value,
-        proteinPrice: document.getElementById('nutritionProteinPrice').value,
-        vegetableType: document.getElementById('nutritionVegetableType').value,
-        vegetableGram: document.getElementById('nutritionVegetableGram').value,
-        vegetablePrice: document.getElementById('nutritionVegetablePrice').value,
-        fruitType: document.getElementById('nutritionFruitType').value,
-        fruitGram: document.getElementById('nutritionFruitGram').value,
-        fruitPrice: document.getElementById('nutritionFruitPrice').value,
-        milkType: document.getElementById('nutritionMilkType').value,
-        milkGram: document.getElementById('nutritionMilkGram').value,
-        milkPrice: document.getElementById('nutritionMilkPrice').value,
-        notes: document.getElementById('nutritionNotes').value,
-        updatedBy: currentUser ? (currentUser.name || currentUser.u || 'Admin') : 'Admin'
-    };
-
-    const success = await postData('saveNutritionPlan', payload);
-    if (success) resetNutritionForm();
-}
-
-async function deleteNutritionPlan(id) {
-    if (!confirm('Hapus plan gizi ini?')) return;
-    await postData('deleteNutritionPlan', { id });
 }
 
 // --- CHART & GRID ---
@@ -1364,88 +1189,113 @@ function closeActiveWorkers() {
     if(activeWorkerTimer) clearInterval(activeWorkerTimer);
 }
 // UI Helpers
-function applySidebarState() {
-    const sb = document.getElementById('sidebar');
-    const main = document.getElementById('adminMainLayout');
-    const icon = document.getElementById('desktopSidebarToggleIcon');
-    const button = document.getElementById('desktopSidebarToggle');
-    if (!sb || !main) return;
-
-    const isDesktop = window.innerWidth >= 768;
-    const isCollapsed = localStorage.getItem('mbg_sidebar_collapsed') === '1';
-
-    if (isDesktop) {
-        sb.classList.remove('-translate-x-full');
-        sb.style.transform = isCollapsed ? 'translateX(-100%)' : 'translateX(0)';
-        main.style.marginLeft = isCollapsed ? '0' : '18rem';
-        if (icon) icon.className = isCollapsed ? 'fas fa-panel-right' : 'fas fa-panel-left';
-        if (button) button.title = isCollapsed ? 'Tampilkan sidebar' : 'Sembunyikan sidebar';
-        const overlay = document.getElementById('sidebarOverlay');
-        if (overlay) overlay.classList.add('hidden');
-    } else {
-        sb.style.transform = '';
-        main.style.marginLeft = '';
-        if (icon) icon.className = 'fas fa-panel-left';
-        if (button) button.title = 'Sembunyikan sidebar';
-    }
-}
-
 function toggleSidebar() {
     const sb = document.getElementById('sidebar');
     const ol = document.getElementById('sidebarOverlay');
-    if (!sb || !ol) return;
-
-    if (window.innerWidth >= 768) {
-        const current = localStorage.getItem('mbg_sidebar_collapsed') === '1';
-        localStorage.setItem('mbg_sidebar_collapsed', current ? '0' : '1');
-        applySidebarState();
-        return;
-    }
-
-    if (sb.classList.contains('-translate-x-full')) {
-        sb.classList.remove('-translate-x-full');
-        ol.classList.remove('hidden');
-        setTimeout(() => ol.classList.remove('opacity-0'), 10);
-    } else {
-        sb.classList.add('-translate-x-full');
-        ol.classList.add('opacity-0');
-        setTimeout(() => ol.classList.add('hidden'), 300);
-    }
+    if (sb.classList.contains('-translate-x-full')) { sb.classList.remove('-translate-x-full'); ol.classList.remove('hidden'); setTimeout(() => ol.classList.remove('opacity-0'), 10); } 
+    else { sb.classList.add('-translate-x-full'); ol.classList.add('opacity-0'); setTimeout(() => ol.classList.add('hidden'), 300); }
 }
 function previewImage(url) { document.getElementById('imgModalSrc').src = url; document.getElementById('imgDownloadLink').href = url; document.getElementById('imgModal').classList.remove('hidden'); setTimeout(() => document.getElementById('imgModal').classList.remove('opacity-0'), 10); }
 function closePreview() { document.getElementById('imgModal').classList.add('opacity-0'); setTimeout(() => document.getElementById('imgModal').classList.add('hidden'), 300); }
 function switchTab(id) {
-    ['dashboard','employees','salaries','foundation','nutrition','warehouse','accounting'].forEach(t => document.getElementById('tab-'+t)?.classList.add('hidden'));
+    ['dashboard','employees','salaries'].forEach(t => document.getElementById('tab-'+t).classList.add('hidden'));
     document.getElementById('tab-'+id).classList.remove('hidden');
     if(window.innerWidth < 768) { document.getElementById('sidebar').classList.add('-translate-x-full'); document.getElementById('sidebarOverlay').classList.add('hidden'); }
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     Array.from(document.querySelectorAll('.nav-item')).find(b => b.getAttribute('onclick').includes(id))?.classList.add('active');
-    const titles = { 'dashboard': 'Dashboard', 'employees': 'Data Karyawan', 'salaries': 'Laporan Gaji', 'foundation': 'Yayasan', 'nutrition': 'Ahli Gizi', 'warehouse': 'Gudang', 'accounting': 'Akuntan' };
+    const titles = { 'dashboard': 'Dashboard', 'employees': 'Data Karyawan', 'salaries': 'Laporan Gaji' };
     document.getElementById('pageTitle').innerText = titles[id];
 }
-function applyRoleAccess() {
-    const role = normalizeRole(currentUser?.role);
-    const accessRole = role === 'foundation' ? 'admin' : role;
-    document.querySelectorAll('.nav-item').forEach(btn => {
-        const roles = (btn.dataset.roles || 'admin').split(',').map(item => item.trim());
-        btn.classList.toggle('hidden', !(roles.includes(accessRole) || accessRole === 'admin'));
-    });
-
-    const titleEl = document.getElementById('layoutTitle');
-    const subtitleEl = document.getElementById('layoutSubtitle');
-    if (titleEl) titleEl.innerText = accessRole === 'admin' ? 'SPPG Yayasan' : `Portal ${getRoleLabel(role)}`;
-    if (subtitleEl) subtitleEl.innerText = accessRole === 'admin' ? 'Manager Mode' : `${getRoleLabel(role)} Mode`;
+function initAdmin() { document.getElementById('adminLayout').classList.remove('hidden'); refreshUI(); }
+function initNutritionist() {
+    document.getElementById('nutritionistLayout').classList.remove('hidden');
+    renderNutritionistDashboard();
 }
 
-function initRoleLayout() {
-    document.getElementById('adminLayout').classList.remove('hidden');
-    applyRoleAccess();
-    refreshUI();
-    applySidebarState();
-    switchTab(getDefaultTabForRole(currentUser?.role));
+function initSpecialRoleDashboard() {
+    document.getElementById('specialRoleLayout').classList.remove('hidden');
+    renderSpecialRoleDashboard();
 }
 
-window.addEventListener('resize', applySidebarState);
+function renderSpecialRoleDashboard() {
+    const title = document.getElementById('specialRoleTitle');
+    const eyebrow = document.getElementById('specialRoleEyebrow');
+    const desc = document.getElementById('specialRoleDesc');
+    const label = document.getElementById('specialRoleCardLabel');
+    const userName = document.getElementById('specialRoleUserName');
+    const division = document.getElementById('specialRoleDivision');
+    if (!title || !eyebrow || !desc || !label || !userName || !division) return;
+
+    const currentRole = currentUser?.role || 'employee';
+    const roleLabel = ROLE_LABELS[currentRole] || currentRole;
+    eyebrow.innerText = `${roleLabel} Panel`;
+    title.innerText = `Dashboard ${roleLabel}`;
+    desc.innerText = `Halaman awal ${roleLabel} untuk operasional SPPG Yayasan. Modul detail akan ditambahkan berikutnya.`;
+    label.innerText = roleLabel;
+    userName.innerText = currentUser?.name || '-';
+    division.innerText = currentUser?.division || '-';
+}
+
+function recalcNutritionPlanner() {
+    const totalsEl = document.getElementById('nutritionistTotals');
+    const portionsEl = document.getElementById('nutritionistPortions');
+    if (!totalsEl || !portionsEl) return;
+
+    const portions = Math.max(parseFloat(portionsEl.value) || 0, 0);
+    const reserve = Math.max(parseFloat(document.getElementById('nutritionistReserve')?.value) || 0, 0);
+    const multiplier = 1 + (reserve / 100);
+    const formulas = [
+        { key: 'Beras', grams: 120, unit: 'kg' },
+        { key: 'Protein Hewani', grams: 60, unit: 'kg' },
+        { key: 'Protein Nabati', grams: 35, unit: 'kg' },
+        { key: 'Sayur', grams: 50, unit: 'kg' },
+        { key: 'Buah', grams: 40, unit: 'kg' },
+        { key: 'Susu', grams: 200, unit: 'liter' }
+    ];
+
+    totalsEl.innerHTML = formulas.map(item => {
+        const totalGrams = portions * item.grams * multiplier;
+        const totalValue = (totalGrams / 1000).toFixed(1);
+        return `<div class="flex items-center justify-between gap-3 rounded-xl bg-black/20 border border-white/5 px-3 py-2"><span class="text-slate-300">${item.key}</span><span class="font-bold text-white">${totalValue} ${item.unit}</span></div>`;
+    }).join('');
+}
+
+function renderNutritionistDashboard() {
+    const greeting = document.getElementById('nutritionistGreeting');
+    const ingredientCount = document.getElementById('nutritionistIngredientCount');
+    const activeWorkers = document.getElementById('nutritionistActiveWorkers');
+    const ingredientList = document.getElementById('nutritionistIngredientList');
+    const focusText = document.getElementById('nutritionistFocusText');
+    if (!greeting || !ingredientCount || !activeWorkers || !ingredientList || !focusText) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const activeCount = logs.filter(l => l.date === today && l.type === 'IN').length;
+    const starterIngredients = [
+        { name: 'Beras', desc: '120 gram per porsi untuk kebutuhan karbohidrat utama.' },
+        { name: 'Protein Hewani', desc: '60 gram per porsi untuk lauk utama harian.' },
+        { name: 'Protein Nabati', desc: '35 gram per porsi sebagai kombinasi menu seimbang.' },
+        { name: 'Sayur', desc: '50 gram per porsi untuk serat dan mikronutrien.' },
+        { name: 'Buah', desc: '40 gram per porsi untuk pelengkap menu.' },
+        { name: 'Susu', desc: '200 ml per porsi untuk kebutuhan tambahan.' }
+    ];
+
+    greeting.innerText = `Dashboard Ahli Gizi • ${currentUser?.name || 'SPPG'}`;
+    ingredientCount.innerText = starterIngredients.length;
+    activeWorkers.innerText = activeCount;
+    focusText.innerText = activeCount > 0 ? 'Estimasi bahan berdasarkan relawan aktif' : 'Siapkan formula bahan pokok harian';
+    ingredientList.innerHTML = starterIngredients.map(item => `
+        <div class="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div class="text-sm font-bold text-white">${item.name}</div>
+            <div class="text-xs text-slate-300 mt-1 leading-relaxed">${item.desc}</div>
+        </div>
+    `).join('');
+    const portionsEl = document.getElementById('nutritionistPortions');
+    if (portionsEl && (!portionsEl.value || parseInt(portionsEl.value, 10) <= 0)) {
+        portionsEl.value = activeCount > 0 ? activeCount : 250;
+    }
+    recalcNutritionPlanner();
+}
+
 function updateSecurityInfo() {
     const now = new Date(); const onejan = new Date(now.getFullYear(), 0, 1);
     const week = Math.ceil((((now.getTime() - onejan.getTime()) / 86400000) + onejan.getDay() + 1) / 7);
@@ -1487,6 +1337,21 @@ function updateSecurityEntryGate() {
     }
 }
 
+function handleDivisionRolePreset(mode) {
+    const divEl = document.getElementById(mode === 'edit' ? 'editEmpDiv' : 'newEmpDiv');
+    const roleEl = document.getElementById(mode === 'edit' ? 'editEmpRole' : 'newEmpRole');
+    if (!divEl || !roleEl) return;
+
+    const presetRole = DIVISION_ROLE_PRESETS[divEl.value] || 'employee';
+    roleEl.value = presetRole;
+    roleEl.disabled = !!DIVISION_ROLE_PRESETS[divEl.value];
+    roleEl.classList.toggle('opacity-60', roleEl.disabled);
+    roleEl.classList.toggle('cursor-not-allowed', roleEl.disabled);
+
+    if (mode === 'edit') toggleEditEmpCreds(roleEl.value);
+    else toggleNewEmpCreds(roleEl.value);
+}
+
 function startSecuritySelfCheck() {
     if (!currentUser || !currentUser.id) {
         showToast('Data security login tidak lengkap', 'error');
@@ -1509,11 +1374,11 @@ function toggleNewEmpCreds(role) {
     const unameEl = document.getElementById('newEmpUsername');
     const pwdEl = document.getElementById('newEmpPassword');
     if (!el) return;
-    if (needsRoleCredentials(role)) {
-        el.classList.remove('hidden');
-    } else {
+    if (String(role).toLowerCase() !== 'employee') {
         if (unameEl) unameEl.value = '';
         if (pwdEl) pwdEl.value = '';
+        el.classList.remove('hidden');
+    } else {
         el.classList.add('hidden');
     }
 }
@@ -1522,7 +1387,7 @@ function toggleEditEmpCreds(role) {
     const unameEl = document.getElementById('editEmpUsername');
     const pwdEl = document.getElementById('editEmpPassword');
     if (!el) return;
-    if (needsRoleCredentials(role)) {
+    if (String(role).toLowerCase() !== 'employee') {
         el.classList.remove('hidden');
     } else {
         if (unameEl) unameEl.value = '';
@@ -1530,65 +1395,42 @@ function toggleEditEmpCreds(role) {
         el.classList.add('hidden');
     }
 }
-async function addEmployee(e) {
+function addEmployee(e) {
     e.preventDefault();
     const name = document.getElementById('newEmpName').value;
     const div = document.getElementById('newEmpDiv').value;
-    const role = normalizeRole(document.getElementById('newEmpRole').value, div);
+    const role = document.getElementById('newEmpRole').value;
     const salary = document.getElementById('newEmpSalary').value;
     const id = 'EMP-' + Math.floor(1000 + Math.random() * 9000);
 
     let payload = { id, name, division: div, salary, role };
     
-    if (needsRoleCredentials(role)) {
-        const uname = document.getElementById('newEmpUsername').value.toLowerCase().trim();
-        const pwd = document.getElementById('newEmpPassword').value.trim();
-        if (!uname || !pwd) {
-            showToast(`Username dan password wajib diisi untuk role ${getRoleLabel(role)}.`, 'error');
-            return;
-        }
+    if (String(role).toLowerCase() !== 'employee') {
+        const uname = document.getElementById('newEmpUsername').value;
+        const pwd = document.getElementById('newEmpPassword').value;
         if (uname) payload.username = uname;
         if (pwd) payload.password = pwd;
-    } else {
-        payload.username = '';
-        payload.password = '';
     }
 
-    const success = await postData('addEmployee', payload);
-    if (!success) return;
-
+    postData('addEmployee', payload);
     e.target.reset();
     const creds = document.getElementById('newEmpCreds'); if (creds) creds.classList.add('hidden');
+    handleDivisionRolePreset('new');
 }
-async function deleteEmployee() {
-    if (!editingEmployeeId) return;
-    if (!confirm("Hapus data relawan ini?")) return;
-
-    const targetId = editingEmployeeId;
-    const success = await postData('deleteEmployee', { id: targetId });
-    if (!success) return;
-
-    employees = employees.filter(e => String(e.id) !== String(targetId));
-    refreshUI();
-    closeEditEmployee();
-}
-async function submitEditEmployee(e) {
+function deleteEmployee() { if (!editingEmployeeId) return; if(confirm("Hapus data relawan ini?")) { employees = employees.filter(e => e.id !== editingEmployeeId); refreshUI(); closeEditEmployee(); postData('deleteEmployee', { id: editingEmployeeId }); } }
+function submitEditEmployee(e) {
     e.preventDefault(); if (!editingEmployeeId) return;
     const name = document.getElementById('editEmpName').value;
     const div = document.getElementById('editEmpDiv').value;
-    const role = normalizeRole(document.getElementById('editEmpRole').value, div);
+    const role = document.getElementById('editEmpRole').value;
     const salary = document.getElementById('editEmpSalary').value;
     let payload = { id: editingEmployeeId, name: name, division: div, salary: salary, role: role };
     const oldEmp = employees.find(e => e.id === editingEmployeeId);
     if(oldEmp && oldEmp.photo) payload.photo = oldEmp.photo;
 
-    if (needsRoleCredentials(role)) {
-        const uname = document.getElementById('editEmpUsername').value.toLowerCase().trim();
-        const pwd = document.getElementById('editEmpPassword').value.trim();
-        if (!uname || !pwd) {
-            showToast(`Username dan password wajib diisi untuk role ${getRoleLabel(role)}.`, 'error');
-            return;
-        }
+    if (String(role).toLowerCase() !== 'employee') {
+        const uname = document.getElementById('editEmpUsername').value;
+        const pwd = document.getElementById('editEmpPassword').value;
         if (uname) payload.username = uname;
         if (pwd) payload.password = pwd;
     } else {
@@ -1596,14 +1438,13 @@ async function submitEditEmployee(e) {
         payload.password = '';
     }
 
-    const success = await postData('addEmployee', payload);
-    if (!success) return;
-
-    closeEditEmployee();
+    const empIndex = employees.findIndex(e => e.id === editingEmployeeId);
+    if(empIndex !== -1) { employees[empIndex] = { ...employees[empIndex], ...payload }; refreshUI(); }
+    closeEditEmployee(); postData('addEmployee', payload);
 }
 function openEditEmployee(id) {
     const emp = employees.find(e => e.id === id); if (!emp) return;
-    editingEmployeeId = id; document.getElementById('editEmpId').value = id; document.getElementById('editEmpName').value = emp.name; document.getElementById('editEmpDiv').value = emp.division; document.getElementById('editEmpRole').value = normalizeRole(emp.role, emp.division); document.getElementById('editEmpSalary').value = emp.salary;
+    editingEmployeeId = id; document.getElementById('editEmpId').value = id; document.getElementById('editEmpName').value = emp.name; document.getElementById('editEmpDiv').value = emp.division; document.getElementById('editEmpRole').value = emp.role || 'employee'; document.getElementById('editEmpSalary').value = emp.salary;
     const previewContainer = document.getElementById('editPreviewContainer');
     if (emp.photo && emp.photo.length > 20) { 
         const photoUrl = convertDriveUrl(emp.photo);
@@ -1616,7 +1457,11 @@ function openEditEmployee(id) {
     const unameEl = document.getElementById('editEmpUsername'); const pwdEl = document.getElementById('editEmpPassword');
     if (unameEl) unameEl.value = emp.username || '';
     if (pwdEl) pwdEl.value = '';
-    toggleEditEmpCreds(emp.role || emp.division);
+    handleDivisionRolePreset('edit');
+    if (!DIVISION_ROLE_PRESETS[emp.division]) {
+        document.getElementById('editEmpRole').value = emp.role || 'employee';
+        toggleEditEmpCreds(emp.role || 'employee');
+    }
     document.getElementById('editEmployeeModal').classList.remove('hidden'); setTimeout(() => document.getElementById('editEmployeeModal').classList.remove('opacity-0'), 10);
 }
 function closeEditEmployee() { document.getElementById('editEmployeeModal').classList.add('opacity-0'); setTimeout(() => document.getElementById('editEmployeeModal').classList.add('hidden'), 300); editingEmployeeId = null; }
