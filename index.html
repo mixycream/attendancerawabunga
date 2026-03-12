@@ -912,88 +912,321 @@
             </div>
         </div>
 
-        <div id="nutritionistLayout" class="hidden flex flex-col h-full bg-[radial-gradient(circle_at_top,#15345e_0%,#0b1730_45%,#050b18_100%)] text-white font-sans relative overflow-hidden">
-            <div class="absolute inset-0 pointer-events-none opacity-40">
-                <div class="absolute top-10 left-8 w-40 h-40 rounded-full bg-cyan-400/10 blur-3xl"></div>
-                <div class="absolute bottom-10 right-8 w-48 h-48 rounded-full bg-emerald-400/10 blur-3xl"></div>
-            </div>
-            <div class="relative z-10 p-6 md:p-8 flex items-center justify-between border-b border-white/10 bg-black/10 backdrop-blur-md">
-                <div>
-                    <div class="text-[10px] uppercase tracking-[0.35em] text-cyan-300 font-bold">Ahli Gizi Panel</div>
-                    <h2 class="text-2xl md:text-3xl font-extrabold mt-2" id="nutritionistGreeting">Dashboard Ahli Gizi</h2>
-                    <p class="text-sm text-slate-300 mt-1">Kelola bahan pokok, komposisi menu, dan kebutuhan gizi harian SPPG.</p>
+        <!-- NUTRITIONIST DASHBOARD - Complete Overhaul -->
+        <div id="nutritionistLayout" class="hidden flex h-full bg-[#f5f7fa]">
+            <!-- Sidebar -->
+            <aside id="nSidebar" class="fixed inset-y-0 left-0 w-64 bg-white border-r border-slate-200/80 flex flex-col z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300 shadow-[2px_0_16px_rgba(0,0,0,0.03)]">
+                <div class="h-[72px] flex items-center px-6 border-b border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-sm shadow-lg shadow-emerald-500/20">
+                            <i class="fas fa-leaf"></i>
+                        </div>
+                        <div>
+                            <h1 class="font-bold text-[15px] text-slate-800 leading-tight">Ahli Gizi</h1>
+                            <p class="text-[10px] text-slate-400 font-semibold">SPPG Dashboard</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="flex items-center gap-3">
-                    <button onclick="fetchData(true)" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 border border-white/10 flex items-center justify-center transition-all">
-                        <i class="fas fa-sync-alt text-sm"></i>
+                <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+                    <button onclick="nSwitchTab('overview')" data-ntab="overview" class="n-nav-item active w-full text-left px-4 py-3 rounded-xl text-[13px] font-semibold text-slate-500 hover:bg-emerald-50 hover:text-emerald-700 transition-all flex items-center gap-3">
+                        <i class="fas fa-th-large w-5 text-center text-[13px]"></i> Ringkasan
                     </button>
-                    <button onclick="logout()" class="px-4 py-2 rounded-full bg-red-500/20 hover:bg-red-500 text-white border border-red-400/20 text-sm font-bold transition-all">
-                        Keluar
+                    <button onclick="nSwitchTab('planner')" data-ntab="planner" class="n-nav-item w-full text-left px-4 py-3 rounded-xl text-[13px] font-semibold text-slate-500 hover:bg-emerald-50 hover:text-emerald-700 transition-all flex items-center gap-3">
+                        <i class="fas fa-utensils w-5 text-center text-[13px]"></i> Meal Planner
+                    </button>
+                    <button onclick="nSwitchTab('database')" data-ntab="database" class="n-nav-item w-full text-left px-4 py-3 rounded-xl text-[13px] font-semibold text-slate-500 hover:bg-emerald-50 hover:text-emerald-700 transition-all flex items-center gap-3">
+                        <i class="fas fa-database w-5 text-center text-[13px]"></i> Database Bahan
+                    </button>
+                </nav>
+                <div class="p-4 border-t border-slate-100 space-y-3">
+                    <div class="flex items-center gap-3 px-3 py-2">
+                        <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs font-bold" id="nUserAvatar">AG</div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-bold text-slate-700 truncate" id="nUserName">Ahli Gizi</p>
+                            <p class="text-[10px] text-slate-400 truncate" id="nUserDivision">-</p>
+                        </div>
+                    </div>
+                    <button onclick="logout()" class="w-full px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-all flex items-center justify-center gap-2">
+                        <i class="fas fa-sign-out-alt"></i> Keluar
                     </button>
                 </div>
-            </div>
-            <div class="relative z-10 flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="rounded-3xl border border-cyan-400/15 bg-white/5 backdrop-blur-md p-5">
-                        <div class="text-xs uppercase tracking-[0.2em] text-cyan-300 font-bold">Bahan Pokok</div>
-                        <div class="text-3xl font-extrabold mt-3" id="nutritionistIngredientCount">0</div>
-                        <p class="text-xs text-slate-300 mt-2">Jumlah item bahan baku yang terdata untuk perencanaan menu.</p>
+            </aside>
+            <div id="nSidebarOverlay" onclick="nToggleSidebar()" class="fixed inset-0 bg-slate-900/40 z-30 hidden md:hidden backdrop-blur-sm transition-opacity opacity-0"></div>
+
+            <!-- Main Content Area -->
+            <main class="flex-1 flex flex-col overflow-hidden md:ml-64 transition-all">
+                <!-- Top Bar -->
+                <header class="h-[64px] bg-white/80 backdrop-blur-xl border-b border-slate-200/80 flex items-center justify-between px-4 md:px-6 shrink-0 z-20 sticky top-0">
+                    <div class="flex items-center gap-3">
+                        <button onclick="nToggleSidebar()" class="w-9 h-9 bg-white border border-slate-200 text-slate-500 rounded-lg flex items-center justify-center md:hidden active:scale-95 shadow-sm">
+                            <i class="fas fa-bars text-sm"></i>
+                        </button>
+                        <h2 class="font-bold text-slate-800 text-base" id="nPageTitle">Ringkasan</h2>
                     </div>
-                    <div class="rounded-3xl border border-emerald-400/15 bg-white/5 backdrop-blur-md p-5">
-                        <div class="text-xs uppercase tracking-[0.2em] text-emerald-300 font-bold">Relawan Aktif</div>
-                        <div class="text-3xl font-extrabold mt-3" id="nutritionistActiveWorkers">0</div>
-                        <p class="text-xs text-slate-300 mt-2">Dasar estimasi kebutuhan bahan pokok dan distribusi menu hari ini.</p>
+                    <div class="flex items-center gap-2">
+                        <span id="nSyncBadge" class="hidden md:inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200/60 px-3 py-1.5 rounded-full">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Tersinkron
+                        </span>
+                        <button onclick="fetchData(true)" class="w-9 h-9 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-emerald-600 hover:border-emerald-300 flex items-center justify-center transition-all active:scale-95 shadow-sm">
+                            <i class="fas fa-sync-alt text-xs"></i>
+                        </button>
                     </div>
-                    <div class="rounded-3xl border border-amber-400/15 bg-white/5 backdrop-blur-md p-5">
-                        <div class="text-xs uppercase tracking-[0.2em] text-amber-300 font-bold">Fokus Hari Ini</div>
-                        <div class="text-lg font-bold mt-3" id="nutritionistFocusText">Validasi komposisi menu</div>
-                        <p class="text-xs text-slate-300 mt-2">Ringkasan kerja cepat untuk Ahli Gizi sebelum input lebih lanjut.</p>
+                </header>
+
+                <!-- Scrollable Content -->
+                <div class="flex-1 overflow-y-auto scroll-smooth" id="nMainContent">
+
+                    <!-- TAB: OVERVIEW -->
+                    <div id="nTab-overview" class="n-tab-pane p-5 md:p-7 space-y-6">
+                        <!-- Hero Metrics -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="n-metric-card bg-white rounded-2xl border border-slate-100 p-5 relative overflow-hidden group hover:shadow-md transition-shadow">
+                                <div class="absolute -right-3 -top-3 w-20 h-20 rounded-full bg-emerald-50 opacity-80 group-hover:scale-125 transition-transform duration-500"></div>
+                                <div class="relative">
+                                    <div class="flex items-center gap-2 mb-3">
+                                        <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm"><i class="fas fa-fire-alt"></i></div>
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kalori Harian Rata-rata</span>
+                                    </div>
+                                    <div class="text-3xl font-extrabold text-slate-800" id="nMetricCalories">0</div>
+                                    <p class="text-xs text-slate-400 mt-1.5">kkal / porsi tersalurkan</p>
+                                </div>
+                            </div>
+                            <div class="n-metric-card bg-white rounded-2xl border border-slate-100 p-5 relative overflow-hidden group hover:shadow-md transition-shadow">
+                                <div class="absolute -right-3 -top-3 w-20 h-20 rounded-full bg-sky-50 opacity-80 group-hover:scale-125 transition-transform duration-500"></div>
+                                <div class="relative">
+                                    <div class="flex items-center gap-2 mb-3">
+                                        <div class="w-8 h-8 rounded-lg bg-sky-100 text-sky-600 flex items-center justify-center text-sm"><i class="fas fa-users"></i></div>
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Penerima Manfaat</span>
+                                    </div>
+                                    <div class="text-3xl font-extrabold text-slate-800" id="nMetricBeneficiaries">0</div>
+                                    <p class="text-xs text-slate-400 mt-1.5">porsi target hari ini</p>
+                                </div>
+                            </div>
+                            <div class="n-metric-card bg-white rounded-2xl border border-slate-100 p-5 relative overflow-hidden group hover:shadow-md transition-shadow">
+                                <div class="absolute -right-3 -top-3 w-20 h-20 rounded-full bg-amber-50 opacity-80 group-hover:scale-125 transition-transform duration-500"></div>
+                                <div class="relative">
+                                    <div class="flex items-center gap-2 mb-3">
+                                        <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center text-sm"><i class="fas fa-chart-pie"></i></div>
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status Pemenuhan</span>
+                                    </div>
+                                    <div class="text-3xl font-extrabold text-slate-800" id="nMetricFulfillment">—</div>
+                                    <p class="text-xs text-slate-400 mt-1.5" id="nMetricFulfillmentDesc">target vs realisasi</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bento Grid: Quick Info -->
+                        <div class="grid grid-cols-1 lg:grid-cols-[1fr_0.7fr] gap-5">
+                            <!-- Nutrition Breakdown Chart -->
+                            <div class="bg-white rounded-2xl border border-slate-100 p-5 hover:shadow-md transition-shadow">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
+                                        <i class="fas fa-chart-bar text-emerald-500"></i> Komposisi Gizi Menu Aktif
+                                    </h3>
+                                    <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200/60" id="nMenuLabel">Belum ada menu</span>
+                                </div>
+                                <div class="w-full h-56" id="nChartContainer">
+                                    <canvas id="nNutritionChart"></canvas>
+                                </div>
+                            </div>
+                            <!-- Today's Focus + Quick Actions -->
+                            <div class="space-y-4">
+                                <div class="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-5 text-white relative overflow-hidden">
+                                    <div class="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-white/10"></div>
+                                    <div class="relative">
+                                        <div class="text-[10px] uppercase tracking-widest font-bold text-emerald-200 mb-2">Fokus Hari Ini</div>
+                                        <h3 class="text-lg font-extrabold leading-snug" id="nFocusText">Susun menu & validasi gizi</h3>
+                                        <p class="text-xs text-emerald-100/80 mt-2 leading-relaxed" id="nFocusDesc">Siapkan perencanaan menu harian berdasarkan target porsi dan kebutuhan gizi.</p>
+                                    </div>
+                                </div>
+                                <div class="bg-white rounded-2xl border border-slate-100 p-4 space-y-2">
+                                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Aksi Cepat</h4>
+                                    <button onclick="nSwitchTab('planner')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-transparent hover:border-emerald-200 transition-all text-sm font-semibold group">
+                                        <i class="fas fa-plus-circle text-emerald-500 group-hover:scale-110 transition-transform"></i> Buat Menu Baru
+                                    </button>
+                                    <button onclick="nSwitchTab('database')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 hover:bg-sky-50 text-slate-700 hover:text-sky-700 border border-transparent hover:border-sky-200 transition-all text-sm font-semibold group">
+                                        <i class="fas fa-search text-sky-500 group-hover:scale-110 transition-transform"></i> Cari Bahan Makanan
+                                    </button>
+                                    <button onclick="fetchData(true)" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 hover:bg-amber-50 text-slate-700 hover:text-amber-700 border border-transparent hover:border-amber-200 transition-all text-sm font-semibold group">
+                                        <i class="fas fa-sync text-amber-500 group-hover:scale-110 transition-transform"></i> Refresh Data
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Daily Needs Summary -->
+                        <div class="bg-white rounded-2xl border border-slate-100 p-5 hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
+                                    <i class="fas fa-clipboard-list text-sky-500"></i> Ringkasan Kebutuhan Harian
+                                </h3>
+                            </div>
+                            <div id="nDailySummaryGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                                <!-- Filled by JS -->
+                            </div>
+                        </div>
                     </div>
+
+                    <!-- TAB: MEAL PLANNER -->
+                    <div id="nTab-planner" class="n-tab-pane hidden p-5 md:p-7 space-y-6">
+                        <!-- Planner Header -->
+                        <div class="flex flex-col md:flex-row md:items-end gap-4">
+                            <div class="flex-1">
+                                <h3 class="text-lg font-extrabold text-slate-800">Kalkulator & Perencanaan Menu</h3>
+                                <p class="text-sm text-slate-400 mt-1">Susun menu harian dengan kalkulasi gizi otomatis secara real-time.</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="nResetPlanner()" class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 bg-white border border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all flex items-center gap-2">
+                                    <i class="fas fa-redo"></i> Reset
+                                </button>
+                                <button onclick="nSavePlannerToCloud()" class="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 transition-all flex items-center gap-2 active:scale-95">
+                                    <i class="fas fa-cloud-upload-alt"></i> Simpan ke Cloud
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Planner Config -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div class="bg-white rounded-2xl border border-slate-100 p-4 space-y-2">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nama Menu</label>
+                                <input id="nMenuName" type="text" class="input-field" placeholder="Contoh: Menu Hari Senin" oninput="nRecalcPlanner()">
+                            </div>
+                            <div class="bg-white rounded-2xl border border-slate-100 p-4 space-y-2">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Target Porsi</label>
+                                <input id="nPortions" type="number" min="1" value="250" class="input-field" oninput="nRecalcPlanner()">
+                            </div>
+                            <div class="bg-white rounded-2xl border border-slate-100 p-4 space-y-2">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cadangan (%)</label>
+                                <input id="nReserve" type="number" min="0" max="100" value="10" class="input-field" oninput="nRecalcPlanner()">
+                            </div>
+                            <div class="bg-white rounded-2xl border border-slate-100 p-4 space-y-2">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sesi Produksi</label>
+                                <select id="nSession" class="input-field cursor-pointer" onchange="nRecalcPlanner()">
+                                    <option value="pagi">Pagi</option>
+                                    <option value="siang">Siang</option>
+                                    <option value="malam">Malam</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Add Ingredient -->
+                        <div class="bg-white rounded-2xl border border-slate-100 p-5">
+                            <h4 class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <i class="fas fa-plus-circle text-emerald-500"></i> Tambah Bahan ke Menu
+                            </h4>
+                            <div class="flex flex-col md:flex-row gap-3">
+                                <div class="flex-1 relative">
+                                    <input id="nAddIngredientSearch" type="text" class="input-field pr-10" placeholder="Ketik nama bahan makanan..." oninput="nSearchIngredientForAdd(this.value)" autocomplete="off">
+                                    <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 text-sm pointer-events-none"></i>
+                                    <div id="nIngredientDropdown" class="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-30 max-h-60 overflow-y-auto hidden"></div>
+                                </div>
+                                <div class="w-full md:w-32">
+                                    <input id="nAddGrams" type="number" min="1" value="100" class="input-field" placeholder="Gram">
+                                </div>
+                                <button onclick="nAddIngredientToMenu()" class="px-5 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-all active:scale-95 whitespace-nowrap shadow-sm">
+                                    <i class="fas fa-plus mr-1"></i> Tambah
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Current Ingredients List & Nutrition Summary -->
+                        <div class="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-5">
+                            <!-- Ingredients In Menu -->
+                            <div class="bg-white rounded-2xl border border-slate-100 p-5">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h4 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                        <i class="fas fa-list text-sky-500"></i> Bahan dalam Menu
+                                    </h4>
+                                    <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-500" id="nIngredientCountBadge">0 item</span>
+                                </div>
+                                <div id="nMenuIngredientList" class="space-y-2">
+                                    <div class="n-skeleton-row"></div>
+                                    <div class="n-skeleton-row" style="animation-delay:.1s"></div>
+                                    <div class="n-skeleton-row" style="animation-delay:.2s"></div>
+                                </div>
+                            </div>
+
+                            <!-- Real-time Nutrition Calculation -->
+                            <div class="space-y-4">
+                                <div class="bg-white rounded-2xl border border-slate-100 p-5">
+                                    <h4 class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                        <i class="fas fa-calculator text-amber-500"></i> Kalkulasi Gizi per Porsi
+                                    </h4>
+                                    <div id="nNutritionCalc" class="space-y-3">
+                                        <!-- Filled by JS -->
+                                    </div>
+                                </div>
+                                <div class="bg-white rounded-2xl border border-slate-100 p-5">
+                                    <h4 class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                        <i class="fas fa-shopping-cart text-rose-500"></i> Kebutuhan Belanja Total
+                                    </h4>
+                                    <div id="nShoppingList" class="space-y-2">
+                                        <!-- Filled by JS -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB: FOOD DATABASE -->
+                    <div id="nTab-database" class="n-tab-pane hidden p-5 md:p-7 space-y-5">
+                        <div class="flex flex-col md:flex-row md:items-end gap-4">
+                            <div class="flex-1">
+                                <h3 class="text-lg font-extrabold text-slate-800">Database Bahan Makanan</h3>
+                                <p class="text-sm text-slate-400 mt-1">Daftar bahan baku beserta nilai gizinya. Klik item untuk menambahkan ke menu.</p>
+                            </div>
+                        </div>
+                        <!-- Search & Filter -->
+                        <div class="flex flex-col md:flex-row gap-3">
+                            <div class="flex-1 relative">
+                                <input id="nDbSearch" type="text" class="input-field pl-10" placeholder="Cari bahan makanan (nama, kategori)..." oninput="nFilterDatabase()">
+                                <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 text-sm"></i>
+                            </div>
+                            <div class="flex gap-2 flex-wrap" id="nCategoryFilters">
+                                <button onclick="nSetCategory('semua')" class="n-cat-btn active px-4 py-2.5 rounded-xl text-xs font-bold border transition-all" data-cat="semua">Semua</button>
+                                <button onclick="nSetCategory('karbohidrat')" class="n-cat-btn px-4 py-2.5 rounded-xl text-xs font-bold border transition-all" data-cat="karbohidrat">Karbohidrat</button>
+                                <button onclick="nSetCategory('protein_hewani')" class="n-cat-btn px-4 py-2.5 rounded-xl text-xs font-bold border transition-all" data-cat="protein_hewani">Protein Hewani</button>
+                                <button onclick="nSetCategory('protein_nabati')" class="n-cat-btn px-4 py-2.5 rounded-xl text-xs font-bold border transition-all" data-cat="protein_nabati">Protein Nabati</button>
+                                <button onclick="nSetCategory('sayuran')" class="n-cat-btn px-4 py-2.5 rounded-xl text-xs font-bold border transition-all" data-cat="sayuran">Sayuran</button>
+                                <button onclick="nSetCategory('buah')" class="n-cat-btn px-4 py-2.5 rounded-xl text-xs font-bold border transition-all" data-cat="buah">Buah</button>
+                                <button onclick="nSetCategory('susu_olahan')" class="n-cat-btn px-4 py-2.5 rounded-xl text-xs font-bold border transition-all" data-cat="susu_olahan">Susu & Olahan</button>
+                                <button onclick="nSetCategory('bumbu')" class="n-cat-btn px-4 py-2.5 rounded-xl text-xs font-bold border transition-all" data-cat="bumbu">Bumbu</button>
+                                <button onclick="nSetCategory('minyak_lemak')" class="n-cat-btn px-4 py-2.5 rounded-xl text-xs font-bold border transition-all" data-cat="minyak_lemak">Minyak & Lemak</button>
+                            </div>
+                        </div>
+                        <!-- Table -->
+                        <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm text-left" id="nDbTable">
+                                    <thead class="text-[11px] text-slate-400 uppercase bg-slate-50/80 border-b border-slate-100">
+                                        <tr>
+                                            <th class="px-5 py-3.5 font-bold">Bahan Makanan</th>
+                                            <th class="px-4 py-3.5 font-bold text-center">Kategori</th>
+                                            <th class="px-4 py-3.5 font-bold text-center">Kalori</th>
+                                            <th class="px-4 py-3.5 font-bold text-center">Protein</th>
+                                            <th class="px-4 py-3.5 font-bold text-center">Karbo</th>
+                                            <th class="px-4 py-3.5 font-bold text-center">Lemak</th>
+                                            <th class="px-4 py-3.5 font-bold text-center">Serat</th>
+                                            <th class="px-4 py-3.5 font-bold text-center w-20">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="nDbTableBody" class="divide-y divide-slate-50">
+                                        <!-- Skeleton rows -->
+                                        <tr><td colspan="8" class="p-4"><div class="n-skeleton-row"></div></td></tr>
+                                        <tr><td colspan="8" class="p-4"><div class="n-skeleton-row" style="animation-delay:.15s"></div></td></tr>
+                                        <tr><td colspan="8" class="p-4"><div class="n-skeleton-row" style="animation-delay:.3s"></div></td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="px-5 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+                                <span class="text-xs text-slate-400" id="nDbCount">0 bahan</span>
+                                <span class="text-[10px] text-slate-300">per 100g kecuali disebutkan</span>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
-                <div class="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-6">
-                    <div class="rounded-[2rem] border border-white/10 bg-white/5 backdrop-blur-md p-6">
-                        <div class="flex items-center justify-between gap-3 mb-5">
-                            <div>
-                                <h3 class="font-bold text-lg">Daftar Bahan Pokok Awal</h3>
-                                <p class="text-sm text-slate-300 mt-1">Placeholder awal untuk modul bahan baku Ahli Gizi.</p>
-                            </div>
-                            <span class="text-[10px] px-3 py-1 rounded-full bg-cyan-400/10 text-cyan-300 border border-cyan-400/20">Initial Module</span>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
-                            <label class="rounded-2xl bg-black/20 border border-white/10 p-4 block">
-                                <span class="text-[11px] uppercase tracking-[0.2em] text-slate-300 font-bold">Target Porsi</span>
-                                <input id="nutritionistPortions" type="number" min="1" value="250" oninput="recalcNutritionPlanner()" class="mt-2 w-full input-field bg-white/10 border-white/10 text-white placeholder:text-slate-500">
-                            </label>
-                            <label class="rounded-2xl bg-black/20 border border-white/10 p-4 block">
-                                <span class="text-[11px] uppercase tracking-[0.2em] text-slate-300 font-bold">Cadangan Produksi (%)</span>
-                                <input id="nutritionistReserve" type="number" min="0" value="10" oninput="recalcNutritionPlanner()" class="mt-2 w-full input-field bg-white/10 border-white/10 text-white placeholder:text-slate-500">
-                            </label>
-                        </div>
-                        <div id="nutritionistIngredientList" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
-                    </div>
-                    <div class="rounded-[2rem] border border-white/10 bg-white/5 backdrop-blur-md p-6">
-                        <h3 class="font-bold text-lg">Catatan Formula</h3>
-                        <div class="mt-4 space-y-3 text-sm text-slate-200">
-                            <div class="rounded-2xl bg-black/20 border border-white/10 p-4">
-                                <div class="font-bold text-cyan-300">Komposisi Pokok</div>
-                                <p class="text-slate-300 mt-1">Beras, protein hewani, sayur, buah, dan susu disusun per siklus menu harian.</p>
-                            </div>
-                            <div class="rounded-2xl bg-black/20 border border-white/10 p-4">
-                                <div class="font-bold text-emerald-300">Perencanaan Bahan Baku</div>
-                                <p class="text-slate-300 mt-1">Jumlah relawan aktif digunakan sebagai basis estimasi kebutuhan bahan pokok.</p>
-                            </div>
-                            <div class="rounded-2xl bg-black/20 border border-white/10 p-4">
-                                <div class="font-bold text-amber-300">Tahap Berikutnya</div>
-                                <p class="text-slate-300 mt-1">Modul ini siap dikembangkan ke hitungan kalori, menu mingguan, dan stok bahan.</p>
-                            </div>
-                        </div>
-                        <div class="mt-5 rounded-2xl bg-black/30 border border-white/10 p-4">
-                            <div class="text-xs uppercase tracking-[0.25em] text-slate-300 font-bold">Total Kebutuhan Harian</div>
-                            <div id="nutritionistTotals" class="mt-3 space-y-2 text-sm text-white"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            </main>
         </div>
 
         <div id="specialRoleLayout" class="hidden flex flex-col h-full bg-[linear-gradient(135deg,#0f172a_0%,#1e293b_45%,#0b1120_100%)] text-white font-sans relative overflow-hidden">

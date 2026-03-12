@@ -505,7 +505,8 @@ function refreshUI() {
     }
 
     if (currentUser.role === 'nutritionist') {
-        renderNutritionistDashboard();
+        nRenderOverview();
+        nRecalcPlanner();
         return;
     }
 
@@ -1261,11 +1262,604 @@ function switchTab(id) {
     document.getElementById('pageTitle').innerText = titles[id];
 }
 function initAdmin() { document.getElementById('adminLayout').classList.remove('hidden'); refreshUI(); }
+
+// =============================================
+// NUTRITIONIST DASHBOARD - Complete System
+// =============================================
+
+// --- Food Database (per 100g, sumber: TKPI / DKBM Indonesia) ---
+const FOOD_DATABASE = [
+    // Karbohidrat
+    { name: 'Beras Putih', category: 'karbohidrat', kcal: 360, protein: 6.8, carbs: 79.3, fat: 0.7, fiber: 0.4 },
+    { name: 'Beras Merah', category: 'karbohidrat', kcal: 352, protein: 7.3, carbs: 76.2, fat: 0.9, fiber: 3.5 },
+    { name: 'Mie Kering', category: 'karbohidrat', kcal: 337, protein: 7.9, carbs: 70.3, fat: 3.3, fiber: 1.2 },
+    { name: 'Roti Tawar', category: 'karbohidrat', kcal: 248, protein: 8.0, carbs: 50.0, fat: 1.2, fiber: 2.7 },
+    { name: 'Kentang', category: 'karbohidrat', kcal: 62, protein: 2.1, carbs: 13.5, fat: 0.2, fiber: 1.8 },
+    { name: 'Ubi Jalar', category: 'karbohidrat', kcal: 123, protein: 1.8, carbs: 27.9, fat: 0.7, fiber: 3.0 },
+    { name: 'Jagung Pipil', category: 'karbohidrat', kcal: 150, protein: 4.7, carbs: 28.6, fat: 1.3, fiber: 2.8 },
+    { name: 'Singkong', category: 'karbohidrat', kcal: 154, protein: 1.0, carbs: 36.8, fat: 0.3, fiber: 1.2 },
+    { name: 'Oatmeal', category: 'karbohidrat', kcal: 379, protein: 13.2, carbs: 67.7, fat: 6.5, fiber: 10.1 },
+    // Protein Hewani
+    { name: 'Ayam Dada', category: 'protein_hewani', kcal: 164, protein: 31.0, carbs: 0, fat: 3.6, fiber: 0 },
+    { name: 'Ayam Paha', category: 'protein_hewani', kcal: 209, protein: 26.0, carbs: 0, fat: 10.9, fiber: 0 },
+    { name: 'Daging Sapi', category: 'protein_hewani', kcal: 250, protein: 26.0, carbs: 0, fat: 15.0, fiber: 0 },
+    { name: 'Ikan Lele', category: 'protein_hewani', kcal: 90, protein: 18.7, carbs: 0, fat: 1.1, fiber: 0 },
+    { name: 'Ikan Tongkol', category: 'protein_hewani', kcal: 117, protein: 25.0, carbs: 0, fat: 1.0, fiber: 0 },
+    { name: 'Ikan Nila', category: 'protein_hewani', kcal: 96, protein: 20.1, carbs: 0, fat: 1.7, fiber: 0 },
+    { name: 'Telur Ayam', category: 'protein_hewani', kcal: 154, protein: 12.4, carbs: 0.7, fat: 10.8, fiber: 0 },
+    { name: 'Telur Puyuh', category: 'protein_hewani', kcal: 158, protein: 13.1, carbs: 0.4, fat: 11.1, fiber: 0 },
+    { name: 'Udang', category: 'protein_hewani', kcal: 91, protein: 21.0, carbs: 0.3, fat: 0.5, fiber: 0 },
+    { name: 'Ikan Bandeng', category: 'protein_hewani', kcal: 148, protein: 20.0, carbs: 0, fat: 7.0, fiber: 0 },
+    // Protein Nabati
+    { name: 'Tahu', category: 'protein_nabati', kcal: 80, protein: 10.9, carbs: 0.8, fat: 4.7, fiber: 0.1 },
+    { name: 'Tempe', category: 'protein_nabati', kcal: 201, protein: 20.8, carbs: 13.5, fat: 8.8, fiber: 1.4 },
+    { name: 'Kacang Tanah', category: 'protein_nabati', kcal: 525, protein: 27.9, carbs: 17.4, fat: 42.7, fiber: 2.4 },
+    { name: 'Kacang Hijau', category: 'protein_nabati', kcal: 323, protein: 22.2, carbs: 56.8, fat: 1.2, fiber: 7.6 },
+    { name: 'Kacang Kedelai', category: 'protein_nabati', kcal: 381, protein: 34.9, carbs: 24.6, fat: 18.1, fiber: 4.2 },
+    { name: 'Oncom', category: 'protein_nabati', kcal: 187, protein: 13.0, carbs: 22.6, fat: 6.0, fiber: 0.5 },
+    // Sayuran
+    { name: 'Bayam', category: 'sayuran', kcal: 36, protein: 3.5, carbs: 6.5, fat: 0.5, fiber: 2.2 },
+    { name: 'Kangkung', category: 'sayuran', kcal: 29, protein: 3.0, carbs: 5.4, fat: 0.3, fiber: 2.0 },
+    { name: 'Wortel', category: 'sayuran', kcal: 42, protein: 1.2, carbs: 9.3, fat: 0.3, fiber: 4.0 },
+    { name: 'Kol/Kubis', category: 'sayuran', kcal: 24, protein: 1.4, carbs: 4.2, fat: 0.2, fiber: 0.9 },
+    { name: 'Buncis', category: 'sayuran', kcal: 35, protein: 2.4, carbs: 7.7, fat: 0.2, fiber: 3.2 },
+    { name: 'Terong', category: 'sayuran', kcal: 24, protein: 1.1, carbs: 5.7, fat: 0.2, fiber: 2.5 },
+    { name: 'Labu Siam', category: 'sayuran', kcal: 26, protein: 0.6, carbs: 6.7, fat: 0.1, fiber: 0.6 },
+    { name: 'Tomat', category: 'sayuran', kcal: 20, protein: 1.0, carbs: 4.2, fat: 0.3, fiber: 1.5 },
+    { name: 'Timun', category: 'sayuran', kcal: 12, protein: 0.7, carbs: 2.7, fat: 0.1, fiber: 0.5 },
+    { name: 'Sawi Hijau', category: 'sayuran', kcal: 22, protein: 2.3, carbs: 4.0, fat: 0.3, fiber: 1.2 },
+    { name: 'Daun Singkong', category: 'sayuran', kcal: 73, protein: 6.8, carbs: 13.0, fat: 1.2, fiber: 1.2 },
+    // Buah
+    { name: 'Pisang Ambon', category: 'buah', kcal: 99, protein: 1.2, carbs: 25.8, fat: 0.2, fiber: 0.6 },
+    { name: 'Pepaya', category: 'buah', kcal: 46, protein: 0.5, carbs: 12.2, fat: 0, fiber: 0.7 },
+    { name: 'Jeruk Manis', category: 'buah', kcal: 45, protein: 0.9, carbs: 11.2, fat: 0.2, fiber: 0.4 },
+    { name: 'Semangka', category: 'buah', kcal: 28, protein: 0.5, carbs: 6.9, fat: 0.2, fiber: 0.5 },
+    { name: 'Melon', category: 'buah', kcal: 34, protein: 0.6, carbs: 7.7, fat: 0.4, fiber: 0.3 },
+    { name: 'Apel Malang', category: 'buah', kcal: 58, protein: 0.3, carbs: 14.9, fat: 0.4, fiber: 0.7 },
+    // Susu & Olahan
+    { name: 'Susu UHT', category: 'susu_olahan', kcal: 61, protein: 3.2, carbs: 4.5, fat: 3.5, fiber: 0, note: 'per 100ml' },
+    { name: 'Susu Kental Manis', category: 'susu_olahan', kcal: 336, protein: 8.2, carbs: 55, fat: 10, fiber: 0 },
+    { name: 'Yogurt Plain', category: 'susu_olahan', kcal: 52, protein: 3.5, carbs: 6.0, fat: 1.5, fiber: 0, note: 'per 100ml' },
+    // Bumbu
+    { name: 'Bawang Merah', category: 'bumbu', kcal: 39, protein: 1.5, carbs: 9.2, fat: 0.3, fiber: 1.0 },
+    { name: 'Bawang Putih', category: 'bumbu', kcal: 95, protein: 4.5, carbs: 23.1, fat: 0.2, fiber: 1.1 },
+    { name: 'Cabai Merah', category: 'bumbu', kcal: 31, protein: 1.0, carbs: 7.3, fat: 0.3, fiber: 0.4 },
+    { name: 'Jahe', category: 'bumbu', kcal: 51, protein: 1.5, carbs: 10.1, fat: 1.0, fiber: 2.0 },
+    { name: 'Kunyit', category: 'bumbu', kcal: 63, protein: 2.0, carbs: 14.7, fat: 1.0, fiber: 2.0 },
+    { name: 'Gula Pasir', category: 'bumbu', kcal: 364, protein: 0, carbs: 94, fat: 0, fiber: 0 },
+    { name: 'Garam', category: 'bumbu', kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 },
+    // Minyak & Lemak
+    { name: 'Minyak Goreng', category: 'minyak_lemak', kcal: 884, protein: 0, carbs: 0, fat: 100, fiber: 0 },
+    { name: 'Santan Kelapa', category: 'minyak_lemak', kcal: 122, protein: 1.0, carbs: 2.5, fat: 12.2, fiber: 0, note: 'per 100ml' },
+    { name: 'Mentega', category: 'minyak_lemak', kcal: 720, protein: 0.5, carbs: 0.4, fat: 81.6, fiber: 0 },
+    { name: 'Margarin', category: 'minyak_lemak', kcal: 720, protein: 0.6, carbs: 0.4, fat: 81, fiber: 0 },
+    { name: 'Minyak Kelapa', category: 'minyak_lemak', kcal: 870, protein: 0, carbs: 0, fat: 98, fiber: 0 }
+];
+
+const CATEGORY_LABELS = {
+    karbohidrat: 'Karbohidrat',
+    protein_hewani: 'Protein Hewani',
+    protein_nabati: 'Protein Nabati',
+    sayuran: 'Sayuran',
+    buah: 'Buah',
+    susu_olahan: 'Susu & Olahan',
+    bumbu: 'Bumbu',
+    minyak_lemak: 'Minyak & Lemak'
+};
+
+const CATEGORY_COLORS = {
+    karbohidrat: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+    protein_hewani: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' },
+    protein_nabati: { bg: 'bg-lime-50', text: 'text-lime-700', border: 'border-lime-200' },
+    sayuran: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+    buah: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
+    susu_olahan: { bg: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-200' },
+    bumbu: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
+    minyak_lemak: { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200' }
+};
+
+// Planner state
+let nMenuIngredients = []; // [{name, category, grams, kcal, protein, carbs, fat, fiber}, ...]
+let nSelectedCategory = 'semua';
+let nPendingIngredient = null;
+let nNutritionChartInstance = null;
+
 function initNutritionist() {
     document.getElementById('nutritionistLayout').classList.remove('hidden');
-    renderNutritionistDashboard();
+    // Set user info in sidebar
+    const nameEl = document.getElementById('nUserName');
+    const divEl = document.getElementById('nUserDivision');
+    const avatarEl = document.getElementById('nUserAvatar');
+    if (nameEl) nameEl.textContent = currentUser?.name || 'Ahli Gizi';
+    if (divEl) divEl.textContent = currentUser?.division || 'Nutrisionis';
+    if (avatarEl) {
+        const initials = (currentUser?.name || 'AG').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+        avatarEl.textContent = initials;
+    }
+    // Load saved state from localStorage
+    nLoadPlannerState();
+    // Render all tabs
+    nRenderOverview();
+    nRenderDatabase();
+    nRecalcPlanner();
 }
 
+// --- Sidebar & Tab Navigation ---
+function nToggleSidebar() {
+    const sb = document.getElementById('nSidebar');
+    const ol = document.getElementById('nSidebarOverlay');
+    if (sb.classList.contains('-translate-x-full')) {
+        sb.classList.remove('-translate-x-full');
+        ol.classList.remove('hidden');
+        setTimeout(() => ol.classList.remove('opacity-0'), 10);
+    } else {
+        sb.classList.add('-translate-x-full');
+        ol.classList.add('opacity-0');
+        setTimeout(() => ol.classList.add('hidden'), 300);
+    }
+}
+
+function nSwitchTab(id) {
+    document.querySelectorAll('.n-tab-pane').forEach(el => el.classList.add('hidden'));
+    const target = document.getElementById('nTab-' + id);
+    if (target) { target.classList.remove('hidden'); }
+    // Close mobile sidebar
+    if (window.innerWidth < 768) {
+        document.getElementById('nSidebar').classList.add('-translate-x-full');
+        const ol = document.getElementById('nSidebarOverlay');
+        ol.classList.add('opacity-0');
+        setTimeout(() => ol.classList.add('hidden'), 300);
+    }
+    // Active state
+    document.querySelectorAll('.n-nav-item').forEach(el => el.classList.remove('active'));
+    const btn = document.querySelector(`.n-nav-item[data-ntab="${id}"]`);
+    if (btn) btn.classList.add('active');
+    const titles = { overview: 'Ringkasan', planner: 'Meal Planner', database: 'Database Bahan' };
+    document.getElementById('nPageTitle').textContent = titles[id] || id;
+}
+
+// --- OVERVIEW TAB ---
+function nRenderOverview() {
+    const today = new Date().toISOString().split('T')[0];
+    const activeCount = logs.filter(l => l.date === today && l.type === 'IN').length;
+    
+    // Metrics
+    const totalKcal = nMenuIngredients.reduce((s, i) => s + (i.kcal * i.grams / 100), 0);
+    const portions = parseInt(document.getElementById('nPortions')?.value) || 250;
+    const kcalPerPortion = nMenuIngredients.length > 0 ? Math.round(totalKcal / Math.max(portions, 1) * portions / Math.max(nMenuIngredients.reduce((s, i) => s + i.grams, 0) / 100, 1) ) : 0;
+    
+    document.getElementById('nMetricCalories').textContent = nMenuIngredients.length > 0 ? Math.round(nMenuIngredients.reduce((s, i) => s + (i.kcal * i.grams / 100), 0) / Math.max(nMenuIngredients.length, 1)) : '—';
+    document.getElementById('nMetricBeneficiaries').textContent = portions;
+    
+    const targetKcal = 700; // target per porsi MBG
+    if (nMenuIngredients.length > 0) {
+        const perPortion = Math.round(totalKcal / Math.max(portions, 1));
+        const pct = Math.round(perPortion / targetKcal * 100);
+        document.getElementById('nMetricFulfillment').textContent = pct + '%';
+        document.getElementById('nMetricFulfillmentDesc').textContent = `${perPortion} kkal / target ${targetKcal} kkal`;
+    } else {
+        document.getElementById('nMetricFulfillment').textContent = '—';
+        document.getElementById('nMetricFulfillmentDesc').textContent = 'target vs realisasi';
+    }
+
+    // Focus text
+    const focusEl = document.getElementById('nFocusText');
+    const focusDesc = document.getElementById('nFocusDesc');
+    if (nMenuIngredients.length > 0) {
+        focusEl.textContent = 'Review & finalisasi menu';
+        focusDesc.textContent = `Menu saat ini memiliki ${nMenuIngredients.length} bahan. Pastikan komposisi gizi memenuhi standar.`;
+    } else {
+        focusEl.textContent = 'Susun menu & validasi gizi';
+        focusDesc.textContent = 'Siapkan perencanaan menu harian berdasarkan target porsi dan kebutuhan gizi.';
+    }
+
+    // Menu label
+    const menuName = document.getElementById('nMenuName')?.value || '';
+    document.getElementById('nMenuLabel').textContent = menuName || 'Belum ada menu';
+
+    // Nutrition chart
+    nRenderNutritionChart();
+    
+    // Daily summary
+    nRenderDailySummary();
+}
+
+function nRenderNutritionChart() {
+    const ctx = document.getElementById('nNutritionChart');
+    if (!ctx) return;
+    
+    const totals = { protein: 0, carbs: 0, fat: 0, fiber: 0, kcal: 0 };
+    nMenuIngredients.forEach(i => {
+        const m = i.grams / 100;
+        totals.protein += i.protein * m;
+        totals.carbs += i.carbs * m;
+        totals.fat += i.fat * m;
+        totals.fiber += i.fiber * m;
+        totals.kcal += i.kcal * m;
+    });
+
+    if (nNutritionChartInstance) nNutritionChartInstance.destroy();
+
+    nNutritionChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Kalori (kkal)', 'Protein (g)', 'Karbo (g)', 'Lemak (g)', 'Serat (g)'],
+            datasets: [{
+                label: 'Total Menu',
+                data: [totals.kcal.toFixed(1), totals.protein.toFixed(1), totals.carbs.toFixed(1), totals.fat.toFixed(1), totals.fiber.toFixed(1)],
+                backgroundColor: ['#10b981', '#0ea5e9', '#f59e0b', '#ef4444', '#8b5cf6'],
+                borderRadius: 8,
+                borderSkipped: false,
+                barPercentage: 0.6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 11, family: 'Plus Jakarta Sans' } } },
+                x: { grid: { display: false }, ticks: { font: { size: 11, family: 'Plus Jakarta Sans', weight: 600 } } }
+            }
+        }
+    });
+}
+
+function nRenderDailySummary() {
+    const el = document.getElementById('nDailySummaryGrid');
+    if (!el) return;
+    
+    const portions = parseInt(document.getElementById('nPortions')?.value) || 250;
+    const reserve = parseInt(document.getElementById('nReserve')?.value) || 10;
+    const multiplier = 1 + reserve / 100;
+
+    if (nMenuIngredients.length === 0) {
+        // Default staple food estimates
+        const defaults = [
+            { name: 'Beras', grams: 120, unit: 'kg', icon: 'fa-seedling', color: 'text-amber-500' },
+            { name: 'Protein', grams: 60, unit: 'kg', icon: 'fa-drumstick-bite', color: 'text-rose-500' },
+            { name: 'Nabati', grams: 35, unit: 'kg', icon: 'fa-leaf', color: 'text-lime-500' },
+            { name: 'Sayur', grams: 50, unit: 'kg', icon: 'fa-carrot', color: 'text-emerald-500' },
+            { name: 'Buah', grams: 40, unit: 'kg', icon: 'fa-apple-alt', color: 'text-orange-500' },
+            { name: 'Susu', grams: 200, unit: 'liter', icon: 'fa-glass-whiskey', color: 'text-sky-500' }
+        ];
+        el.innerHTML = defaults.map(d => {
+            const total = (portions * d.grams * multiplier / 1000).toFixed(1);
+            return `<div class="n-daily-item"><div class="${d.color} text-lg mb-1"><i class="fas ${d.icon}"></i></div><div class="text-xl font-extrabold text-slate-800">${total}</div><div class="text-[10px] font-semibold text-slate-400 uppercase">${d.unit} ${d.name}</div></div>`;
+        }).join('');
+    } else {
+        // Group by category and show totals
+        const byCategory = {};
+        nMenuIngredients.forEach(i => {
+            if (!byCategory[i.category]) byCategory[i.category] = 0;
+            byCategory[i.category] += i.grams * portions * multiplier;
+        });
+        const catIcons = { karbohidrat: 'fa-seedling', protein_hewani: 'fa-drumstick-bite', protein_nabati: 'fa-leaf', sayuran: 'fa-carrot', buah: 'fa-apple-alt', susu_olahan: 'fa-glass-whiskey', bumbu: 'fa-pepper-hot', minyak_lemak: 'fa-oil-can' };
+        const catColors = { karbohidrat: 'text-amber-500', protein_hewani: 'text-rose-500', protein_nabati: 'text-lime-500', sayuran: 'text-emerald-500', buah: 'text-orange-500', susu_olahan: 'text-sky-500', bumbu: 'text-red-500', minyak_lemak: 'text-yellow-500' };
+        el.innerHTML = Object.entries(byCategory).map(([cat, grams]) => {
+            const kg = (grams / 1000).toFixed(1);
+            return `<div class="n-daily-item"><div class="${catColors[cat] || 'text-slate-500'} text-lg mb-1"><i class="fas ${catIcons[cat] || 'fa-box'}"></i></div><div class="text-xl font-extrabold text-slate-800">${kg}</div><div class="text-[10px] font-semibold text-slate-400 uppercase">kg ${CATEGORY_LABELS[cat] || cat}</div></div>`;
+        }).join('');
+    }
+}
+
+// --- FOOD DATABASE TAB ---
+function nRenderDatabase() {
+    const tbody = document.getElementById('nDbTableBody');
+    const countEl = document.getElementById('nDbCount');
+    if (!tbody) return;
+
+    const search = (document.getElementById('nDbSearch')?.value || '').toLowerCase();
+    const filtered = FOOD_DATABASE.filter(f => {
+        const matchCat = nSelectedCategory === 'semua' || f.category === nSelectedCategory;
+        const matchSearch = !search || f.name.toLowerCase().includes(search) || (CATEGORY_LABELS[f.category] || '').toLowerCase().includes(search);
+        return matchCat && matchSearch;
+    });
+
+    if (countEl) countEl.textContent = `${filtered.length} bahan`;
+
+    tbody.innerHTML = filtered.length > 0 ? filtered.map(f => {
+        const cc = CATEGORY_COLORS[f.category] || {};
+        const catLabel = CATEGORY_LABELS[f.category] || f.category;
+        return `<tr class="cursor-pointer" onclick="nQuickAddFromDb('${f.name.replace(/'/g, "\\'")}')">
+            <td class="px-5 py-3.5 font-semibold text-slate-800">${f.name}${f.note ? ` <span class="text-[10px] text-slate-400">(${f.note})</span>` : ''}</td>
+            <td class="px-4 py-3.5 text-center"><span class="text-[10px] font-bold px-2 py-1 rounded-full ${cc.bg || ''} ${cc.text || ''} ${cc.border || ''} border">${catLabel}</span></td>
+            <td class="px-4 py-3.5 text-center font-bold text-slate-700">${f.kcal}</td>
+            <td class="px-4 py-3.5 text-center text-slate-600">${f.protein}g</td>
+            <td class="px-4 py-3.5 text-center text-slate-600">${f.carbs}g</td>
+            <td class="px-4 py-3.5 text-center text-slate-600">${f.fat}g</td>
+            <td class="px-4 py-3.5 text-center text-slate-600">${f.fiber}g</td>
+            <td class="px-4 py-3.5 text-center"><button onclick="event.stopPropagation(); nQuickAddFromDb('${f.name.replace(/'/g, "\\'")}')" class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center transition mx-auto"><i class="fas fa-plus text-xs"></i></button></td>
+        </tr>`;
+    }).join('') : `<tr><td colspan="8" class="text-center text-slate-400 py-10 text-sm">Tidak ada bahan makanan yang cocok.</td></tr>`;
+}
+
+function nFilterDatabase() { nRenderDatabase(); }
+
+function nSetCategory(cat) {
+    nSelectedCategory = cat;
+    document.querySelectorAll('.n-cat-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.cat === cat);
+    });
+    nRenderDatabase();
+}
+
+function nQuickAddFromDb(name) {
+    const food = FOOD_DATABASE.find(f => f.name === name);
+    if (!food) return;
+    nPendingIngredient = food;
+    const searchEl = document.getElementById('nAddIngredientSearch');
+    if (searchEl) searchEl.value = food.name;
+    document.getElementById('nIngredientDropdown')?.classList.add('hidden');
+    // Switch to planner and add
+    nSwitchTab('planner');
+    nAddIngredientToMenu();
+}
+
+// --- MEAL PLANNER TAB ---
+function nSearchIngredientForAdd(query) {
+    const dropdown = document.getElementById('nIngredientDropdown');
+    if (!dropdown) return;
+    if (!query || query.length < 1) { dropdown.classList.add('hidden'); nPendingIngredient = null; return; }
+    
+    const q = query.toLowerCase();
+    const results = FOOD_DATABASE.filter(f => f.name.toLowerCase().includes(q)).slice(0, 8);
+    
+    if (results.length === 0) { dropdown.classList.add('hidden'); return; }
+    
+    dropdown.innerHTML = results.map(f => {
+        const cc = CATEGORY_COLORS[f.category] || {};
+        return `<div onclick="nSelectIngredient('${f.name.replace(/'/g, "\\'")}')" class="px-4 py-2.5 hover:bg-emerald-50 cursor-pointer flex items-center justify-between transition">
+            <div><span class="text-sm font-semibold text-slate-800">${f.name}</span><span class="ml-2 text-[10px] ${cc.text || 'text-slate-400'}">${CATEGORY_LABELS[f.category] || ''}</span></div>
+            <span class="text-xs text-slate-400">${f.kcal} kkal</span>
+        </div>`;
+    }).join('');
+    dropdown.classList.remove('hidden');
+}
+
+function nSelectIngredient(name) {
+    const food = FOOD_DATABASE.find(f => f.name === name);
+    if (!food) return;
+    nPendingIngredient = food;
+    document.getElementById('nAddIngredientSearch').value = food.name;
+    document.getElementById('nIngredientDropdown').classList.add('hidden');
+}
+
+function nAddIngredientToMenu() {
+    if (!nPendingIngredient) {
+        // Try to find from search value
+        const sv = document.getElementById('nAddIngredientSearch')?.value || '';
+        const found = FOOD_DATABASE.find(f => f.name.toLowerCase() === sv.toLowerCase());
+        if (found) nPendingIngredient = found;
+        else { showToast('Pilih bahan dari daftar terlebih dahulu', 'error'); return; }
+    }
+    
+    const grams = parseInt(document.getElementById('nAddGrams')?.value) || 100;
+    
+    // Check duplicate
+    const existing = nMenuIngredients.find(i => i.name === nPendingIngredient.name);
+    if (existing) {
+        existing.grams += grams;
+    } else {
+        nMenuIngredients.push({
+            name: nPendingIngredient.name,
+            category: nPendingIngredient.category,
+            grams: grams,
+            kcal: nPendingIngredient.kcal,
+            protein: nPendingIngredient.protein,
+            carbs: nPendingIngredient.carbs,
+            fat: nPendingIngredient.fat,
+            fiber: nPendingIngredient.fiber
+        });
+    }
+    
+    // Reset input
+    document.getElementById('nAddIngredientSearch').value = '';
+    document.getElementById('nAddGrams').value = 100;
+    nPendingIngredient = null;
+    
+    nRecalcPlanner();
+    nSavePlannerState();
+    showToast(`${existing ? 'Menambah gram' : 'Ditambahkan'}: ${nMenuIngredients[nMenuIngredients.length - 1]?.name || 'bahan'}`);
+}
+
+function nRemoveIngredient(index) {
+    nMenuIngredients.splice(index, 1);
+    nRecalcPlanner();
+    nSavePlannerState();
+}
+
+function nUpdateIngredientGrams(index, value) {
+    const grams = parseInt(value) || 0;
+    if (grams <= 0) { nRemoveIngredient(index); return; }
+    nMenuIngredients[index].grams = grams;
+    nRecalcPlanner();
+    nSavePlannerState();
+}
+
+function nRecalcPlanner() {
+    const listEl = document.getElementById('nMenuIngredientList');
+    const calcEl = document.getElementById('nNutritionCalc');
+    const shopEl = document.getElementById('nShoppingList');
+    const countBadge = document.getElementById('nIngredientCountBadge');
+    
+    if (!listEl) return;
+    
+    const portions = Math.max(parseInt(document.getElementById('nPortions')?.value) || 1, 1);
+    const reserve = Math.max(parseInt(document.getElementById('nReserve')?.value) || 0, 0);
+    const multiplier = 1 + reserve / 100;
+    
+    // Ingredient count badge
+    if (countBadge) countBadge.textContent = `${nMenuIngredients.length} item`;
+    
+    // Render ingredient list
+    if (nMenuIngredients.length === 0) {
+        listEl.innerHTML = '<div class="text-center text-slate-400 py-8 text-sm"><i class="fas fa-inbox text-2xl mb-2 block text-slate-300"></i>Belum ada bahan. Tambah dari database atau kolom di atas.</div>';
+    } else {
+        listEl.innerHTML = nMenuIngredients.map((item, i) => {
+            const cc = CATEGORY_COLORS[item.category] || {};
+            const itemKcal = (item.kcal * item.grams / 100).toFixed(0);
+            return `<div class="n-ingredient-row" style="animation-delay:${i * 0.04}s">
+                <div class="w-8 h-8 rounded-lg ${cc.bg || 'bg-slate-50'} ${cc.text || 'text-slate-500'} flex items-center justify-center text-xs flex-shrink-0"><i class="fas fa-circle text-[6px]"></i></div>
+                <div class="flex-1 min-w-0">
+                    <div class="text-sm font-semibold text-slate-800 truncate">${item.name}</div>
+                    <div class="text-[10px] text-slate-400">${CATEGORY_LABELS[item.category] || ''} · ${itemKcal} kkal</div>
+                </div>
+                <input type="number" min="1" value="${item.grams}" onchange="nUpdateIngredientGrams(${i}, this.value)" class="w-16 text-center text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-lg py-1.5 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none transition">
+                <span class="text-xs text-slate-400 w-5">g</span>
+                <button onclick="nRemoveIngredient(${i})" class="w-8 h-8 rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-500 flex items-center justify-center transition flex-shrink-0"><i class="fas fa-trash-alt text-xs"></i></button>
+            </div>`;
+        }).join('');
+    }
+    
+    // Calculate nutrition per portion
+    const totals = { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
+    nMenuIngredients.forEach(i => {
+        const m = i.grams / 100;
+        totals.kcal += i.kcal * m;
+        totals.protein += i.protein * m;
+        totals.carbs += i.carbs * m;
+        totals.fat += i.fat * m;
+        totals.fiber += i.fiber * m;
+    });
+    
+    if (calcEl) {
+        const targetKcal = 700;
+        const bars = [
+            { label: 'Kalori', value: totals.kcal.toFixed(0), unit: 'kkal', pct: Math.min(totals.kcal / targetKcal * 100, 100), color: 'bg-emerald-500' },
+            { label: 'Protein', value: totals.protein.toFixed(1), unit: 'g', pct: Math.min(totals.protein / 20 * 100, 100), color: 'bg-sky-500' },
+            { label: 'Karbohidrat', value: totals.carbs.toFixed(1), unit: 'g', pct: Math.min(totals.carbs / 100 * 100, 100), color: 'bg-amber-500' },
+            { label: 'Lemak', value: totals.fat.toFixed(1), unit: 'g', pct: Math.min(totals.fat / 25 * 100, 100), color: 'bg-red-500' },
+            { label: 'Serat', value: totals.fiber.toFixed(1), unit: 'g', pct: Math.min(totals.fiber / 8 * 100, 100), color: 'bg-violet-500' }
+        ];
+        calcEl.innerHTML = bars.map(b => `
+            <div>
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs font-semibold text-slate-600">${b.label}</span>
+                    <span class="text-xs font-bold text-slate-800">${b.value} ${b.unit}</span>
+                </div>
+                <div class="n-nutrition-bar">
+                    <div class="n-nutrition-bar-fill ${b.color}" style="width: ${b.pct}%"></div>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    // Shopping list
+    if (shopEl) {
+        if (nMenuIngredients.length === 0) {
+            shopEl.innerHTML = '<div class="text-center text-slate-400 py-4 text-xs">Tambah bahan ke menu untuk melihat kebutuhan belanja.</div>';
+        } else {
+            shopEl.innerHTML = nMenuIngredients.map(item => {
+                const totalGrams = item.grams * portions * multiplier;
+                const display = totalGrams >= 1000 ? `${(totalGrams / 1000).toFixed(1)} kg` : `${Math.round(totalGrams)} g`;
+                return `<div class="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-slate-50 border border-slate-100">
+                    <span class="text-sm text-slate-700 font-medium">${item.name}</span>
+                    <span class="text-sm font-bold text-emerald-700">${display}</span>
+                </div>`;
+            }).join('');
+        }
+    }
+    
+    // Update overview too
+    nRenderOverview();
+}
+
+function nResetPlanner() {
+    if (!confirm('Reset semua bahan dalam menu?')) return;
+    nMenuIngredients = [];
+    const nameEl = document.getElementById('nMenuName');
+    if (nameEl) nameEl.value = '';
+    const portionsEl = document.getElementById('nPortions');
+    if (portionsEl) portionsEl.value = 250;
+    const reserveEl = document.getElementById('nReserve');
+    if (reserveEl) reserveEl.value = 10;
+    nRecalcPlanner();
+    nSavePlannerState();
+    showToast('Menu direset');
+}
+
+// --- PERSISTENCE (localStorage) ---
+function nSavePlannerState() {
+    const state = {
+        ingredients: nMenuIngredients,
+        menuName: document.getElementById('nMenuName')?.value || '',
+        portions: document.getElementById('nPortions')?.value || '250',
+        reserve: document.getElementById('nReserve')?.value || '10',
+        session: document.getElementById('nSession')?.value || 'pagi',
+        savedAt: new Date().toISOString()
+    };
+    localStorage.setItem('mbg_nutrition_plan', JSON.stringify(state));
+}
+
+function nLoadPlannerState() {
+    try {
+        const raw = localStorage.getItem('mbg_nutrition_plan');
+        if (!raw) return;
+        const state = JSON.parse(raw);
+        nMenuIngredients = state.ingredients || [];
+        const nameEl = document.getElementById('nMenuName');
+        if (nameEl && state.menuName) nameEl.value = state.menuName;
+        const portionsEl = document.getElementById('nPortions');
+        if (portionsEl && state.portions) portionsEl.value = state.portions;
+        const reserveEl = document.getElementById('nReserve');
+        if (reserveEl && state.reserve) reserveEl.value = state.reserve;
+        const sessionEl = document.getElementById('nSession');
+        if (sessionEl && state.session) sessionEl.value = state.session;
+    } catch (e) { /* ignore */ }
+}
+
+// --- CLOUD SAVE ---
+async function nSavePlannerToCloud() {
+    const plan = {
+        userId: currentUser?.id || '',
+        username: currentUser?.u || '',
+        name: currentUser?.name || '',
+        division: currentUser?.division || '',
+        menuName: document.getElementById('nMenuName')?.value || '',
+        session: document.getElementById('nSession')?.value || 'pagi',
+        portions: document.getElementById('nPortions')?.value || '250',
+        reserve: document.getElementById('nReserve')?.value || '10',
+        ingredients: nMenuIngredients,
+        savedAt: new Date().toISOString()
+    };
+    
+    const badge = document.getElementById('nSyncBadge');
+    if (badge) {
+        badge.innerHTML = '<i class="fas fa-spinner fa-spin text-xs"></i> Menyimpan...';
+        badge.className = 'inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200/60 px-3 py-1.5 rounded-full';
+    }
+    
+    try {
+        const resp = await callApi('saveNutritionistPlan', plan);
+        if (resp.ok && resp.data?.status === 'success') {
+            showToast('Menu berhasil disimpan ke cloud!');
+            if (badge) {
+                badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Tersimpan';
+                badge.className = 'inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200/60 px-3 py-1.5 rounded-full';
+            }
+        } else {
+            throw new Error(resp.data?.message || 'Gagal simpan');
+        }
+    } catch (e) {
+        showToast('Gagal menyimpan ke cloud: ' + e.message, 'error');
+        if (badge) {
+            badge.innerHTML = '<i class="fas fa-exclamation-circle text-xs"></i> Error';
+            badge.className = 'inline-flex items-center gap-1.5 text-[11px] font-semibold text-red-600 bg-red-50 border border-red-200/60 px-3 py-1.5 rounded-full';
+        }
+    }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+    const dd = document.getElementById('nIngredientDropdown');
+    const searchEl = document.getElementById('nAddIngredientSearch');
+    if (dd && searchEl && !dd.contains(e.target) && e.target !== searchEl) {
+        dd.classList.add('hidden');
+    }
+});
+
+// --- SPECIAL ROLE DASHBOARD (Akuntan, Gudang, Ka SPPG, Yayasan) ---
 function initSpecialRoleDashboard() {
     document.getElementById('specialRoleLayout').classList.remove('hidden');
     renderSpecialRoleDashboard();
@@ -1288,66 +1882,6 @@ function renderSpecialRoleDashboard() {
     label.innerText = roleLabel;
     userName.innerText = currentUser?.name || '-';
     division.innerText = currentUser?.division || '-';
-}
-
-function recalcNutritionPlanner() {
-    const totalsEl = document.getElementById('nutritionistTotals');
-    const portionsEl = document.getElementById('nutritionistPortions');
-    if (!totalsEl || !portionsEl) return;
-
-    const portions = Math.max(parseFloat(portionsEl.value) || 0, 0);
-    const reserve = Math.max(parseFloat(document.getElementById('nutritionistReserve')?.value) || 0, 0);
-    const multiplier = 1 + (reserve / 100);
-    const formulas = [
-        { key: 'Beras', grams: 120, unit: 'kg' },
-        { key: 'Protein Hewani', grams: 60, unit: 'kg' },
-        { key: 'Protein Nabati', grams: 35, unit: 'kg' },
-        { key: 'Sayur', grams: 50, unit: 'kg' },
-        { key: 'Buah', grams: 40, unit: 'kg' },
-        { key: 'Susu', grams: 200, unit: 'liter' }
-    ];
-
-    totalsEl.innerHTML = formulas.map(item => {
-        const totalGrams = portions * item.grams * multiplier;
-        const totalValue = (totalGrams / 1000).toFixed(1);
-        return `<div class="flex items-center justify-between gap-3 rounded-xl bg-black/20 border border-white/5 px-3 py-2"><span class="text-slate-300">${item.key}</span><span class="font-bold text-white">${totalValue} ${item.unit}</span></div>`;
-    }).join('');
-}
-
-function renderNutritionistDashboard() {
-    const greeting = document.getElementById('nutritionistGreeting');
-    const ingredientCount = document.getElementById('nutritionistIngredientCount');
-    const activeWorkers = document.getElementById('nutritionistActiveWorkers');
-    const ingredientList = document.getElementById('nutritionistIngredientList');
-    const focusText = document.getElementById('nutritionistFocusText');
-    if (!greeting || !ingredientCount || !activeWorkers || !ingredientList || !focusText) return;
-
-    const today = new Date().toISOString().split('T')[0];
-    const activeCount = logs.filter(l => l.date === today && l.type === 'IN').length;
-    const starterIngredients = [
-        { name: 'Beras', desc: '120 gram per porsi untuk kebutuhan karbohidrat utama.' },
-        { name: 'Protein Hewani', desc: '60 gram per porsi untuk lauk utama harian.' },
-        { name: 'Protein Nabati', desc: '35 gram per porsi sebagai kombinasi menu seimbang.' },
-        { name: 'Sayur', desc: '50 gram per porsi untuk serat dan mikronutrien.' },
-        { name: 'Buah', desc: '40 gram per porsi untuk pelengkap menu.' },
-        { name: 'Susu', desc: '200 ml per porsi untuk kebutuhan tambahan.' }
-    ];
-
-    greeting.innerText = `Dashboard Ahli Gizi • ${currentUser?.name || 'SPPG'}`;
-    ingredientCount.innerText = starterIngredients.length;
-    activeWorkers.innerText = activeCount;
-    focusText.innerText = activeCount > 0 ? 'Estimasi bahan berdasarkan relawan aktif' : 'Siapkan formula bahan pokok harian';
-    ingredientList.innerHTML = starterIngredients.map(item => `
-        <div class="rounded-2xl border border-white/10 bg-black/20 p-4">
-            <div class="text-sm font-bold text-white">${item.name}</div>
-            <div class="text-xs text-slate-300 mt-1 leading-relaxed">${item.desc}</div>
-        </div>
-    `).join('');
-    const portionsEl = document.getElementById('nutritionistPortions');
-    if (portionsEl && (!portionsEl.value || parseInt(portionsEl.value, 10) <= 0)) {
-        portionsEl.value = activeCount > 0 ? activeCount : 250;
-    }
-    recalcNutritionPlanner();
 }
 
 function updateSecurityInfo() {
