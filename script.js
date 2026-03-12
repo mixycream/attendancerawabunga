@@ -290,6 +290,49 @@ async function handleLogin(e) {
         const remember = document.getElementById('rememberMe')?.checked;
         if (remember) localStorage.setItem('remembered_username', u); else localStorage.removeItem('remembered_username');
     } else {
+        try {
+            const fallbackRes = await fetch(SCRIPT_URL + '?action=getData');
+            const fallbackData = await fallbackRes.json();
+            const matched = (fallbackData.employees || []).find(emp => {
+                const role = emp.role || inferRoleFromDivision(emp.division);
+                if (role === 'employee' || role === 'security') return false;
+                return String(emp.username || '').toLowerCase().trim() === u && String(emp.password || '').trim() === p;
+            });
+
+            if (matched) {
+                const user = {
+                    u: String(matched.username || '').toLowerCase().trim(),
+                    role: matched.role || inferRoleFromDivision(matched.division),
+                    id: matched.id,
+                    name: matched.name,
+                    division: matched.division,
+                    photo: matched.photo || ''
+                };
+                currentUser = user;
+                localStorage.setItem('mbg_user', JSON.stringify(user));
+
+                document.getElementById('loginView').classList.add('opacity-0', 'pointer-events-none');
+                setTimeout(() => document.getElementById('loginView').classList.add('hidden'), 500);
+
+                employees = fallbackData.employees || [];
+                logs = fallbackData.logs || [];
+                if (fallbackData.config) {
+                    if (fallbackData.config.overtimeRate) appConfig.overtimeRate = parseInt(fallbackData.config.overtimeRate) || appConfig.overtimeRate;
+                    if (fallbackData.config.shifts) appConfig.shifts = fallbackData.config.shifts;
+                }
+
+                if (user.role === 'nutritionist') initNutritionist();
+                else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(user.role)) initSpecialRoleDashboard();
+                else initAdmin();
+
+                const remember = document.getElementById('rememberMe')?.checked;
+                if (remember) localStorage.setItem('remembered_username', u); else localStorage.removeItem('remembered_username');
+                return;
+            }
+        } catch (fallbackError) {
+            console.warn('Role login fallback failed', fallbackError);
+        }
+
         showToast(resp.data.message || 'Username / Password Salah', 'error');
     }
 }
@@ -1417,8 +1460,8 @@ function addEmployee(e) {
     let payload = { id, name, division: div, salary, role };
     
     if (String(role).toLowerCase() !== 'employee') {
-        const uname = document.getElementById('newEmpUsername').value;
-        const pwd = document.getElementById('newEmpPassword').value;
+        const uname = document.getElementById('newEmpUsername').value.toLowerCase().trim();
+        const pwd = document.getElementById('newEmpPassword').value.trim();
         if (uname) payload.username = uname;
         if (pwd) payload.password = pwd;
     }
@@ -1440,8 +1483,8 @@ function submitEditEmployee(e) {
     if(oldEmp && oldEmp.photo) payload.photo = oldEmp.photo;
 
     if (String(role).toLowerCase() !== 'employee') {
-        const uname = document.getElementById('editEmpUsername').value;
-        const pwd = document.getElementById('editEmpPassword').value;
+        const uname = document.getElementById('editEmpUsername').value.toLowerCase().trim();
+        const pwd = document.getElementById('editEmpPassword').value.trim();
         if (uname) payload.username = uname;
         if (pwd) payload.password = pwd;
     } else {
