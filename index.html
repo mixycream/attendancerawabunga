@@ -360,6 +360,21 @@
                             <div class="text-center text-xs text-slate-400">Hubungi administrator jika tidak punya akun</div>
                         </form>
 
+                        <!-- Tombol Absen Mandiri (tanpa login) -->
+                        <div class="mt-4">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="flex-1 h-px bg-slate-200"></div>
+                                <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">atau</span>
+                                <div class="flex-1 h-px bg-slate-200"></div>
+                            </div>
+                            <button onclick="startAbsenMandiri()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold shadow-lg hover:shadow-xl hover:brightness-105 transition duration-200 flex items-center justify-center gap-3 border border-emerald-400/30">
+                                <i class="fas fa-fingerprint text-lg"></i>
+                                <span>Absen Mandiri</span>
+                                <i class="fas fa-qrcode text-sm opacity-60"></i>
+                            </button>
+                            <p class="text-center text-[10px] text-slate-400 mt-2">Scan QR Code & Selfie — tanpa perlu akun</p>
+                        </div>
+
                         <div class="mt-8 pt-6 border-t border-slate-200 text-center text-xs text-slate-400">
                             Sistem Manajemen Operasional © 2026 • Yayasan Karya Rasa Nusantara
                         </div>
@@ -908,6 +923,156 @@
                     </button>
                     
                     <div class="mt-auto pt-6 text-center text-[10px] text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. VOLUNTEER SELF-ATTENDANCE LAYOUT -->
+        <div id="volunteerLayout" class="hidden flex flex-col h-full bg-slate-900 text-white font-sans relative">
+            <!-- Header Bar -->
+            <div class="absolute top-0 left-0 w-full z-20 px-6 py-4 bg-gradient-to-b from-black/80 to-transparent flex flex-col gap-2">
+                <div class="flex justify-between items-start">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_#10b981]"></span>
+                        <span class="text-emerald-400 font-bold text-xs tracking-widest uppercase">Absensi Mandiri</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="fetchData(true)" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 backdrop-blur-sm border border-white/5 flex items-center justify-center transition-all shadow-lg active:scale-95" title="Sync Data">
+                            <i class="fas fa-sync-alt text-xs"></i>
+                        </button>
+                        <button onclick="volExitToLogin()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-red-500 hover:text-white text-slate-300 backdrop-blur-sm border border-white/5 flex items-center justify-center transition-all shadow-lg" title="Keluar">
+                            <i class="fas fa-power-off text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex justify-between items-end">
+                    <div>
+                        <div id="volLiveTime" class="text-3xl font-extrabold font-mono leading-none tracking-tight">00:00:00</div>
+                        <div id="volLiveDate" class="text-xs text-slate-400 font-medium mt-1">Senin, 1 Januari 2026</div>
+                    </div>
+                    <div class="text-right max-w-[50%]">
+                        <div class="flex items-center justify-end gap-1 text-[10px] text-emerald-400 uppercase tracking-wider font-bold mb-0.5">
+                            <i class="fas fa-map-marker-alt"></i> <span id="volGpsStatus">Mencari GPS...</span>
+                        </div>
+                        <div id="volLiveLoc" class="text-[10px] text-slate-400 font-mono truncate">Menunggu Koordinat...</div>
+                    </div>
+                </div>
+                <!-- Volunteer Profile Card (hidden in guest mode) -->
+                <div id="volProfileCard" class="mt-3 bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 flex items-center gap-4">
+                    <div id="volProfileAvatar" class="w-12 h-12 rounded-full bg-emerald-600 flex items-center justify-center text-white text-lg font-bold shrink-0 border-2 border-emerald-400/50 shadow-lg shadow-emerald-500/20">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div id="volProfileName" class="font-bold text-white text-sm leading-tight truncate">Nama Relawan</div>
+                        <div class="flex items-center gap-2 mt-1 flex-wrap">
+                            <span id="volProfileDiv" class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider bg-emerald-500/15 px-2 py-0.5 rounded border border-emerald-400/20">Divisi</span>
+                            <span id="volProfileShift" class="text-[10px] text-slate-400"><i class="far fa-clock mr-1"></i>--:-- - --:--</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Geofence Status -->
+                <div id="volGeofenceBar" class="mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/15 border border-red-400/20 text-[10px] text-red-300 font-bold transition-all duration-300">
+                    <i class="fas fa-shield-alt"></i>
+                    <span id="volGeofenceText">Geofence: Menunggu lokasi...</span>
+                </div>
+            </div>
+
+            <!-- Vol Page 0: Dashboard / Home -->
+            <div id="volPageHome" class="flex-1 flex flex-col items-center justify-center p-6 relative pt-72 pb-8">
+                <div class="w-full max-w-sm space-y-4">
+                    <!-- Status Card -->
+                    <div id="volStatusCard" class="bg-slate-800/60 border border-white/10 rounded-3xl p-6 backdrop-blur-md shadow-2xl text-center">
+                        <div id="volStatusIcon" class="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300 text-3xl mx-auto mb-4">
+                            <i class="fas fa-fingerprint"></i>
+                        </div>
+                        <h3 id="volStatusTitle" class="text-xl font-bold text-white">Absensi Mandiri</h3>
+                        <p id="volStatusDesc" class="text-xs text-slate-300 mt-2 leading-relaxed">Lakukan absen masuk atau pulang secara mandiri dengan scan QR Code dan verifikasi selfie.</p>
+                        <div id="volTodayStatus" class="mt-4 bg-black/30 border border-white/10 rounded-xl p-3 text-left text-[11px] text-slate-300">
+                            <div class="font-bold text-emerald-300 mb-1">Status Hari Ini</div>
+                            <div id="volTodayInfo">Belum absen hari ini.</div>
+                        </div>
+                    </div>
+                    <!-- Action Buttons -->
+                    <button id="volBtnClockIn" onclick="volStartAbsen('IN')" class="w-full py-4 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-bold shadow-lg shadow-emerald-600/30 transition active:scale-95 flex items-center justify-center gap-3 border-t border-white/20">
+                        <i class="fas fa-sign-in-alt text-lg"></i>
+                        <span class="text-sm uppercase tracking-wider">Clock In — Absen Masuk</span>
+                    </button>
+                    <button id="volBtnClockOut" onclick="volStartAbsen('OUT')" class="w-full py-4 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-bold shadow-lg shadow-amber-600/30 transition active:scale-95 flex items-center justify-center gap-3 border-t border-white/20">
+                        <i class="fas fa-sign-out-alt text-lg"></i>
+                        <span class="text-sm uppercase tracking-wider">Clock Out — Absen Pulang</span>
+                    </button>
+                </div>
+                <div class="absolute bottom-4 text-[10px] text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
+            </div>
+
+            <!-- Vol Page 1: QR Scan -->
+            <div id="volPageQR" class="hidden flex-1 flex flex-col items-center justify-center p-6 relative pt-72">
+                <div class="relative w-full max-w-sm aspect-square bg-black rounded-[3rem] overflow-hidden shadow-2xl shadow-black/50 border-[6px] border-slate-800 group mb-6">
+                    <video id="volScanVideo" autoplay playsinline class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition duration-500"></video>
+                    <div class="absolute inset-0 p-10 flex items-center justify-center pointer-events-none">
+                        <div class="w-full h-full border-2 border-white/30 rounded-[2rem] relative">
+                            <div class="absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 border-emerald-500 rounded-tl-2xl"></div>
+                            <div class="absolute top-0 right-0 w-12 h-12 border-t-4 border-r-4 border-emerald-500 rounded-tr-2xl"></div>
+                            <div class="absolute bottom-0 left-0 w-12 h-12 border-b-4 border-l-4 border-emerald-500 rounded-bl-2xl"></div>
+                            <div class="absolute bottom-0 right-0 w-12 h-12 border-b-4 border-r-4 border-emerald-500 rounded-br-2xl"></div>
+                            <div class="absolute top-1/2 left-6 right-6 h-0.5 bg-emerald-500/80 shadow-[0_0_20px_#10b981] animate-[scan_2s_ease-in-out_infinite]"></div>
+                        </div>
+                    </div>
+                    <div class="absolute bottom-6 left-0 right-0 text-center">
+                        <span class="bg-black/50 text-white/80 text-[10px] px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10 font-medium">
+                            Scan QR Code Anda
+                        </span>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400 text-center max-w-xs mb-6">Arahkan kamera ke QR Code pribadi Anda untuk verifikasi identitas.</p>
+                <button onclick="volCancelFlow()" class="w-full max-w-sm py-3 text-slate-500 text-xs font-bold bg-slate-800/50 hover:bg-slate-800 rounded-2xl active:scale-95 border border-white/5 transition uppercase tracking-widest">
+                    Batal
+                </button>
+                <div class="absolute bottom-4 text-[10px] text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
+            </div>
+
+            <!-- Vol Page 2: Selfie Verification -->
+            <div id="volPageSelfie" class="hidden flex-1 flex flex-col bg-slate-900 overflow-y-auto">
+                <div class="pt-72 px-6 pb-4">
+                    <div class="bg-slate-800/50 border border-white/5 p-4 rounded-[2rem] flex items-center gap-4 backdrop-blur-sm shadow-xl">
+                        <div id="volSelfieTypeIcon" class="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center text-2xl text-white shadow-lg shadow-emerald-500/20 shrink-0">
+                            <i class="fas fa-sign-in-alt"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h2 id="volSelfieName" class="text-lg font-bold text-white leading-tight truncate">Nama Relawan</h2>
+                            <div class="flex items-center gap-2 mt-1 flex-wrap">
+                                <span id="volSelfieDiv" class="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">Divisi</span>
+                                <span id="volSelfieType" class="text-[10px] font-bold text-white bg-emerald-500 px-2 py-0.5 rounded">CLOCK IN</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-6 flex-1 flex flex-col justify-start pb-8">
+                    <!-- Live Camera -->
+                    <div class="relative bg-black rounded-[2.5rem] overflow-hidden border-4 border-slate-800 w-full aspect-[3/4] shadow-2xl mb-4 group shrink-0 max-h-[50vh]">
+                        <video id="volFaceVideo" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100 transition-transform duration-500"></video>
+                        <canvas id="volSnapCanvas" class="hidden"></canvas>
+                        <!-- Watermark preview overlay -->
+                        <div id="volWatermarkPreview" class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/70 to-transparent pointer-events-none">
+                            <div class="text-[9px] font-mono text-white/90 leading-relaxed">
+                                <div id="volWmTime" class="font-bold">--:--:-- DD/MM/YYYY</div>
+                                <div id="volWmLoc">Lat: -.---- Lon: -.---- Alt: -m</div>
+                            </div>
+                        </div>
+                        <!-- Toggle Camera -->
+                        <button onclick="volToggleCamera()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/40 text-white backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-white hover:text-black transition-all shadow-lg active:rotate-180 z-20">
+                            <i class="fas fa-sync-alt text-sm"></i>
+                        </button>
+                    </div>
+
+                    <button id="volBtnSubmit" onclick="volSubmitSelfie()" disabled class="w-full py-4 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold shadow-lg shadow-emerald-600/30 transition active:scale-95 flex items-center justify-center gap-3 border-t border-white/20 mb-3">
+                        <i class="fas fa-camera text-lg"></i>
+                        <span class="text-sm uppercase tracking-wider">Ambil Foto & Kirim</span>
+                    </button>
+                    <button onclick="volCancelFlow()" class="w-full py-3 text-slate-500 text-xs font-bold bg-slate-800/50 hover:bg-slate-800 rounded-2xl active:scale-95 border border-white/5 transition uppercase tracking-widest">
+                        Batal
+                    </button>
+                    <div class="mt-auto pt-4 text-center text-[10px] text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
                 </div>
             </div>
         </div>

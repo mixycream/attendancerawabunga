@@ -221,6 +221,7 @@ window.onload = () => {
             fetchData(true);
             if (currentUser.role === 'nutritionist') initNutritionist();
             else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(currentUser.role)) initSpecialRoleDashboard();
+            else if (currentUser.role === 'employee') initVolunteer();
             else initAdmin();
         }
     }
@@ -263,6 +264,7 @@ async function handleLogin(e) {
         if (localAcc.role === 'security') initSecurity();
         else if (localAcc.role === 'nutritionist') initNutritionist();
         else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(localAcc.role)) initSpecialRoleDashboard();
+        else if (localAcc.role === 'employee') initVolunteer();
         else initAdmin();
         // Remember username if checkbox checked
         const remember = document.getElementById('rememberMe')?.checked;
@@ -285,6 +287,7 @@ async function handleLogin(e) {
         if (user.role === 'security') initSecurity();
         else if (user.role === 'nutritionist') initNutritionist();
         else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(user.role)) initSpecialRoleDashboard();
+        else if (user.role === 'employee') initVolunteer();
         else initAdmin();
         // Remember username if checkbox checked
         const remember = document.getElementById('rememberMe')?.checked;
@@ -323,6 +326,7 @@ async function handleLogin(e) {
 
                 if (user.role === 'nutritionist') initNutritionist();
                 else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(user.role)) initSpecialRoleDashboard();
+                else if (user.role === 'employee') initVolunteer();
                 else initAdmin();
 
                 const remember = document.getElementById('rememberMe')?.checked;
@@ -2053,6 +2057,503 @@ function openEditEmployee(id) {
     document.getElementById('editEmployeeModal').classList.remove('hidden'); setTimeout(() => document.getElementById('editEmployeeModal').classList.remove('opacity-0'), 10);
 }
 function closeEditEmployee() { document.getElementById('editEmployeeModal').classList.add('opacity-0'); setTimeout(() => document.getElementById('editEmployeeModal').classList.add('hidden'), 300); editingEmployeeId = null; }
+// ===== VOLUNTEER SELF-ATTENDANCE (Absensi Mandiri Relawan) =====
+// Geofence config — set the center coordinates for your location
+const GEOFENCE_CONFIG = {
+    lat: -6.176020,    // Latitude titik pusat (ubah sesuai lokasi)
+    lng: 106.845172,   // Longitude titik pusat (ubah sesuai lokasi)
+    radius: 5          // Radius toleransi dalam meter
+};
+
+// Volunteer-specific state
+let volScanStream = null;
+let volFaceStream = null;
+let volScannedEmployee = null;
+let volCurrentFacingMode = 'user';
+let volCurrentLocation = { lat: 0, lng: 0, alt: 0, str: 'Menunggu...' };
+let volLocationLocked = false;
+let volAbsenType = null; // 'IN' or 'OUT'
+let volClockInterval = null;
+let volGpsWatchId = null;
+let volGuestMode = false; // true = akses dari tombol Absen Mandiri tanpa login
+
+function haversineDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371000; // Earth radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+function volUpdateGeofenceUI() {
+    const bar = document.getElementById('volGeofenceBar');
+    const txt = document.getElementById('volGeofenceText');
+    if (!bar || !txt) return;
+
+    if (!volLocationLocked) {
+        bar.className = 'mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-yellow-500/15 border border-yellow-400/20 text-[10px] text-yellow-300 font-bold transition-all duration-300';
+        txt.innerText = 'Geofence: Menunggu lokasi...';
+        return;
+    }
+
+    const dist = haversineDistance(volCurrentLocation.lat, volCurrentLocation.lng, GEOFENCE_CONFIG.lat, GEOFENCE_CONFIG.lng);
+    const isInside = dist <= GEOFENCE_CONFIG.radius;
+
+    if (isInside) {
+        bar.className = 'mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/15 border border-emerald-400/20 text-[10px] text-emerald-300 font-bold transition-all duration-300';
+        txt.innerText = `Geofence: Dalam area (${Math.round(dist)}m)`;
+    } else {
+        bar.className = 'mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/15 border border-red-400/20 text-[10px] text-red-300 font-bold transition-all duration-300';
+        txt.innerText = `Geofence: Di luar area (${Math.round(dist)}m dari titik)`;
+    }
+    return isInside;
+}
+
+function volStartClockAndGPS() {
+    // Live clock
+    if (volClockInterval) clearInterval(volClockInterval);
+    volClockInterval = setInterval(() => {
+        const now = new Date();
+        const timeEl = document.getElementById('volLiveTime');
+        const dateEl = document.getElementById('volLiveDate');
+        if (timeEl) timeEl.innerText = now.toLocaleTimeString('id-ID', { hour12: false });
+        if (dateEl) dateEl.innerText = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        // Update watermark time preview
+        const wmTime = document.getElementById('volWmTime');
+        if (wmTime) wmTime.innerText = now.toLocaleTimeString('id-ID', { hour12: false }) + ' ' + now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }, 1000);
+
+    // GPS watch
+    if (volGpsWatchId) navigator.geolocation.clearWatch(volGpsWatchId);
+    if (navigator.geolocation) {
+        volGpsWatchId = navigator.geolocation.watchPosition(
+            (pos) => {
+                volCurrentLocation = {
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude,
+                    alt: pos.coords.altitude || 0,
+                    str: `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`
+                };
+                const locEl = document.getElementById('volLiveLoc');
+                if (locEl) locEl.innerText = volCurrentLocation.str;
+                const gpsEl = document.getElementById('volGpsStatus');
+                if (gpsEl) gpsEl.innerHTML = '<span class="text-white">GPS Terkunci</span>';
+                volLocationLocked = true;
+                volUpdateGeofenceUI();
+                // Update watermark location preview
+                const wmLoc = document.getElementById('volWmLoc');
+                if (wmLoc) wmLoc.innerText = `Lat: ${pos.coords.latitude.toFixed(5)} Lon: ${pos.coords.longitude.toFixed(5)} Alt: ${Math.round(pos.coords.altitude || 0)}m`;
+            },
+            (err) => {
+                volLocationLocked = false;
+                const locEl = document.getElementById('volLiveLoc');
+                if (locEl) locEl.innerText = 'GPS Error';
+                const gpsEl = document.getElementById('volGpsStatus');
+                if (gpsEl) gpsEl.innerText = 'GPS Error';
+                volUpdateGeofenceUI();
+            },
+            { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+        );
+    }
+}
+
+function volUpdateTodayStatus() {
+    const infoEl = document.getElementById('volTodayInfo');
+    if (!infoEl) return;
+    // Di mode tamu, tidak bisa tampilkan status karena belum tahu siapa
+    if (volGuestMode && !volScannedEmployee) {
+        infoEl.innerHTML = 'Scan QR untuk mulai absen.';
+        return;
+    }
+    const empId = volGuestMode ? volScannedEmployee?.id : currentUser?.id;
+    if (!empId) { infoEl.innerHTML = 'Belum absen hari ini.'; return; }
+    const today = new Date().toISOString().split('T')[0];
+    const myLogs = logs.filter(l => String(l.empId) === String(empId) && l.date === today)
+        .sort((a, b) => new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time));
+
+    if (myLogs.length === 0) {
+        infoEl.innerHTML = 'Belum absen hari ini.';
+        return;
+    }
+
+    let html = myLogs.map(l => {
+        const icon = l.type === 'IN' ? '🟢' : (l.type === 'OUT' ? '🔴' : '🟡');
+        const label = l.type === 'IN' ? 'Masuk' : (l.type === 'OUT' ? 'Pulang' : 'Pending');
+        return `<div>${icon} ${label} — ${l.time}</div>`;
+    }).join('');
+    infoEl.innerHTML = html;
+}
+
+function initVolunteer() {
+    // Hide all other layouts
+    ['adminLayout', 'securityLayout', 'nutritionistLayout', 'specialRoleLayout'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+    });
+    document.getElementById('volunteerLayout').classList.remove('hidden');
+
+    const profileCard = document.getElementById('volProfileCard');
+
+    if (volGuestMode) {
+        // Mode tamu: sembunyikan kartu profil, tampilkan info umum
+        if (profileCard) profileCard.classList.add('hidden');
+    } else {
+        // Mode login: tampilkan profil user
+        if (profileCard) profileCard.classList.remove('hidden');
+        if (currentUser) {
+            const nameEl = document.getElementById('volProfileName');
+            const divEl = document.getElementById('volProfileDiv');
+            const shiftEl = document.getElementById('volProfileShift');
+            const avatarEl = document.getElementById('volProfileAvatar');
+            if (nameEl) nameEl.innerText = currentUser.name || currentUser.u || '-';
+            if (divEl) divEl.innerText = currentUser.division || 'Relawan';
+            if (shiftEl) {
+                const st = getShiftTime(currentUser.division || '');
+                shiftEl.innerHTML = `<i class="far fa-clock mr-1"></i>${st}`;
+            }
+            if (avatarEl && currentUser.photo) {
+                const url = convertDriveUrl(currentUser.photo);
+                avatarEl.innerHTML = `<img src="${url}" class="w-full h-full object-cover rounded-full" onerror="this.onerror=null;this.parentElement.innerHTML='<i class=\\'fas fa-user\\'></i>'">`;
+            }
+        }
+    }
+
+    volStartClockAndGPS();
+    volUpdateTodayStatus();
+    volShowPage('home');
+}
+
+function volShowPage(page) {
+    ['volPageHome', 'volPageQR', 'volPageSelfie'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+    });
+    if (page === 'home') document.getElementById('volPageHome')?.classList.remove('hidden');
+    else if (page === 'qr') document.getElementById('volPageQR')?.classList.remove('hidden');
+    else if (page === 'selfie') document.getElementById('volPageSelfie')?.classList.remove('hidden');
+}
+
+function volStartAbsen(type) {
+    if (!volLocationLocked) return showToast('Tunggu GPS terkunci dulu!', 'error');
+
+    // Check geofence
+    const dist = haversineDistance(volCurrentLocation.lat, volCurrentLocation.lng, GEOFENCE_CONFIG.lat, GEOFENCE_CONFIG.lng);
+    if (dist > GEOFENCE_CONFIG.radius) {
+        return showToast(`Anda di luar area absensi (${Math.round(dist)}m). Maksimal ${GEOFENCE_CONFIG.radius}m.`, 'error');
+    }
+
+    volAbsenType = type;
+    volScannedEmployee = null;
+    volShowPage('qr');
+    volStartQR();
+}
+
+function volStartQR() {
+    const video = document.getElementById('volScanVideo');
+    if (!video) return;
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(stream => {
+        volScanStream = stream;
+        video.srcObject = stream;
+        requestAnimationFrame(volScanLoop);
+    }).catch(e => {
+        console.error('Vol cam error', e);
+        showToast('Gagal akses kamera', 'error');
+    });
+}
+
+function volScanLoop() {
+    if (volScannedEmployee) return;
+    const video = document.getElementById('volScanVideo');
+    if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) {
+        requestAnimationFrame(volScanLoop);
+        return;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+    if (code && code.data) {
+        volValidateQR(code.data);
+    } else {
+        requestAnimationFrame(volScanLoop);
+    }
+}
+
+function volValidateQR(data) {
+    const emp = employees.find(e => e.id == data || e.name.toLowerCase() == data.toLowerCase());
+    if (!emp) {
+        showToast('QR tidak dikenali', 'error');
+        requestAnimationFrame(volScanLoop);
+        return;
+    }
+
+    // Mode login: hanya boleh scan QR milik sendiri
+    if (!volGuestMode && currentUser && String(emp.id) !== String(currentUser.id)) {
+        showToast('QR ini bukan milik Anda. Gunakan QR Code pribadi Anda.', 'error');
+        requestAnimationFrame(volScanLoop);
+        return;
+    }
+
+    volScannedEmployee = emp;
+    if (volScanStream) volScanStream.getTracks().forEach(t => t.stop());
+
+    // Move to selfie page
+    volShowPage('selfie');
+    volPopulateSelfieInfo();
+    volStartSelfie('user');
+    // Enable submit after camera is ready
+    setTimeout(() => {
+        const btn = document.getElementById('volBtnSubmit');
+        if (btn) btn.disabled = false;
+    }, 1000);
+}
+
+function volPopulateSelfieInfo() {
+    const nameEl = document.getElementById('volSelfieName');
+    const divEl = document.getElementById('volSelfieDiv');
+    const typeEl = document.getElementById('volSelfieType');
+    const iconEl = document.getElementById('volSelfieTypeIcon');
+
+    if (volScannedEmployee) {
+        if (nameEl) nameEl.innerText = volScannedEmployee.name;
+        if (divEl) divEl.innerText = volScannedEmployee.division;
+    }
+    if (volAbsenType === 'IN') {
+        if (typeEl) { typeEl.innerText = 'CLOCK IN'; typeEl.className = 'text-[10px] font-bold text-white bg-emerald-500 px-2 py-0.5 rounded'; }
+        if (iconEl) iconEl.innerHTML = '<i class="fas fa-sign-in-alt"></i>';
+    } else {
+        if (typeEl) { typeEl.innerText = 'CLOCK OUT'; typeEl.className = 'text-[10px] font-bold text-white bg-amber-500 px-2 py-0.5 rounded'; }
+        if (iconEl) iconEl.innerHTML = '<i class="fas fa-sign-out-alt"></i>';
+    }
+}
+
+function volStartSelfie(mode) {
+    volCurrentFacingMode = mode;
+    const video = document.getElementById('volFaceVideo');
+    if (!video) return;
+    if (volFaceStream) volFaceStream.getTracks().forEach(t => t.stop());
+    navigator.mediaDevices.getUserMedia({
+        video: { facingMode: volCurrentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } }
+    }).then(s => {
+        volFaceStream = s;
+        video.srcObject = s;
+        video.style.transform = mode === 'user' ? 'scaleX(-1)' : 'scaleX(1)';
+    }).catch(e => showToast('Gagal akses kamera selfie', 'error'));
+}
+
+function volToggleCamera() {
+    const newMode = volCurrentFacingMode === 'user' ? 'environment' : 'user';
+    volStartSelfie(newMode);
+}
+
+async function volSubmitSelfie() {
+    if (!volScannedEmployee) return showToast('Scan QR terlebih dahulu', 'error');
+    if (!volLocationLocked) return showToast('Tunggu GPS terkunci!', 'error');
+
+    // Re-check geofence at submit time
+    const dist = haversineDistance(volCurrentLocation.lat, volCurrentLocation.lng, GEOFENCE_CONFIG.lat, GEOFENCE_CONFIG.lng);
+    if (dist > GEOFENCE_CONFIG.radius) {
+        return showToast(`Anda di luar area absensi (${Math.round(dist)}m).`, 'error');
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+
+    // Validate attendance logic
+    const empLogs = logs.filter(l => String(l.empId) === String(volScannedEmployee.id))
+        .sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+    const lastLog = empLogs.length > 0 ? empLogs[0] : null;
+
+    if (volAbsenType === 'IN') {
+        if (lastLog && lastLog.type === 'IN') {
+            showToast('Sesi masih aktif! Anda sudah Clock In.', 'error');
+            volCancelFlow();
+            return;
+        }
+    }
+    if (volAbsenType === 'OUT') {
+        if (!lastLog || lastLog.type === 'OUT') {
+            showToast('Belum Clock In!', 'error');
+            volCancelFlow();
+            return;
+        }
+    }
+
+    let overtimeHours = 0;
+    let lateMinutes = 0;
+    let finalType = volAbsenType;
+    let forcedTime = null;
+    let toastMsg = 'Absen Berhasil!';
+
+    if (volAbsenType === 'IN') {
+        const divConfig = appConfig.shifts[volScannedEmployee.division];
+        if (divConfig && typeof divConfig !== 'string') {
+            const shiftStartH = parseInt(divConfig.start.split(':')[0]);
+            const shiftStartM = parseInt(divConfig.start.split(':')[1]);
+            let expectedStart = new Date();
+            expectedStart.setHours(shiftStartH, shiftStartM, 0, 0);
+            const diffMs = now - expectedStart;
+            const diffMin = Math.floor(diffMs / 60000);
+            if (diffMin > 0) {
+                lateMinutes = diffMin;
+                if (diffMin < 30) {
+                    forcedTime = divConfig.start;
+                    toastMsg = `Telat ${diffMin}m (Toleransi).`;
+                } else {
+                    finalType = 'PENDING';
+                    toastMsg = 'Menunggu Konfirmasi Admin.';
+                }
+            }
+        }
+    }
+
+    if (volAbsenType === 'OUT') {
+        const divConfig = appConfig.shifts[volScannedEmployee.division];
+        if (divConfig && typeof divConfig !== 'string') {
+            const shiftEndH = parseInt(divConfig.end.split(':')[0]);
+            const shiftStartH = parseInt(divConfig.start.split(':')[0]);
+            let logDateParts = lastLog.date.split('-');
+            let logYear = parseInt(logDateParts[0]);
+            let logMonth = parseInt(logDateParts[1]) - 1;
+            let logDay = parseInt(logDateParts[2]);
+            let expectedEnd = new Date(logYear, logMonth, logDay, shiftEndH, parseInt(divConfig.end.split(':')[1]));
+            if (shiftEndH < shiftStartH) expectedEnd.setDate(expectedEnd.getDate() + 1);
+            const diffMs = now - expectedEnd;
+            const diffMinutes = Math.floor(diffMs / 60000);
+            if (diffMinutes > 40) overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
+            toastMsg = `Lembur: ${overtimeHours} Jam`;
+        }
+    }
+
+    // Capture photo with watermark
+    const video = document.getElementById('volFaceVideo');
+    const canvas = document.getElementById('volSnapCanvas');
+    if (!canvas || !video) return;
+    canvas.width = 400;
+    canvas.height = 533;
+    const ctx = canvas.getContext('2d');
+    if (volCurrentFacingMode === 'user') { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Reset transform for watermark drawing
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    // Draw watermark bar at bottom
+    const barH = 50;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(0, canvas.height - barH, canvas.width, barH);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 11px monospace';
+    const timeStr = now.toLocaleTimeString('id-ID', { hour12: false }) + '  ' + now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    ctx.fillText(timeStr, 10, canvas.height - barH + 18);
+
+    ctx.font = '10px monospace';
+    const locStr = `Lat: ${volCurrentLocation.lat.toFixed(5)}  Lon: ${volCurrentLocation.lng.toFixed(5)}  Alt: ${Math.round(volCurrentLocation.alt)}m`;
+    ctx.fillText(locStr, 10, canvas.height - barH + 34);
+
+    ctx.font = 'bold 10px monospace';
+    ctx.fillStyle = volAbsenType === 'IN' ? '#34d399' : '#fbbf24';
+    ctx.fillText(volAbsenType === 'IN' ? 'CLOCK IN' : 'CLOCK OUT', canvas.width - 80, canvas.height - barH + 18);
+
+    const photoBase64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+
+    const payload = {
+        empId: volScannedEmployee.id,
+        name: volScannedEmployee.name,
+        type: finalType,
+        overtime: overtimeHours,
+        location: volCurrentLocation.str,
+        image: photoBase64,
+        date: today,
+        lateMinutes: lateMinutes,
+        forcedTime: forcedTime,
+        note: '',
+        absentBy: 'Mandiri'
+    };
+
+    if (finalType === 'PENDING') {
+        pendingAttendancePayload = payload;
+        document.getElementById('lateNoteInput').value = '';
+        document.getElementById('lateAlertModal').classList.remove('hidden');
+        setTimeout(() => document.getElementById('lateAlertModal').classList.remove('opacity-0'), 10);
+        return;
+    }
+
+    const success = await postData('attendance', payload);
+    if (success) {
+        toggleLoader(false);
+        showToast(toastMsg, 'success');
+        volCancelFlow();
+        // Refresh data to update today status
+        await fetchData(true);
+        volUpdateTodayStatus();
+    }
+}
+
+function volCancelFlow() {
+    volScannedEmployee = null;
+    volAbsenType = null;
+    if (volScanStream) { volScanStream.getTracks().forEach(t => t.stop()); volScanStream = null; }
+    if (volFaceStream) { volFaceStream.getTracks().forEach(t => t.stop()); volFaceStream = null; }
+    const btn = document.getElementById('volBtnSubmit');
+    if (btn) btn.disabled = true;
+    volShowPage('home');
+    volUpdateTodayStatus();
+}
+
+// --- Fungsi untuk masuk mode Absen Mandiri dari halaman login (tanpa akun) ---
+async function startAbsenMandiri() {
+    volGuestMode = true;
+    // Ambil data karyawan dari server dulu
+    toggleLoader(true, 'Memuat data...');
+    try {
+        const res = await fetch(SCRIPT_URL + '?action=getData');
+        const data = await res.json();
+        if (data.status === 'success') {
+            employees = data.employees || [];
+            logs = data.logs || [];
+            if (data.config) {
+                if (data.config.overtimeRate) appConfig.overtimeRate = parseInt(data.config.overtimeRate) || appConfig.overtimeRate;
+                if (data.config.shifts) appConfig.shifts = data.config.shifts;
+            }
+        }
+    } catch (e) {
+        console.warn('Fetch data for mandiri failed', e);
+    }
+    toggleLoader(false);
+
+    // Sembunyikan login, tampilkan volunteer layout
+    document.getElementById('loginView').classList.add('hidden');
+    initVolunteer();
+}
+
+// Tombol keluar dari volunteer (kembali ke login)
+function volExitToLogin() {
+    // Kalau mode tamu, langsung balik ke login
+    if (volGuestMode) {
+        volGuestMode = false;
+        volScannedEmployee = null;
+        volAbsenType = null;
+        if (volScanStream) { volScanStream.getTracks().forEach(t => t.stop()); volScanStream = null; }
+        if (volFaceStream) { volFaceStream.getTracks().forEach(t => t.stop()); volFaceStream = null; }
+        if (volClockInterval) { clearInterval(volClockInterval); volClockInterval = null; }
+        if (volGpsWatchId) { navigator.geolocation.clearWatch(volGpsWatchId); volGpsWatchId = null; }
+        volLocationLocked = false;
+        document.getElementById('volunteerLayout').classList.add('hidden');
+        document.getElementById('loginView').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+    } else {
+        // Mode login biasa, panggil logout standar
+        logout();
+    }
+}
+
 function showToast(msg, type='success') {
     const t = document.getElementById('toast'); const i = document.getElementById('toastIcon'); document.getElementById('toastMsg').innerText = msg;
     if(type === 'error') { i.className = "w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white text-xs"; i.innerHTML = '<i class="fas fa-times"></i>'; } 
