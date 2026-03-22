@@ -2060,8 +2060,8 @@ function closeEditEmployee() { document.getElementById('editEmployeeModal').clas
 // ===== VOLUNTEER SELF-ATTENDANCE (Absensi Mandiri Relawan) =====
 // Geofence config — set the center coordinates for your location
 const GEOFENCE_CONFIG = {
-    lat: -6.176020,    // Latitude titik pusat (ubah sesuai lokasi)
-    lng: 106.845172,   // Longitude titik pusat (ubah sesuai lokasi)
+    lat: -6.22369,    // Latitude titik pusat (ubah sesuai lokasi)
+    lng: 106.89099,   // Longitude titik pusat (ubah sesuai lokasi)
     radius: 5          // Radius toleransi dalam meter
 };
 
