@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwGDvLUQO5s29bTVW2yzep_AGt0tSgdmwg-ma20AdJTCZ1q5id14EBHjPmVCap8jS9z/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw3ONeHGu1kTkrZYQKM8o-JAKs2zsobrJ6VrZrD_Isf90cW-7XpaN3BdmENoVHA7hy0/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -1279,7 +1279,7 @@ function toggleCamera() { const newMode = currentFacingMode === 'user' ? 'enviro
 function openConfigModal() {
     const list = document.getElementById('configList');
     list.innerHTML = '';
-    const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2", "Cuci Ompreng", "Admin Yayasan"];
+    const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2", "Cuci Ompreng", "Leader Ompreng", "Leader Packing", "Leader Helper Cook", "Admin Yayasan"];
     orderedKeys.forEach(key => {
         const shiftData = appConfig.shifts[key] || { start: "00:00", end: "08:00" };
         const startVal = typeof shiftData === 'string' ? shiftData : shiftData.start; 
@@ -2179,7 +2179,8 @@ function generateEmployeeId(division) {
         'Kebersihan': 'KBR', 'Asisten Lapangan': 'ALP', 'Gudang': 'GDG',
         'Keamanan Shift 1': 'KM1', 'Keamanan Shift 2': 'KM2',
         'Ahli Gizi': 'AGZ', 'Akuntan': 'AKT', 'Ka SPPG': 'KSP', 'Yayasan': 'YSN',
-        'Cuci Ompreng': 'COM', 'Admin Yayasan': 'AYN'
+        'Cuci Ompreng': 'COM', 'Admin Yayasan': 'AYN',
+        'Leader Ompreng': 'LOM', 'Leader Packing': 'LPK', 'Leader Helper Cook': 'LHC'
     };
     const code = codeMap[division] || division.substring(0, 3).toUpperCase();
     const existing = employees.filter(e => e.id && e.id.startsWith('MBG-' + code + '-'));
