@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbznyx2M80LD2Jr7jdQYwDnOu3TRM2pGqGLtaY6cOFSNsOOaFui7Df6Ov0mHoFVB2BkE/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwGDvLUQO5s29bTVW2yzep_AGt0tSgdmwg-ma20AdJTCZ1q5id14EBHjPmVCap8jS9z/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -8,7 +8,8 @@ const DIVISION_ROLE_PRESETS = {
     'Akuntan': 'accountant',
     'Gudang': 'warehouse',
     'Ka SPPG': 'head_sppg',
-    'Yayasan': 'foundation'
+    'Yayasan': 'foundation',
+    'Admin Yayasan': 'foundation'
 };
 
 const ROLE_LABELS = {
@@ -29,6 +30,7 @@ function inferRoleFromDivision(division) {
     if (normalized.includes('akuntan')) return 'accountant';
     if (normalized.includes('gudang')) return 'warehouse';
     if (normalized.includes('ka sppg') || normalized.includes('kasppg')) return 'head_sppg';
+    if (normalized.includes('admin yayasan')) return 'foundation';
     if (normalized.includes('yayasan')) return 'foundation';
     return 'employee';
 }
@@ -1277,7 +1279,7 @@ function toggleCamera() { const newMode = currentFacingMode === 'user' ? 'enviro
 function openConfigModal() {
     const list = document.getElementById('configList');
     list.innerHTML = '';
-    const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2"];
+    const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2", "Cuci Ompreng", "Admin Yayasan"];
     orderedKeys.forEach(key => {
         const shiftData = appConfig.shifts[key] || { start: "00:00", end: "08:00" };
         const startVal = typeof shiftData === 'string' ? shiftData : shiftData.start; 
@@ -2176,7 +2178,8 @@ function generateEmployeeId(division) {
         'Packing': 'PCK', 'Distribusi': 'DST', 'Kenek Distribusi': 'KND',
         'Kebersihan': 'KBR', 'Asisten Lapangan': 'ALP', 'Gudang': 'GDG',
         'Keamanan Shift 1': 'KM1', 'Keamanan Shift 2': 'KM2',
-        'Ahli Gizi': 'AGZ', 'Akuntan': 'AKT', 'Ka SPPG': 'KSP', 'Yayasan': 'YSN'
+        'Ahli Gizi': 'AGZ', 'Akuntan': 'AKT', 'Ka SPPG': 'KSP', 'Yayasan': 'YSN',
+        'Cuci Ompreng': 'COM', 'Admin Yayasan': 'AYN'
     };
     const code = codeMap[division] || division.substring(0, 3).toUpperCase();
     const existing = employees.filter(e => e.id && e.id.startsWith('MBG-' + code + '-'));
