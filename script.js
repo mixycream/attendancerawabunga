@@ -4,7 +4,7 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyW5Pmj7wTX53bBVSgnx
 
 // Local demo accounts (fallback untuk offline + admin)
 const LOCAL_USERS = [
-    { u:'adminrawabunga1', p:'123', role:'admin' },
+    { u:'adminrawabunga1', p:'!1AdminRawaBunga', role:'admin' },
 ];
 
 const DIVISION_ROLE_PRESETS = {
@@ -948,6 +948,17 @@ async function submitAbsence(type) {
     }
 
     const video = document.getElementById('faceVideo');
+    // Deteksi wajah sebelum capture
+    if (video) {
+        try {
+            const faceFound = await detectFace(video);
+            if (!faceFound) {
+                return showToast('Wajah tidak terdeteksi! Pastikan wajah terlihat jelas di kamera.', 'error');
+            }
+        } catch (e) {
+            console.warn('Face detection skip:', e);
+        }
+    }
     const canvas = document.getElementById('snapCanvas');
     canvas.width = 400; canvas.height = 533; 
     const ctx = canvas.getContext('2d');
@@ -2393,9 +2404,74 @@ function volToggleCamera() {
     volStartSelfie(newMode);
 }
 
+// --- Deteksi Wajah ---
+async function detectFace(videoElement) {
+    // Capture frame ke canvas sementara
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = videoElement.videoWidth || 320;
+    tempCanvas.height = videoElement.videoHeight || 240;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(videoElement, 0, 0, tempCanvas.width, tempCanvas.height);
+
+    // Coba FaceDetector API (Chrome/Edge/Android)
+    if (window.FaceDetector) {
+        try {
+            const detector = new FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+            const faces = await detector.detect(tempCanvas);
+            return faces.length > 0;
+        } catch (e) {
+            console.warn('FaceDetector error, fallback to skin detection', e);
+        }
+    }
+
+    // Fallback: deteksi area warna kulit (skin-tone heuristic)
+    const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+    const data = imageData.data;
+    let skinPixels = 0;
+    const totalPixels = tempCanvas.width * tempCanvas.height;
+    // Fokus area tengah frame (50% tengah) dimana wajah biasa berada
+    const x1 = Math.floor(tempCanvas.width * 0.25);
+    const x2 = Math.floor(tempCanvas.width * 0.75);
+    const y1 = Math.floor(tempCanvas.height * 0.05);
+    const y2 = Math.floor(tempCanvas.height * 0.65);
+    let regionPixels = 0;
+
+    for (let y = y1; y < y2; y++) {
+        for (let x = x1; x < x2; x++) {
+            const i = (y * tempCanvas.width + x) * 4;
+            const r = data[i], g = data[i + 1], b = data[i + 2];
+            regionPixels++;
+            // Skin-tone detection (RGB rule-based)
+            if (r > 95 && g > 40 && b > 20 &&
+                r > g && r > b &&
+                (r - g) > 15 &&
+                Math.abs(r - g) > 15 &&
+                (r - b) > 15) {
+                skinPixels++;
+            }
+        }
+    }
+
+    const skinRatio = skinPixels / regionPixels;
+    return skinRatio > 0.12; // Minimal 12% area tengah = warna kulit
+}
+
 async function volSubmitSelfie() {
     if (!volScannedEmployee) return showToast('Scan QR terlebih dahulu', 'error');
     if (!volLocationLocked) return showToast('Tunggu GPS terkunci!', 'error');
+
+    // Deteksi wajah sebelum lanjut
+    const volVideo = document.getElementById('volFaceVideo');
+    if (volVideo) {
+        try {
+            const faceFound = await detectFace(volVideo);
+            if (!faceFound) {
+                return showToast('Wajah tidak terdeteksi! Pastikan wajah terlihat jelas di kamera.', 'error');
+            }
+        } catch (e) {
+            console.warn('Face detection skip:', e);
+        }
+    }
 
     // Re-check geofence at submit time
     const dist = haversineDistance(volCurrentLocation.lat, volCurrentLocation.lng, GEOFENCE_CONFIG.lat, GEOFENCE_CONFIG.lng);
