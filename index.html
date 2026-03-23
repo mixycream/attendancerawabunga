@@ -73,28 +73,28 @@
                     <input type="checkbox" id="chkTabelRekap" checked disabled class="w-5 h-5 rounded accent-blue-600">
                     <div>
                         <div class="font-bold text-sm text-slate-700">Tabel Rekap Keseluruhan</div>
-                        <div class="text-[10px] text-slate-400">Tabel utama gaji semua karyawan (wajib)</div>
+                        <div class="text-[10px] text-slate-400">Tabel utama gaji semua relawan (wajib)</div>
                     </div>
                 </label>
                 <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition group">
                     <input type="checkbox" id="chkRincianLembur" checked class="w-5 h-5 rounded accent-blue-600">
                     <div>
                         <div class="font-bold text-sm text-slate-700">Rincian Perhitungan Lembur</div>
-                        <div class="text-[10px] text-slate-400">Detail lembur per karyawan per tanggal</div>
+                        <div class="text-[10px] text-slate-400">Detail lembur per relawan per tanggal</div>
                     </div>
                 </label>
                 <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition group">
                     <input type="checkbox" id="chkRincianTelat" checked class="w-5 h-5 rounded accent-blue-600">
                     <div>
                         <div class="font-bold text-sm text-slate-700">Rincian Keterlambatan</div>
-                        <div class="text-[10px] text-slate-400">Detail keterlambatan per karyawan per tanggal</div>
+                        <div class="text-[10px] text-slate-400">Detail keterlambatan per relawan per tanggal</div>
                     </div>
                 </label>
                 <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition group">
                     <input type="checkbox" id="chkSlipIndividual" checked class="w-5 h-5 rounded accent-blue-600">
                     <div>
                         <div class="font-bold text-sm text-slate-700">Slip Gaji Individual</div>
-                        <div class="text-[10px] text-slate-400">1 halaman per karyawan (slip terpisah)</div>
+                        <div class="text-[10px] text-slate-400">1 halaman per relawan (slip terpisah)</div>
                     </div>
                 </label>
                 <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition group">
@@ -120,7 +120,7 @@
             <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
                 <i class="fas fa-exclamation-triangle"></i>
             </div>
-            <h3 class="text-xl font-extrabold text-slate-800">Karyawan Terlambat!</h3>
+            <h3 class="text-xl font-extrabold text-slate-800">Relawan Terlambat!</h3>
             <p class="text-sm text-slate-500 mt-2 mb-4 leading-relaxed">
                 Telat lebih dari 30 menit. Mohon isi alasan keterlambatan untuk dilaporkan ke Admin.
             </p>
@@ -473,7 +473,7 @@
                         <i class="fas fa-chart-pie w-5 text-center group-hover:scale-110 transition-transform"></i> Dashboard
                     </button>
                     <button onclick="switchTab('employees')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
-                        <i class="fas fa-users w-5 text-center group-hover:scale-110 transition-transform"></i> Data Karyawan
+                        <i class="fas fa-users w-5 text-center group-hover:scale-110 transition-transform"></i> Data Relawan
                     </button>
                     <button onclick="switchTab('salaries')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
                         <i class="fas fa-file-invoice-dollar w-5 text-center group-hover:scale-110 transition-transform"></i> Rekap Gaji & Lembur
@@ -513,7 +513,7 @@
                     <div id="tab-dashboard" class="animate-fade-in space-y-6">
                         <!-- Stats Grid -->
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-                            <!-- Card Total Karyawan (Updated: Clickable) -->
+                            <!-- Card Total Relawan (Updated: Clickable) -->
                             <div onclick="showAllEmployees()" class="cursor-pointer hover:scale-[1.02] transition-transform active:scale-95 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group">
                                 <div class="absolute -right-4 -top-4 w-24 h-24 bg-slate-50 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
                                 <div class="relative">
@@ -646,7 +646,7 @@
                         <!-- ... (Keep Tab 2 Content) ... -->
                         <div class="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-slate-100 relative overflow-hidden">
                             <div class="relative z-10">
-                                <h3 class="font-bold text-slate-800 mb-6 text-lg">Input Karyawan Baru</h3>
+                                <h3 class="font-bold text-slate-800 mb-6 text-lg">Input Relawan Baru</h3>
                                 <form onsubmit="addEmployee(event)" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                                     <div class="md:col-span-3 space-y-1">
                                         <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Nama Lengkap</label>
@@ -777,7 +777,7 @@
                                 </table>
                                 <hr style="border:none; border-top:3px double #333; margin:8px 0 4px;">
                                 <hr style="border:none; border-top:1px solid #333; margin:0 0 16px;">
-                                <h3 style="text-align:center; font-size:15px; font-weight:700; text-decoration:underline; margin:0 0 2px; letter-spacing:1px;">REKAP SLIP GAJI KARYAWAN</h3>
+                                <h3 style="text-align:center; font-size:15px; font-weight:700; text-decoration:underline; margin:0 0 2px; letter-spacing:1px;">REKAP SLIP GAJI RELAWAN</h3>
                                 <p style="text-align:center; font-size:11px; color:#555; margin:0 0 16px;" id="printPeriodeGaji">Periode: -</p>
                             </div>
                             <div class="overflow-x-auto">
@@ -968,7 +968,7 @@
                     <!-- Status Text -->
                     <div class="absolute bottom-6 left-0 right-0 text-center">
                         <span class="bg-black/50 text-white/80 text-[10px] px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10 font-medium">
-                            Scan QR Karyawan
+                            Scan QR Relawan
                         </span>
                     </div>
                 </div>
@@ -986,7 +986,7 @@
                             <i class="fas fa-user-check"></i>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <h2 id="confirmName" class="text-xl font-bold text-white leading-tight truncate">Nama Karyawan</h2>
+                            <h2 id="confirmName" class="text-xl font-bold text-white leading-tight truncate">Nama Relawan</h2>
                             <div class="flex items-center gap-2 mt-1.5 flex-wrap">
                                 <span id="confirmDiv" class="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-md border border-blue-500/20">Divisi</span>
                                 <span id="confirmShift" class="text-[10px] text-slate-400 flex items-center gap-1">

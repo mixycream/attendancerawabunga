@@ -849,9 +849,9 @@ function cetakRekapGaji() {
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- INFO KARYAWAN -->
+                        <!-- INFO RELAWAN -->
                         <tr style="background:#f8fafc;">
-                            <td style="border:1px solid #ccc;padding:6px 8px;font-size:10px;color:#555;width:130px;">Nama Karyawan</td>
+                            <td style="border:1px solid #ccc;padding:6px 8px;font-size:10px;color:#555;width:130px;">Nama Relawan</td>
                             <td colspan="2" style="border:1px solid #ccc;padding:6px 8px;font-size:11px;font-weight:700;">${e.name}</td>
                         </tr>
                         <tr style="background:#f8fafc;">
@@ -1030,7 +1030,7 @@ function validateEmployee(id) {
         if(scanStream) scanStream.getTracks().forEach(t=>t.stop());
         startSelfie('user'); 
     } else {
-        showToast("Karyawan Tidak Ditemukan", "error");
+        showToast("Relawan Tidak Ditemukan", "error");
     }
 }
 
@@ -1447,7 +1447,7 @@ function switchTab(id) {
     if(window.innerWidth < 768) { document.getElementById('sidebar').classList.add('-translate-x-full'); document.getElementById('sidebarOverlay').classList.add('hidden'); }
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     Array.from(document.querySelectorAll('.nav-item')).find(b => b.getAttribute('onclick').includes(id))?.classList.add('active');
-    const titles = { 'dashboard': 'Dashboard', 'employees': 'Data Karyawan', 'salaries': 'Laporan Gaji' };
+    const titles = { 'dashboard': 'Dashboard', 'employees': 'Data Relawan', 'salaries': 'Laporan Gaji' };
     document.getElementById('pageTitle').innerText = titles[id];
 }
 function initAdmin() { document.getElementById('adminLayout').classList.remove('hidden'); refreshUI(); }
