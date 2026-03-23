@@ -2060,9 +2060,9 @@ function closeEditEmployee() { document.getElementById('editEmployeeModal').clas
 // ===== VOLUNTEER SELF-ATTENDANCE (Absensi Mandiri Relawan) =====
 // Geofence config — set the center coordinates for your location
 const GEOFENCE_CONFIG = {
-    lat: -6.22372,    // Latitude titik pusat (ubah sesuai lokasi)
-    lng: 106.89103,   // Longitude titik pusat (ubah sesuai lokasi)
-    radius: 5          // Radius toleransi dalam meter
+    lat: -6.21973,    // Latitude titik pusat (ubah sesuai lokasi)
+    lng: 106.87015,   // Longitude titik pusat (ubah sesuai lokasi)
+    radius: 10          // Radius toleransi dalam meter
 };
 
 // Volunteer-specific state
@@ -2107,7 +2107,7 @@ function volUpdateGeofenceUI() {
         txt.innerText = `Geofence: Dalam area (${Math.round(dist)}m)`;
     } else {
         bar.className = 'mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/15 border border-red-400/20 text-[10px] text-red-300 font-bold transition-all duration-300';
-        txt.innerText = `Geofence: Di luar area (${Math.round(dist)}m dari titik)`;
+        txt.innerText = `Geofence: Di luar area (${Math.round(dist)}m dari Dapur SPPG Rawa Bunga)`;
     }
     return isInside;
 }
@@ -2160,22 +2160,52 @@ function volStartClockAndGPS() {
     }
 }
 
+// Deteksi otomatis: harus Clock In atau Clock Out?
+function volDetectAbsenType(empId) {
+    if (!empId) return 'IN';
+    const empLogs = logs.filter(l => String(l.empId) === String(empId))
+        .sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+    const lastLog = empLogs.length > 0 ? empLogs[0] : null;
+    if (!lastLog || lastLog.type === 'OUT') return 'IN';
+    return 'OUT'; // Sudah Clock In, berarti selanjutnya Clock Out
+}
+
+function volUpdateAbsenButton(empId) {
+    const btn = document.getElementById('volBtnAbsen');
+    const icon = document.getElementById('volBtnAbsenIcon');
+    const label = document.getElementById('volBtnAbsenLabel');
+    if (!btn) return;
+
+    const type = volDetectAbsenType(empId);
+    if (type === 'OUT') {
+        btn.className = 'w-full py-4 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-bold shadow-lg shadow-amber-600/30 transition active:scale-95 flex items-center justify-center gap-3 border-t border-white/20';
+        if (icon) icon.className = 'fas fa-sign-out-alt text-lg';
+        if (label) label.innerText = 'Absen Pulang';
+    } else {
+        btn.className = 'w-full py-4 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-bold shadow-lg shadow-emerald-600/30 transition active:scale-95 flex items-center justify-center gap-3 border-t border-white/20';
+        if (icon) icon.className = 'fas fa-sign-in-alt text-lg';
+        if (label) label.innerText = 'Absen Masuk';
+    }
+}
+
 function volUpdateTodayStatus() {
     const infoEl = document.getElementById('volTodayInfo');
     if (!infoEl) return;
     // Di mode tamu, tidak bisa tampilkan status karena belum tahu siapa
     if (volGuestMode && !volScannedEmployee) {
         infoEl.innerHTML = 'Scan QR untuk mulai absen.';
+        volUpdateAbsenButton(null);
         return;
     }
     const empId = volGuestMode ? volScannedEmployee?.id : currentUser?.id;
-    if (!empId) { infoEl.innerHTML = 'Belum absen hari ini.'; return; }
+    if (!empId) { infoEl.innerHTML = 'Belum absen hari ini.'; volUpdateAbsenButton(null); return; }
     const today = new Date().toISOString().split('T')[0];
     const myLogs = logs.filter(l => String(l.empId) === String(empId) && l.date === today)
         .sort((a, b) => new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time));
 
     if (myLogs.length === 0) {
         infoEl.innerHTML = 'Belum absen hari ini.';
+        volUpdateAbsenButton(empId);
         return;
     }
 
@@ -2185,6 +2215,7 @@ function volUpdateTodayStatus() {
         return `<div>${icon} ${label} — ${l.time}</div>`;
     }).join('');
     infoEl.innerHTML = html;
+    volUpdateAbsenButton(empId);
 }
 
 function initVolunteer() {
@@ -2236,7 +2267,7 @@ function volShowPage(page) {
     else if (page === 'selfie') document.getElementById('volPageSelfie')?.classList.remove('hidden');
 }
 
-function volStartAbsen(type) {
+function volStartAbsen() {
     if (!volLocationLocked) return showToast('Tunggu GPS terkunci dulu!', 'error');
 
     // Check geofence
@@ -2245,7 +2276,14 @@ function volStartAbsen(type) {
         return showToast(`Anda di luar area absensi (${Math.round(dist)}m). Maksimal ${GEOFENCE_CONFIG.radius}m.`, 'error');
     }
 
-    volAbsenType = type;
+    // Di mode login, sudah tahu user-nya → langsung tentukan tipe
+    if (!volGuestMode && currentUser) {
+        volAbsenType = volDetectAbsenType(currentUser.id);
+    } else {
+        // Di mode tamu, tipe ditentukan setelah QR di-scan
+        volAbsenType = null;
+    }
+
     volScannedEmployee = null;
     volShowPage('qr');
     volStartQR();
@@ -2302,6 +2340,9 @@ function volValidateQR(data) {
 
     volScannedEmployee = emp;
     if (volScanStream) volScanStream.getTracks().forEach(t => t.stop());
+
+    // Auto-detect tipe absen berdasarkan log terakhir karyawan
+    volAbsenType = volDetectAbsenType(emp.id);
 
     // Move to selfie page
     volShowPage('selfie');

@@ -360,7 +360,7 @@
                             <div class="text-center text-xs text-slate-400">Hubungi administrator jika tidak punya akun</div>
                         </form>
 
-                        <!-- Tombol Absen Mandiri (tanpa login) -->
+                        <!-- Tombol Absen Relawan (tanpa login) -->
                         <div class="mt-4">
                             <div class="flex items-center gap-3 mb-3">
                                 <div class="flex-1 h-px bg-slate-200"></div>
@@ -369,7 +369,7 @@
                             </div>
                             <button onclick="startAbsenMandiri()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold shadow-lg hover:shadow-xl hover:brightness-105 transition duration-200 flex items-center justify-center gap-3 border border-emerald-400/30">
                                 <i class="fas fa-fingerprint text-lg"></i>
-                                <span>Absen Mandiri</span>
+                                <span>Absen Relawan</span>
                                 <i class="fas fa-qrcode text-sm opacity-60"></i>
                             </button>
                             <p class="text-center text-[10px] text-slate-400 mt-2">Scan QR Code & Selfie — tanpa perlu akun</p>
@@ -934,7 +934,7 @@
                 <div class="flex justify-between items-start">
                     <div class="flex items-center gap-2">
                         <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_#10b981]"></span>
-                        <span class="text-emerald-400 font-bold text-xs tracking-widest uppercase">Absensi Mandiri</span>
+                        <span class="text-emerald-400 font-bold text-xs tracking-widest uppercase">Absensi Relawan</span>
                     </div>
                     <div class="flex gap-2">
                         <button onclick="fetchData(true)" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 backdrop-blur-sm border border-white/5 flex items-center justify-center transition-all shadow-lg active:scale-95" title="Sync Data">
@@ -971,38 +971,34 @@
                     </div>
                 </div>
                 <!-- Geofence Status -->
-                <div id="volGeofenceBar" class="mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/15 border border-red-400/20 text-[10px] text-red-300 font-bold transition-all duration-300">
+                <div id="volGeofenceBar" class="mt-1.5 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-500/15 border border-red-400/20 text-[10px] text-red-300 font-bold transition-all duration-300">
                     <i class="fas fa-shield-alt"></i>
                     <span id="volGeofenceText">Geofence: Menunggu lokasi...</span>
                 </div>
             </div>
 
             <!-- Vol Page 0: Dashboard / Home -->
-            <div id="volPageHome" class="flex-1 flex flex-col items-center justify-center p-6 relative pt-72 pb-8">
-                <div class="w-full max-w-sm space-y-4">
+            <div id="volPageHome" class="flex-1 flex flex-col items-center justify-end p-6 relative pt-56 pb-6">
+                <div class="w-full max-w-sm space-y-3">
                     <!-- Status Card -->
-                    <div id="volStatusCard" class="bg-slate-800/60 border border-white/10 rounded-3xl p-6 backdrop-blur-md shadow-2xl text-center">
-                        <div id="volStatusIcon" class="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300 text-3xl mx-auto mb-4">
+                    <div id="volStatusCard" class="bg-slate-800/60 border border-white/10 rounded-2xl p-5 backdrop-blur-md shadow-2xl text-center">
+                        <div id="volStatusIcon" class="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300 text-2xl mx-auto mb-3">
                             <i class="fas fa-fingerprint"></i>
                         </div>
-                        <h3 id="volStatusTitle" class="text-xl font-bold text-white">Absensi Mandiri</h3>
-                        <p id="volStatusDesc" class="text-xs text-slate-300 mt-2 leading-relaxed">Lakukan absen masuk atau pulang secara mandiri dengan scan QR Code dan verifikasi selfie.</p>
-                        <div id="volTodayStatus" class="mt-4 bg-black/30 border border-white/10 rounded-xl p-3 text-left text-[11px] text-slate-300">
+                        <h3 id="volStatusTitle" class="text-lg font-bold text-white">Absensi Relawan</h3>
+                        <p id="volStatusDesc" class="text-[11px] text-slate-300 mt-1.5 leading-relaxed">Scan QR Code dan verifikasi selfie untuk absen.</p>
+                        <div id="volTodayStatus" class="mt-3 bg-black/30 border border-white/10 rounded-xl p-3 text-left text-[11px] text-slate-300">
                             <div class="font-bold text-emerald-300 mb-1">Status Hari Ini</div>
                             <div id="volTodayInfo">Belum absen hari ini.</div>
                         </div>
                     </div>
-                    <!-- Action Buttons -->
-                    <button id="volBtnClockIn" onclick="volStartAbsen('IN')" class="w-full py-4 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-bold shadow-lg shadow-emerald-600/30 transition active:scale-95 flex items-center justify-center gap-3 border-t border-white/20">
-                        <i class="fas fa-sign-in-alt text-lg"></i>
-                        <span class="text-sm uppercase tracking-wider">Clock In — Absen Masuk</span>
-                    </button>
-                    <button id="volBtnClockOut" onclick="volStartAbsen('OUT')" class="w-full py-4 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-bold shadow-lg shadow-amber-600/30 transition active:scale-95 flex items-center justify-center gap-3 border-t border-white/20">
-                        <i class="fas fa-sign-out-alt text-lg"></i>
-                        <span class="text-sm uppercase tracking-wider">Clock Out — Absen Pulang</span>
+                    <!-- Single Smart Absen Button -->
+                    <button id="volBtnAbsen" onclick="volStartAbsen()" class="w-full py-4 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-bold shadow-lg shadow-emerald-600/30 transition active:scale-95 flex items-center justify-center gap-3 border-t border-white/20">
+                        <i id="volBtnAbsenIcon" class="fas fa-sign-in-alt text-lg"></i>
+                        <span id="volBtnAbsenLabel" class="text-sm uppercase tracking-wider">Absen Masuk</span>
                     </button>
                 </div>
-                <div class="absolute bottom-4 text-[10px] text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
+                <div class="mt-4 text-[10px] text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
             </div>
 
             <!-- Vol Page 1: QR Scan -->
