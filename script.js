@@ -2,11 +2,6 @@
 // Paste URL Google Apps Script kamu di sini (Wajib)
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyW5Pmj7wTX53bBVSgnxrOVMR6IPdEeP3V3x9-QtrhiM86Ubw9JSCzU9edobFD3FCZK/exec"; 
 
-// Local demo accounts (fallback untuk offline + admin)
-const LOCAL_USERS = [
-    { u:'adminrawabunga1', p:'!1AdminRawaBunga1', role:'admin' },
-];
-
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
     'Ahli Gizi': 'nutritionist',
@@ -266,32 +261,12 @@ async function handleLogin(e) {
         return alert("PENTING: Edit file script.js baris ke-3, masukkan URL Google Script Anda!");
     }
 
-    // Cek admin lokal dulu (fallback offline)
-    const localAcc = LOCAL_USERS.find(a => a.u === u && a.p === p);
-    if(localAcc) {
-        currentUser = localAcc;
-        localStorage.setItem('mbg_user', JSON.stringify(localAcc));
-
-        document.getElementById('loginView').classList.add('opacity-0', 'pointer-events-none');
-        setTimeout(() => document.getElementById('loginView').classList.add('hidden'), 500);
-
-        await fetchData(true);
-        if (localAcc.role === 'security') initSecurity();
-        else if (localAcc.role === 'nutritionist') initNutritionist();
-        else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(localAcc.role)) initSpecialRoleDashboard();
-        else if (localAcc.role === 'employee') initVolunteer();
-        else initAdmin();
-        startSessionTimer();
-        const remember = document.getElementById('rememberMe')?.checked;
-        if (remember) localStorage.setItem('remembered_username', u); else localStorage.removeItem('remembered_username');
-        return;
-    }
-
-    // Jika bukan admin lokal, coba server untuk security accounts
+    // Semua login melalui server (code.gs) — satu jalur aman
     const resp = await callApi('login', { username: u, password: p });
-    if (!resp.ok || !resp.data) return showToast('Gagal terhubung ke server / Username/Password Salah', 'error');
+    if (!resp.ok || !resp.data) return showToast('Gagal terhubung ke server. Periksa koneksi internet.', 'error');
+
     if (resp.data.status === 'success') {
-        const user = resp.data.user || { u: u, role: 'security' };
+        const user = resp.data.user || { u: u, role: 'employee' };
         currentUser = user;
         localStorage.setItem('mbg_user', JSON.stringify(user));
 
@@ -305,55 +280,10 @@ async function handleLogin(e) {
         else if (user.role === 'employee') initVolunteer();
         else initAdmin();
         startSessionTimer();
-        // Remember username if checkbox checked
+
         const remember = document.getElementById('rememberMe')?.checked;
         if (remember) localStorage.setItem('remembered_username', u); else localStorage.removeItem('remembered_username');
     } else {
-        try {
-            const fallbackRes = await fetch(SCRIPT_URL + '?action=getData');
-            const fallbackData = await fallbackRes.json();
-            const matched = (fallbackData.employees || []).find(emp => {
-                const role = emp.role || inferRoleFromDivision(emp.division);
-                if (role === 'employee' || role === 'security') return false;
-                return String(emp.username || '').toLowerCase().trim() === u && String(emp.password || '').trim() === p;
-            });
-
-            if (matched) {
-                const user = {
-                    u: String(matched.username || '').toLowerCase().trim(),
-                    role: matched.role || inferRoleFromDivision(matched.division),
-                    id: matched.id,
-                    name: matched.name,
-                    division: matched.division,
-                    photo: matched.photo || ''
-                };
-                currentUser = user;
-                localStorage.setItem('mbg_user', JSON.stringify(user));
-
-                document.getElementById('loginView').classList.add('opacity-0', 'pointer-events-none');
-                setTimeout(() => document.getElementById('loginView').classList.add('hidden'), 500);
-
-                employees = fallbackData.employees || [];
-                logs = fallbackData.logs || [];
-                if (fallbackData.config) {
-                    if (fallbackData.config.overtimeRate) appConfig.overtimeRate = parseInt(fallbackData.config.overtimeRate) || appConfig.overtimeRate;
-                    if (fallbackData.config.shifts) appConfig.shifts = fallbackData.config.shifts;
-                }
-
-                if (user.role === 'nutritionist') initNutritionist();
-                else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(user.role)) initSpecialRoleDashboard();
-                else if (user.role === 'employee') initVolunteer();
-                else initAdmin();
-                startSessionTimer();
-
-                const remember = document.getElementById('rememberMe')?.checked;
-                if (remember) localStorage.setItem('remembered_username', u); else localStorage.removeItem('remembered_username');
-                return;
-            }
-        } catch (fallbackError) {
-            console.warn('Role login fallback failed', fallbackError);
-        }
-
         showToast(resp.data.message || 'Username / Password Salah', 'error');
     }
 }
