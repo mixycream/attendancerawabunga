@@ -4,7 +4,7 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyW5Pmj7wTX53bBVSgnx
 
 // Local demo accounts (fallback untuk offline + admin)
 const LOCAL_USERS = [
-    { u:'adminrawabunga1', p:'!1AdminRawaBunga', role:'admin' },
+    { u:'adminrawabunga1', p:'!1AdminRawaBunga1', role:'admin' },
 ];
 
 const DIVISION_ROLE_PRESETS = {
@@ -767,6 +767,170 @@ function renderSalary() {
             <td class="p-4 text-right font-extrabold text-slate-800 text-base">Rp ${e.total.toLocaleString()}</td>
         </tr>`;
     }).join('');
+}
+
+// --- CETAK REKAP GAJI (Print with Kop Surat) ---
+function openCetakModal() {
+    const modal = document.getElementById('cetakModal');
+    modal.classList.remove('hidden');
+    setTimeout(() => modal.classList.remove('opacity-0'), 10);
+}
+function closeCetakModal() {
+    const modal = document.getElementById('cetakModal');
+    modal.classList.add('opacity-0');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+}
+function confirmCetakGaji() {
+    closeCetakModal();
+    setTimeout(() => cetakRekapGaji(), 350);
+}
+
+function cetakRekapGaji() {
+    const bulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const now = new Date();
+    const periodeText = `${bulan[now.getMonth()]} ${now.getFullYear()}`;
+    const periodeEl = document.getElementById('printPeriodeGaji');
+    const tanggalEl = document.getElementById('printTanggalGaji');
+    if (periodeEl) periodeEl.textContent = `Periode: ${periodeText}`;
+    if (tanggalEl) tanggalEl.textContent = `Jakarta, ${now.getDate()} ${bulan[now.getMonth()]} ${now.getFullYear()}`;
+
+    // Read checkbox options BEFORE generating slips
+    const showLembur = document.getElementById('chkRincianLembur')?.checked;
+    const showTelat = document.getElementById('chkRincianTelat')?.checked;
+    const showSlip = document.getElementById('chkSlipIndividual')?.checked;
+    const showKop = document.getElementById('chkKopSurat')?.checked;
+
+    // Generate individual slip per employee
+    const slipContainer = document.getElementById('slipGajiIndividual');
+    if (slipContainer) {
+        let slipsHtml = '';
+        const salaryList = employees.map(e => {
+            const empLogs = logs.filter(l => l.empId === e.id);
+            const days = new Set(empLogs.filter(l => l.type === 'IN').map(l => l.date)).size;
+            let totalOvertimeHours = 0;
+            let totalLateCount = 0;
+            let totalLateMinutes = 0;
+            const overtimeRows = [];
+            const lateRows = [];
+
+            empLogs.filter(l => l.type === 'OUT' && l.overtime > 0).forEach(l => {
+                totalOvertimeHours += (parseInt(l.overtime) || 0);
+                overtimeRows.push({ date: l.date, hours: l.overtime });
+            });
+            empLogs.filter(l => l.type === 'IN' && l.lateMinutes > 0).forEach(l => {
+                totalLateCount++;
+                totalLateMinutes += l.lateMinutes;
+                lateRows.push({ date: l.date, minutes: l.lateMinutes });
+            });
+
+            const basicSalary = days * e.salary;
+            const overtimePay = totalOvertimeHours * appConfig.overtimeRate;
+            const total = basicSalary + overtimePay;
+            return { ...e, days, totalOvertimeHours, totalLateCount, totalLateMinutes, overtimeRows, lateRows, basicSalary, overtimePay, total };
+        });
+
+        salaryList.forEach((e, idx) => {
+            let overtimeRowsHtml = e.overtimeRows.map(r => `<tr><td style="border:1px solid #ccc;padding:4px 8px;font-size:10px;">${r.date}</td><td style="border:1px solid #ccc;padding:4px 8px;font-size:10px;text-align:right;">+${r.hours} Jam</td></tr>`).join('');
+            let lateRowsHtml = e.lateRows.map(r => `<tr><td style="border:1px solid #ccc;padding:4px 8px;font-size:10px;">${r.date}</td><td style="border:1px solid #ccc;padding:4px 8px;font-size:10px;text-align:right;color:#dc2626;">${formatDuration(r.minutes)}</td></tr>`).join('');
+
+            slipsHtml += `
+            <div style="page-break-before:${idx === 0 ? 'always' : 'always'}; padding-top:12px;">
+                <table style="width:100%;border-collapse:collapse;border:2px solid #555;">
+                    <thead>
+                        <tr style="background:#e2e8f0;">
+                            <th colspan="3" style="border:1px solid #999;padding:8px;font-size:13px;text-align:center;letter-spacing:1px;">SLIP GAJI — ${e.name}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- INFO KARYAWAN -->
+                        <tr style="background:#f8fafc;">
+                            <td style="border:1px solid #ccc;padding:6px 8px;font-size:10px;color:#555;width:130px;">Nama Karyawan</td>
+                            <td colspan="2" style="border:1px solid #ccc;padding:6px 8px;font-size:11px;font-weight:700;">${e.name}</td>
+                        </tr>
+                        <tr style="background:#f8fafc;">
+                            <td style="border:1px solid #ccc;padding:6px 8px;font-size:10px;color:#555;">Divisi</td>
+                            <td colspan="2" style="border:1px solid #ccc;padding:6px 8px;font-size:11px;font-weight:700;">${e.division}</td>
+                        </tr>
+                        <tr style="background:#f8fafc;">
+                            <td style="border:1px solid #ccc;padding:6px 8px;font-size:10px;color:#555;">Gaji Per Hari</td>
+                            <td colspan="2" style="border:1px solid #ccc;padding:6px 8px;font-size:11px;">Rp ${parseInt(e.salary).toLocaleString()}</td>
+                        </tr>
+                        <tr style="background:#f8fafc;">
+                            <td style="border:1px solid #ccc;padding:6px 8px;font-size:10px;color:#555;">Periode</td>
+                            <td colspan="2" style="border:1px solid #ccc;padding:6px 8px;font-size:11px;">${periodeText}</td>
+                        </tr>
+                        <!-- HEADER KOMPONEN -->
+                        <tr style="background:#e2e8f0;">
+                            <th style="border:1px solid #999;padding:6px 8px;font-size:10px;text-align:left;">Komponen</th>
+                            <th style="border:1px solid #999;padding:6px 8px;font-size:10px;text-align:center;">Keterangan</th>
+                            <th style="border:1px solid #999;padding:6px 8px;font-size:10px;text-align:right;width:140px;">Jumlah</th>
+                        </tr>
+                        <tr>
+                            <td style="border:1px solid #ccc;padding:6px 8px;font-size:11px;">Gaji Pokok</td>
+                            <td style="border:1px solid #ccc;padding:6px 8px;font-size:11px;text-align:center;">${e.days} hari x Rp ${parseInt(e.salary).toLocaleString()}</td>
+                            <td style="border:1px solid #ccc;padding:6px 8px;font-size:11px;text-align:right;">Rp ${e.basicSalary.toLocaleString()}</td>
+                        </tr>
+                        ${showLembur ? `<tr>
+                            <td style="border:1px solid #ccc;padding:6px 8px;font-size:11px;">Lembur</td>
+                            <td style="border:1px solid #ccc;padding:6px 8px;font-size:11px;text-align:center;">${e.totalOvertimeHours} jam x Rp ${parseInt(appConfig.overtimeRate).toLocaleString()}</td>
+                            <td style="border:1px solid #ccc;padding:6px 8px;font-size:11px;text-align:right;">Rp ${e.overtimePay.toLocaleString()}</td>
+                        </tr>` : ''}
+                        ${showTelat ? `<tr>
+                            <td style="border:1px solid #ccc;padding:6px 8px;font-size:11px;color:#dc2626;">Keterlambatan</td>
+                            <td style="border:1px solid #ccc;padding:6px 8px;font-size:11px;text-align:center;color:#dc2626;">${e.totalLateCount}x (total ${formatDuration(e.totalLateMinutes)})</td>
+                            <td style="border:1px solid #ccc;padding:6px 8px;font-size:11px;text-align:right;">-</td>
+                        </tr>` : ''}
+                        ${showLembur && e.overtimeRows.length > 0 ? `
+                        <tr style="background:#e2e8f0;"><th colspan="3" style="border:1px solid #999;padding:5px 8px;font-size:9px;text-align:left;">RINCIAN LEMBUR</th></tr>
+                        <tr style="background:#fffbeb;"><td style="border:1px solid #ccc;padding:4px 8px;font-size:9px;font-weight:700;">Tanggal</td><td colspan="2" style="border:1px solid #ccc;padding:4px 8px;font-size:9px;font-weight:700;text-align:right;">Jam Lembur</td></tr>
+                        ${e.overtimeRows.map(r => `<tr><td style="border:1px solid #ccc;padding:4px 8px;font-size:10px;">${r.date}</td><td colspan="2" style="border:1px solid #ccc;padding:4px 8px;font-size:10px;text-align:right;">+${r.hours} Jam</td></tr>`).join('')}` : ''}
+                        ${showTelat && e.lateRows.length > 0 ? `
+                        <tr style="background:#e2e8f0;"><th colspan="3" style="border:1px solid #999;padding:5px 8px;font-size:9px;text-align:left;">RINCIAN KETERLAMBATAN</th></tr>
+                        <tr style="background:#fef2f2;"><td style="border:1px solid #ccc;padding:4px 8px;font-size:9px;font-weight:700;">Tanggal</td><td colspan="2" style="border:1px solid #ccc;padding:4px 8px;font-size:9px;font-weight:700;text-align:right;">Terlambat</td></tr>
+                        ${e.lateRows.map(r => `<tr><td style="border:1px solid #ccc;padding:4px 8px;font-size:10px;">${r.date}</td><td colspan="2" style="border:1px solid #ccc;padding:4px 8px;font-size:10px;text-align:right;color:#dc2626;">${formatDuration(r.minutes)}</td></tr>`).join('')}` : ''}
+                        <!-- TOTAL -->
+                        <tr style="background:#e2e8f0;font-weight:700;">
+                            <td colspan="2" style="border:1px solid #999;padding:8px;font-size:12px;text-align:right;">TOTAL TAKE HOME PAY</td>
+                            <td style="border:1px solid #999;padding:8px;font-size:13px;text-align:right;">Rp ${e.total.toLocaleString()}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="margin-top:20px;display:flex;justify-content:space-between;">
+                    <div style="text-align:center;width:45%;">
+                        <p style="font-size:10px;color:#555;margin:0 0 50px;">Penerima,</p>
+                        <p style="font-size:11px;font-weight:700;margin:0;border-bottom:1px solid #333;display:inline-block;padding-bottom:2px;">${e.name}</p>
+                    </div>
+                    <div style="text-align:center;width:45%;">
+                        <p style="font-size:10px;color:#555;margin:0 0 50px;">Akuntan,</p>
+                        <p style="font-size:11px;font-weight:700;margin:0;border-bottom:1px solid #333;display:inline-block;padding-bottom:2px;">Muhammad Fikri, S. Ak.</p>
+                    </div>
+                </div>
+            </div>`;
+        });
+        slipContainer.innerHTML = slipsHtml;
+    }
+
+    // Apply checkbox options to main print sections
+
+    const sectionLembur = document.getElementById('printSectionLembur');
+    const sectionTelat = document.getElementById('printSectionTelat');
+    const sectionSlip = document.getElementById('slipGajiIndividual');
+    const sectionKop = document.getElementById('kopSuratGaji');
+    const sectionTtd = document.getElementById('printTtdFooter');
+
+    // Store original display to restore after print
+    const restore = [];
+    if (!showLembur && sectionLembur) { restore.push([sectionLembur, sectionLembur.style.display]); sectionLembur.style.display = 'none'; }
+    if (!showTelat && sectionTelat) { restore.push([sectionTelat, sectionTelat.style.display]); sectionTelat.style.display = 'none'; }
+    if (!showSlip && sectionSlip) { restore.push([sectionSlip, sectionSlip.style.display]); sectionSlip.style.display = 'none'; }
+    if (!showKop && sectionKop) { restore.push([sectionKop, sectionKop.style.display]); sectionKop.style.display = 'none'; }
+    if (!showKop && sectionTtd) { restore.push([sectionTtd, sectionTtd.style.display]); sectionTtd.style.display = 'none'; }
+
+    window.print();
+
+    // Restore after print
+    setTimeout(() => restore.forEach(([el, orig]) => el.style.display = orig || ''), 500);
 }
 
 // --- CHART & GRID ---

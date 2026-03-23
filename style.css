@@ -121,10 +121,17 @@ body {
 @media print {
     .no-print { display: none !important; }
     .print-only { display: block !important; }
-    body { background-color: white; color: black; }
+    body { background-color: white; color: black; font-family: 'Segoe UI', Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     #adminLayout { display: block !important; }
     #sidebar, header { display: none !important; }
     #mainContent { margin: 0 !important; padding: 0 !important; overflow: visible !important; }
+    #printAreaSalary { border: none !important; box-shadow: none !important; border-radius: 0 !important; padding: 0 !important; }
+    #printAreaSalary table { font-size: 10px; }
+    #printAreaSalary th, #printAreaSalary td { padding: 6px 8px !important; }
+    #kopSuratGaji img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    @page { size: A4 portrait; margin: 15mm 12mm 15mm 12mm; }
+    tr { break-inside: avoid; }
+    #slipGajiIndividual > div { break-inside: avoid; }
 }
 
 /* Cosmic Login Container */

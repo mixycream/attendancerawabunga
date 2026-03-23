@@ -46,6 +46,59 @@
         <p class="mt-4 text-sm font-bold text-slate-600 animate-pulse tracking-wide" id="loaderText">Menghubungkan...</p>
     </div>
 
+    <!-- CETAK PDF OPTIONS MODAL -->
+    <div id="cetakModal" class="fixed inset-0 z-[280] bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+        <div class="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden animate-zoom-in">
+            <div class="p-6 border-b border-slate-100 bg-gradient-to-r from-blue-600 to-blue-800 text-white">
+                <h3 class="font-bold text-lg"><i class="fas fa-print mr-2"></i>Opsi Cetak Rekap Gaji</h3>
+                <p class="text-xs text-blue-100 mt-1">Pilih komponen yang ingin ditampilkan di PDF</p>
+            </div>
+            <div class="p-6 space-y-3">
+                <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition group">
+                    <input type="checkbox" id="chkTabelRekap" checked disabled class="w-5 h-5 rounded accent-blue-600">
+                    <div>
+                        <div class="font-bold text-sm text-slate-700">Tabel Rekap Keseluruhan</div>
+                        <div class="text-[10px] text-slate-400">Tabel utama gaji semua karyawan (wajib)</div>
+                    </div>
+                </label>
+                <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition group">
+                    <input type="checkbox" id="chkRincianLembur" checked class="w-5 h-5 rounded accent-blue-600">
+                    <div>
+                        <div class="font-bold text-sm text-slate-700">Rincian Perhitungan Lembur</div>
+                        <div class="text-[10px] text-slate-400">Detail lembur per karyawan per tanggal</div>
+                    </div>
+                </label>
+                <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition group">
+                    <input type="checkbox" id="chkRincianTelat" checked class="w-5 h-5 rounded accent-blue-600">
+                    <div>
+                        <div class="font-bold text-sm text-slate-700">Rincian Keterlambatan</div>
+                        <div class="text-[10px] text-slate-400">Detail keterlambatan per karyawan per tanggal</div>
+                    </div>
+                </label>
+                <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition group">
+                    <input type="checkbox" id="chkSlipIndividual" checked class="w-5 h-5 rounded accent-blue-600">
+                    <div>
+                        <div class="font-bold text-sm text-slate-700">Slip Gaji Individual</div>
+                        <div class="text-[10px] text-slate-400">1 halaman per karyawan (slip terpisah)</div>
+                    </div>
+                </label>
+                <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition group">
+                    <input type="checkbox" id="chkKopSurat" checked class="w-5 h-5 rounded accent-blue-600">
+                    <div>
+                        <div class="font-bold text-sm text-slate-700">Kop Surat & Tanda Tangan</div>
+                        <div class="text-[10px] text-slate-400">Header resmi + TTD Akuntan, Ka SPPG, Yayasan</div>
+                    </div>
+                </label>
+            </div>
+            <div class="p-4 border-t border-slate-100 bg-slate-50 flex gap-3">
+                <button onclick="closeCetakModal()" class="flex-1 py-3 rounded-xl bg-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-300 transition">Batal</button>
+                <button onclick="confirmCetakGaji()" class="flex-1 py-3 rounded-xl bg-blue-700 text-white font-bold text-sm hover:bg-blue-800 transition shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2">
+                    <i class="fas fa-print"></i> Cetak Sekarang
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- LATE ALERT MODAL -->
     <div id="lateAlertModal" class="fixed inset-0 z-[290] bg-red-900/80 backdrop-blur-sm hidden flex items-center justify-center p-6 transition-opacity duration-300 opacity-0">
         <div class="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-6 text-center animate-zoom-in">
@@ -669,7 +722,7 @@
                                 <h2 class="text-xl font-bold">Laporan Penggajian</h2>
                                 <p class="text-blue-100 text-xs mt-1">Otomatis hitung kehadiran & lembur (>8 Jam)</p>
                             </div>
-                            <button onclick="window.print()" class="bg-white text-blue-700 px-6 py-3 rounded-xl text-xs font-bold hover:bg-blue-50 transition flex items-center gap-2 shadow-lg">
+                            <button onclick="openCetakModal()" class="bg-white text-blue-700 px-6 py-3 rounded-xl text-xs font-bold hover:bg-blue-50 transition flex items-center gap-2 shadow-lg">
                                 <i class="fas fa-print"></i> Cetak PDF
                             </button>
                         </div>
@@ -684,9 +737,28 @@
                                     <option value="days_desc">Kehadiran Terbanyak</option>
                                 </select>
                             </div>
-                            <div class="text-center mb-8 hidden print-only">
-                                <h1 class="text-2xl font-bold uppercase tracking-wider text-slate-800">Slip Gaji Karyawan</h1>
-                                <p class="text-sm text-slate-500 mt-2">Periode Data Berjalan</p>
+                            <!-- KOP SURAT RESMI (Print Only) -->
+                            <div class="hidden print-only" id="kopSuratGaji">
+                                <table style="width:100%; border-collapse:collapse; margin-bottom:0;">
+                                    <tr>
+                                        <td style="width:80px; vertical-align:middle; padding:0;">
+                                            <img src="/yayasankaryarasanusantara.png" alt="Yayasan" style="width:70px; height:70px; object-fit:contain;">
+                                        </td>
+                                        <td style="text-align:center; vertical-align:middle; padding:0 10px;">
+                                            <p style="font-size:11px; margin:0; letter-spacing:1px; color:#555;">YAYASAN KARYA RASA NUSANTARA</p>
+                                            <h2 style="font-size:18px; font-weight:800; margin:2px 0; letter-spacing:2px; color:#111;">SATUAN PELAYANAN PENYEDIAAN GIZI NASIONAL</h2>
+                                            <p style="font-size:13px; font-weight:600; margin:0; color:#333;">SPPG RAWA BUNGA 1</p>
+                                            <p style="font-size:10px; margin:4px 0 0; color:#777;">Jl. Rawa Bunga No.1, Jakarta Timur | Telp: (021) xxxx-xxxx</p>
+                                        </td>
+                                        <td style="width:80px; vertical-align:middle; padding:0; text-align:right;">
+                                            <img src="https://sipgn-sipsmo-web.bgn.go.id/main/media/logos/BGN_logo_dark.png" alt="BGN" style="width:70px; height:70px; object-fit:contain;">
+                                        </td>
+                                    </tr>
+                                </table>
+                                <hr style="border:none; border-top:3px double #333; margin:8px 0 4px;">
+                                <hr style="border:none; border-top:1px solid #333; margin:0 0 16px;">
+                                <h3 style="text-align:center; font-size:15px; font-weight:700; text-decoration:underline; margin:0 0 2px; letter-spacing:1px;">REKAP SLIP GAJI KARYAWAN</h3>
+                                <p style="text-align:center; font-size:11px; color:#555; margin:0 0 16px;" id="printPeriodeGaji">Periode: -</p>
                             </div>
                             <div class="overflow-x-auto">
                                 <table class="w-full text-sm text-left border border-slate-200 rounded-lg">
@@ -706,7 +778,7 @@
                             </div>
 
                             <!-- TABEL RINCIAN LEMBUR -->
-                             <div class="mt-8">
+                             <div class="mt-8" id="printSectionLembur">
                                 <h4 class="font-bold text-slate-800 mb-3 text-sm">Rincian Perhitungan Lembur (Detail)</h4>
                                 <div class="overflow-x-auto border border-slate-200 rounded-lg">
                                     <table class="w-full text-xs text-left">
@@ -728,7 +800,7 @@
                             </div>
 
                             <!-- TABEL RINCIAN KETERLAMBATAN -->
-                            <div class="mt-8">
+                            <div class="mt-8" id="printSectionTelat">
                                 <h4 class="font-bold text-slate-800 mb-3 text-sm">Rincian Keterlambatan (Detail)</h4>
                                 <div class="overflow-x-auto border border-slate-200 rounded-lg">
                                     <table class="w-full text-xs text-left">
@@ -748,15 +820,33 @@
                                 </div>
                             </div>
 
-                            <div class="mt-8 pt-8 border-t border-slate-200 hidden print-only grid grid-cols-2">
-                                <div class="text-center">
-                                    <p class="text-xs text-slate-500 mb-16">Dibuat Oleh,</p>
-                                    <p class="font-bold underline">Admin HR</p>
-                                </div>
-                                <div class="text-center">
-                                    <p class="text-xs text-slate-500 mb-16">Disetujui Oleh,</p>
-                                    <p class="font-bold underline">Manager Operasional</p>
-                                </div>
+                            <!-- SLIP GAJI INDIVIDUAL PER KARYAWAN (Print Only) -->
+                            <div class="hidden print-only" id="slipGajiIndividual">
+                                <!-- Diisi oleh JS saat cetak -->
+                            </div>
+
+                            <!-- FOOTER TANDA TANGAN (Print Only) -->
+                            <div class="hidden print-only" id="printTtdFooter" style="margin-top:32px; padding-top:20px; border-top:1px solid #ccc;">
+                                <p style="text-align:right; font-size:11px; color:#555; margin-bottom:24px;" id="printTanggalGaji">Jakarta, ...................</p>
+                                <table style="width:100%; border-collapse:collapse;">
+                                    <tr>
+                                        <td style="width:33%; text-align:center; vertical-align:top; padding:0 12px;">
+                                            <p style="font-size:11px; color:#555; margin:0 0 60px;">Dibuat Oleh,</p>
+                                            <p style="font-size:12px; font-weight:700; margin:0; border-bottom:1px solid #333; display:inline-block; padding-bottom:2px;">Muhammad Fikri, S. Ak.</p>
+                                            <p style="font-size:10px; color:#777; margin:4px 0 0;">Akuntan</p>
+                                        </td>
+                                        <td style="width:33%; text-align:center; vertical-align:top; padding:0 12px;">
+                                            <p style="font-size:11px; color:#555; margin:0 0 60px;">Mengetahui,</p>
+                                            <p style="font-size:12px; font-weight:700; margin:0; border-bottom:1px solid #333; display:inline-block; padding-bottom:2px;">Asrulloh, S. Kom.</p>
+                                            <p style="font-size:10px; color:#777; margin:4px 0 0;">Kepala SPPG Rawa Bunga 1</p>
+                                        </td>
+                                        <td style="width:33%; text-align:center; vertical-align:top; padding:0 12px;">
+                                            <p style="font-size:11px; color:#555; margin:0 0 60px;">Menyetujui,</p>
+                                            <p style="font-size:12px; font-weight:700; margin:0; border-bottom:1px solid #333; display:inline-block; padding-bottom:2px;">Apriani Raharti, S.Sos.</p>
+                                            <p style="font-size:10px; color:#777; margin:4px 0 0;">Ketua Yayasan Karya Rasa Nusantara</p>
+                                        </td>
+                                    </tr>
+                                </table>
                             </div>
                         </div>
                     </div>
