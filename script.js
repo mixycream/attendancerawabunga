@@ -173,6 +173,8 @@ let pendingAttendancePayload = null; // Menyimpan data sementara jika telat > 30
 let trendChartInstance = null; // Instance Chart.js
 let securitySelfAttendanceDone = false;
 let securitySelfAttendanceMode = false;
+let sessionTimer = null;
+const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 menit
 
 // Camera & Geo State
 let scanStream = null, faceStream = null, scanInterval = null;
@@ -202,6 +204,17 @@ window.onload = () => {
     const savedUser = localStorage.getItem('mbg_user');
     if(savedUser) {
         currentUser = JSON.parse(savedUser);
+
+        // Check if session has expired (30 min since last activity)
+        const sessionStart = parseInt(localStorage.getItem('mbg_session_start') || '0');
+        if (sessionStart && (Date.now() - sessionStart > SESSION_TIMEOUT)) {
+            localStorage.removeItem('mbg_user');
+            localStorage.removeItem('mbg_session_start');
+            currentUser = null;
+            showToast('Sesi habis (30 menit). Silakan login ulang.', 'error');
+            return;
+        }
+
         if (currentUser.role === 'security') {
             callApi('checkSecuritySession', { username: currentUser.u || '' }).then(resp => {
                 if (!resp.ok || !resp.data || resp.data.status !== 'success') {
@@ -212,6 +225,7 @@ window.onload = () => {
                 document.getElementById('loginView').classList.add('hidden');
                 fetchData(true);
                 initSecurity();
+                startSessionTimer();
             }).catch(() => {
                 localStorage.removeItem('mbg_user');
                 showToast('Gagal validasi session security. Silakan login ulang.', 'error');
@@ -223,6 +237,7 @@ window.onload = () => {
             else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(currentUser.role)) initSpecialRoleDashboard();
             else if (currentUser.role === 'employee') initVolunteer();
             else initAdmin();
+            startSessionTimer();
         }
     }
     
@@ -266,7 +281,7 @@ async function handleLogin(e) {
         else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(localAcc.role)) initSpecialRoleDashboard();
         else if (localAcc.role === 'employee') initVolunteer();
         else initAdmin();
-        // Remember username if checkbox checked
+        startSessionTimer();
         const remember = document.getElementById('rememberMe')?.checked;
         if (remember) localStorage.setItem('remembered_username', u); else localStorage.removeItem('remembered_username');
         return;
@@ -289,6 +304,7 @@ async function handleLogin(e) {
         else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(user.role)) initSpecialRoleDashboard();
         else if (user.role === 'employee') initVolunteer();
         else initAdmin();
+        startSessionTimer();
         // Remember username if checkbox checked
         const remember = document.getElementById('rememberMe')?.checked;
         if (remember) localStorage.setItem('remembered_username', u); else localStorage.removeItem('remembered_username');
@@ -328,6 +344,7 @@ async function handleLogin(e) {
                 else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(user.role)) initSpecialRoleDashboard();
                 else if (user.role === 'employee') initVolunteer();
                 else initAdmin();
+                startSessionTimer();
 
                 const remember = document.getElementById('rememberMe')?.checked;
                 if (remember) localStorage.setItem('remembered_username', u); else localStorage.removeItem('remembered_username');
@@ -351,17 +368,47 @@ function togglePasswordVisibility() {
 
 async function logout() {
     if(confirm("Keluar dari aplikasi?")) {
-        if (currentUser && currentUser.role === 'security') {
-            try {
-                await callApi('securityLogout', { username: currentUser.u || '' });
-            } catch (e) {
-                console.warn('securityLogout failed', e);
-            }
-        }
-        localStorage.removeItem('mbg_user'); 
-        location.reload();
+        await forceLogout();
     }
 }
+
+async function forceLogout() {
+    clearTimeout(sessionTimer);
+    if (currentUser && currentUser.role === 'security') {
+        try {
+            await callApi('securityLogout', { username: currentUser.u || '' });
+        } catch (e) {
+            console.warn('securityLogout failed', e);
+        }
+    }
+    localStorage.removeItem('mbg_user');
+    localStorage.removeItem('mbg_session_start');
+    location.reload();
+}
+
+function startSessionTimer() {
+    clearTimeout(sessionTimer);
+    localStorage.setItem('mbg_session_start', Date.now().toString());
+    sessionTimer = setTimeout(() => {
+        showToast('Sesi habis (30 menit). Silakan login ulang.', 'error');
+        setTimeout(() => forceLogout(), 1500);
+    }, SESSION_TIMEOUT);
+}
+
+function resetSessionTimer() {
+    if (!currentUser) return;
+    clearTimeout(sessionTimer);
+    localStorage.setItem('mbg_session_start', Date.now().toString());
+    sessionTimer = setTimeout(() => {
+        showToast('Sesi habis (30 menit). Silakan login ulang.', 'error');
+        setTimeout(() => forceLogout(), 1500);
+    }, SESSION_TIMEOUT);
+}
+
+// Reset timer on user activity
+['click', 'keydown', 'touchstart', 'scroll'].forEach(evt =>
+    document.addEventListener(evt, resetSessionTimer, { passive: true })
+);
 
 // --- CLOUD OPERATIONS ---
 function toggleLoader(show, text="Menghubungkan...") {
@@ -682,16 +729,17 @@ async function confirmLate(row, newStatus) {
 }
 
 // --- RENDER SALARY & REPORTS ---
-function renderSalary() {
+function renderSalary(filteredLogsOverride) {
     const body = document.getElementById('salaryTableBody');
     const detailBody = document.getElementById('overtimeDetailBody');
     const lateDetailBody = document.getElementById('lateDetailBody'); 
     
+    const useLogs = filteredLogsOverride || logs;
     let overtimeDetailsHtml = '';
     let lateDetailsHtml = ''; 
     
     let salaryData = employees.map(e => {
-        const empLogs = logs.filter(l => l.empId === e.id);
+        const empLogs = useLogs.filter(l => l.empId === e.id);
         const days = new Set(empLogs.filter(l => l.type === 'IN').map(l => l.date)).size;
         
         let totalOvertimeHours = 0;
@@ -772,6 +820,13 @@ function renderSalary() {
 // --- CETAK REKAP GAJI (Print with Kop Surat) ---
 function openCetakModal() {
     const modal = document.getElementById('cetakModal');
+    // Auto-set default: 2 minggu terakhir
+    const today = new Date();
+    const twoWeeksAgo = new Date(today);
+    twoWeeksAgo.setDate(today.getDate() - 13); // 14 hari termasuk hari ini
+    const toISO = d => d.toISOString().split('T')[0];
+    document.getElementById('cetakTglMulai').value = toISO(twoWeeksAgo);
+    document.getElementById('cetakTglSelesai').value = toISO(today);
     modal.classList.remove('hidden');
     setTimeout(() => modal.classList.remove('opacity-0'), 10);
 }
@@ -788,11 +843,31 @@ function confirmCetakGaji() {
 function cetakRekapGaji() {
     const bulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
     const now = new Date();
-    const periodeText = `${bulan[now.getMonth()]} ${now.getFullYear()}`;
+
+    // Read date range from modal inputs
+    const tglMulai = document.getElementById('cetakTglMulai')?.value || '';
+    const tglSelesai = document.getElementById('cetakTglSelesai')?.value || '';
+
+    // Format periode text
+    let periodeText;
+    if (tglMulai && tglSelesai) {
+        const dMulai = new Date(tglMulai + 'T00:00:00');
+        const dSelesai = new Date(tglSelesai + 'T00:00:00');
+        periodeText = `${dMulai.getDate()} ${bulan[dMulai.getMonth()]} ${dMulai.getFullYear()} — ${dSelesai.getDate()} ${bulan[dSelesai.getMonth()]} ${dSelesai.getFullYear()}`;
+    } else {
+        periodeText = `${bulan[now.getMonth()]} ${now.getFullYear()}`;
+    }
+
     const periodeEl = document.getElementById('printPeriodeGaji');
     const tanggalEl = document.getElementById('printTanggalGaji');
     if (periodeEl) periodeEl.textContent = `Periode: ${periodeText}`;
     if (tanggalEl) tanggalEl.textContent = `Jakarta, ${now.getDate()} ${bulan[now.getMonth()]} ${now.getFullYear()}`;
+
+    // Filter logs by date range
+    const filteredLogs = (tglMulai && tglSelesai) ? logs.filter(l => l.date >= tglMulai && l.date <= tglSelesai) : logs;
+
+    // Re-render salary table with filtered logs
+    renderSalary(filteredLogs);
 
     // Read checkbox options BEFORE generating slips
     const showLembur = document.getElementById('chkRincianLembur')?.checked;
@@ -805,7 +880,7 @@ function cetakRekapGaji() {
     if (slipContainer) {
         let slipsHtml = '';
         const salaryList = employees.map(e => {
-            const empLogs = logs.filter(l => l.empId === e.id);
+            const empLogs = filteredLogs.filter(l => l.empId === e.id);
             const days = new Set(empLogs.filter(l => l.type === 'IN').map(l => l.date)).size;
             let totalOvertimeHours = 0;
             let totalLateCount = 0;
@@ -834,7 +909,7 @@ function cetakRekapGaji() {
             let lateRowsHtml = e.lateRows.map(r => `<tr><td style="border:1px solid #ccc;padding:4px 8px;font-size:10px;">${r.date}</td><td style="border:1px solid #ccc;padding:4px 8px;font-size:10px;text-align:right;color:#dc2626;">${formatDuration(r.minutes)}</td></tr>`).join('');
 
             slipsHtml += `
-            <div style="page-break-before:${idx === 0 ? 'always' : 'always'}; padding-top:12px;">
+            <div style="${idx === 0 ? 'page-break-before:always;' : ''} padding-top:${idx === 0 ? '12' : '8'}px; margin-top:${idx === 0 ? '0' : '6'}px; ${idx > 0 ? 'border-top:2px dashed #aaa; padding-top:10px;' : ''} break-inside:avoid;">
                 <table style="width:100%;border-collapse:collapse;border:2px solid #555;">
                     <thead>
                         <tr style="background:#e2e8f0;">
@@ -896,13 +971,13 @@ function cetakRekapGaji() {
                     </tbody>
                 </table>
 
-                <div style="margin-top:20px;display:flex;justify-content:space-between;">
+                <div style="margin-top:10px;display:flex;justify-content:space-between;">
                     <div style="text-align:center;width:45%;">
-                        <p style="font-size:10px;color:#555;margin:0 0 50px;">Penerima,</p>
+                        <p style="font-size:10px;color:#555;margin:0 0 30px;">Penerima,</p>
                         <p style="font-size:11px;font-weight:700;margin:0;border-bottom:1px solid #333;display:inline-block;padding-bottom:2px;">${e.name}</p>
                     </div>
                     <div style="text-align:center;width:45%;">
-                        <p style="font-size:10px;color:#555;margin:0 0 50px;">Akuntan,</p>
+                        <p style="font-size:10px;color:#555;margin:0 0 30px;">Akuntan,</p>
                         <p style="font-size:11px;font-weight:700;margin:0;border-bottom:1px solid #333;display:inline-block;padding-bottom:2px;">Muhammad Fikri, S. Ak.</p>
                     </div>
                 </div>
@@ -930,7 +1005,10 @@ function cetakRekapGaji() {
     window.print();
 
     // Restore after print
-    setTimeout(() => restore.forEach(([el, orig]) => el.style.display = orig || ''), 500);
+    setTimeout(() => {
+        restore.forEach(([el, orig]) => el.style.display = orig || '');
+        renderSalary(); // Re-render with all logs (unfiltered)
+    }, 500);
 }
 
 // --- CHART & GRID ---
@@ -2162,13 +2240,33 @@ function toggleEditEmpCreds(role) {
         el.classList.add('hidden');
     }
 }
+function generateEmployeeId(division) {
+    const codeMap = {
+        'Helper Cook': 'HC', 'Cook': 'CK', 'Head Chef': 'CHF',
+        'Packing': 'PCK', 'Distribusi': 'DST', 'Kenek Distribusi': 'KND',
+        'Kebersihan': 'KBR', 'Asisten Lapangan': 'ALP', 'Gudang': 'GDG',
+        'Keamanan Shift 1': 'KM1', 'Keamanan Shift 2': 'KM2',
+        'Ahli Gizi': 'AGZ', 'Akuntan': 'AKT', 'Ka SPPG': 'KSP', 'Yayasan': 'YSN'
+    };
+    const code = codeMap[division] || division.substring(0, 3).toUpperCase();
+    const existing = employees.filter(e => e.id && e.id.startsWith('MBG-' + code + '-'));
+    let maxNum = 0;
+    existing.forEach(e => {
+        const parts = e.id.split('-');
+        const num = parseInt(parts[parts.length - 1]) || 0;
+        if (num > maxNum) maxNum = num;
+    });
+    const nextNum = String(maxNum + 1).padStart(3, '0');
+    return `MBG-${code}-${nextNum}`;
+}
+
 function addEmployee(e) {
     e.preventDefault();
     const name = document.getElementById('newEmpName').value;
     const div = document.getElementById('newEmpDiv').value;
     const role = document.getElementById('newEmpRole').value;
     const salary = document.getElementById('newEmpSalary').value;
-    const id = 'EMP-' + Math.floor(1000 + Math.random() * 9000);
+    const id = generateEmployeeId(div);
 
     let payload = { id, name, division: div, salary, role };
     

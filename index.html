@@ -54,6 +54,21 @@
                 <p class="text-xs text-blue-100 mt-1">Pilih komponen yang ingin ditampilkan di PDF</p>
             </div>
             <div class="p-6 space-y-3">
+                <!-- PERIODE TANGGAL -->
+                <div class="p-3 rounded-xl bg-blue-50 border border-blue-200">
+                    <div class="font-bold text-sm text-blue-800 mb-2"><i class="fas fa-calendar-alt mr-1"></i>Periode Gaji</div>
+                    <div class="flex gap-2 items-center">
+                        <div class="flex-1">
+                            <label class="text-[10px] text-slate-500 font-bold">Dari Tanggal</label>
+                            <input type="date" id="cetakTglMulai" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 text-sm font-mono focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none">
+                        </div>
+                        <span class="text-slate-400 font-bold mt-4">—</span>
+                        <div class="flex-1">
+                            <label class="text-[10px] text-slate-500 font-bold">Sampai Tanggal</label>
+                            <input type="date" id="cetakTglSelesai" class="w-full mt-1 px-3 py-2 rounded-lg border border-slate-200 text-sm font-mono focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none">
+                        </div>
+                    </div>
+                </div>
                 <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition group">
                     <input type="checkbox" id="chkTabelRekap" checked disabled class="w-5 h-5 rounded accent-blue-600">
                     <div>
@@ -748,7 +763,8 @@
                                             <p style="font-size:11px; margin:0; letter-spacing:1px; color:#555;">YAYASAN KARYA RASA NUSANTARA</p>
                                             <h2 style="font-size:18px; font-weight:800; margin:2px 0; letter-spacing:2px; color:#111;">SATUAN PELAYANAN PENYEDIAAN GIZI NASIONAL</h2>
                                             <p style="font-size:13px; font-weight:600; margin:0; color:#333;">SPPG RAWA BUNGA 1</p>
-                                            <p style="font-size:10px; margin:4px 0 0; color:#777;">Jl. Rawa Bunga No.1, Jakarta Timur | Telp: (021) xxxx-xxxx</p>
+                                            <p style="font-size:10px; margin:4px 0 0; color:#777;">Jl. Masjid Jatinegara No.25, RT.10/RW.7, Rw. Bunga, Kec. Jatinegara, DKI Jakarta 13350</p>
+                                            <p style="font-size:10px; margin:2px 0 0; color:#777;">Telp: 085883595850 | Email: nusantarakaryarasa@gmail.com</p>
                                         </td>
                                         <td style="width:80px; vertical-align:middle; padding:0; text-align:right;">
                                             <img src="https://sipgn-sipsmo-web.bgn.go.id/main/media/logos/BGN_logo_dark.png" alt="BGN" style="width:70px; height:70px; object-fit:contain;">
@@ -820,12 +836,7 @@
                                 </div>
                             </div>
 
-                            <!-- SLIP GAJI INDIVIDUAL PER KARYAWAN (Print Only) -->
-                            <div class="hidden print-only" id="slipGajiIndividual">
-                                <!-- Diisi oleh JS saat cetak -->
-                            </div>
-
-                            <!-- FOOTER TANDA TANGAN (Print Only) -->
+                            <!-- FOOTER TANDA TANGAN (Print Only) - Di atas slip individual -->
                             <div class="hidden print-only" id="printTtdFooter" style="margin-top:32px; padding-top:20px; border-top:1px solid #ccc;">
                                 <p style="text-align:right; font-size:11px; color:#555; margin-bottom:24px;" id="printTanggalGaji">Jakarta, ...................</p>
                                 <table style="width:100%; border-collapse:collapse;">
@@ -847,6 +858,11 @@
                                         </td>
                                     </tr>
                                 </table>
+                            </div>
+
+                            <!-- SLIP GAJI INDIVIDUAL PER KARYAWAN (Print Only) -->
+                            <div class="hidden print-only" id="slipGajiIndividual">
+                                <!-- Diisi oleh JS saat cetak -->
                             </div>
                         </div>
                     </div>
