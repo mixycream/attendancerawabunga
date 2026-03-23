@@ -2073,7 +2073,7 @@ function closeEditEmployee() { document.getElementById('editEmployeeModal').clas
 const GEOFENCE_CONFIG = {
     lat: -6.21973,    // Latitude titik pusat (ubah sesuai lokasi)
     lng: 106.87015,   // Longitude titik pusat (ubah sesuai lokasi)
-    radius: 10          // Radius toleransi dalam meter
+    radius: 15          // Radius toleransi dalam meter
 };
 
 // Volunteer-specific state
@@ -2118,7 +2118,7 @@ function volUpdateGeofenceUI() {
         txt.innerText = `Geofence: Dalam area (${Math.round(dist)}m)`;
     } else {
         bar.className = 'mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/15 border border-red-400/20 text-[10px] text-red-300 font-bold transition-all duration-300';
-        txt.innerText = `Geofence: Di luar area (${Math.round(dist)}m dari Dapur SPPG Rawa Bunga)`;
+        txt.innerText = `Geofence: Di luar area (${Math.round(dist)}m dari dalam Dapur SPPG Rawa Bunga 1)`;
     }
     return isInside;
 }
