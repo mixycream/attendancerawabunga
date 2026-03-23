@@ -881,7 +881,7 @@ function resetSecurityFlow() {
 }
 
 async function submitAbsence(type) {
-    if (!isLocationLocked) return showToast("Tunggu GPS Terkunci!", "error");
+    if (!isLocationLocked) return showToast("Tunggu GPS Terkunci!\nPastikan GPS dan Lokasi Aktif.", "error");
     if (securitySelfAttendanceMode && type !== 'IN') return showToast("Gunakan Absen Masuk untuk absen security awal shift.", "error");
 
     const today = new Date().toISOString().split('T')[0];
@@ -2366,10 +2366,10 @@ function volPopulateSelfieInfo() {
         if (divEl) divEl.innerText = volScannedEmployee.division;
     }
     if (volAbsenType === 'IN') {
-        if (typeEl) { typeEl.innerText = 'CLOCK IN'; typeEl.className = 'text-[10px] font-bold text-white bg-emerald-500 px-2 py-0.5 rounded'; }
+        if (typeEl) { typeEl.innerText = 'ABSEN MASUK'; typeEl.className = 'text-[10px] font-bold text-white bg-emerald-500 px-2 py-0.5 rounded'; }
         if (iconEl) iconEl.innerHTML = '<i class="fas fa-sign-in-alt"></i>';
     } else {
-        if (typeEl) { typeEl.innerText = 'CLOCK OUT'; typeEl.className = 'text-[10px] font-bold text-white bg-amber-500 px-2 py-0.5 rounded'; }
+        if (typeEl) { typeEl.innerText = 'ABSEN PULANG'; typeEl.className = 'text-[10px] font-bold text-white bg-amber-500 px-2 py-0.5 rounded'; }
         if (iconEl) iconEl.innerHTML = '<i class="fas fa-sign-out-alt"></i>';
     }
 }
@@ -2413,14 +2413,14 @@ async function volSubmitSelfie() {
 
     if (volAbsenType === 'IN') {
         if (lastLog && lastLog.type === 'IN') {
-            showToast('Sesi masih aktif! Anda sudah Clock In.', 'error');
+            showToast('Sesi masih aktif! Anda sudah Absen Masuk.', 'error');
             volCancelFlow();
             return;
         }
     }
     if (volAbsenType === 'OUT') {
         if (!lastLog || lastLog.type === 'OUT') {
-            showToast('Belum Clock In!', 'error');
+            showToast('Belum Absen Masuk!', 'error');
             volCancelFlow();
             return;
         }
@@ -2468,7 +2468,7 @@ async function volSubmitSelfie() {
             const diffMs = now - expectedEnd;
             const diffMinutes = Math.floor(diffMs / 60000);
             if (diffMinutes > 40) overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
-            toastMsg = `Lembur: ${overtimeHours} Jam`;
+            toastMsg = `Out After: ${overtimeHours} Hours`;
         }
     }
 
@@ -2501,7 +2501,7 @@ async function volSubmitSelfie() {
 
     ctx.font = 'bold 10px monospace';
     ctx.fillStyle = volAbsenType === 'IN' ? '#34d399' : '#fbbf24';
-    ctx.fillText(volAbsenType === 'IN' ? 'CLOCK IN' : 'CLOCK OUT', canvas.width - 80, canvas.height - barH + 18);
+    ctx.fillText(volAbsenType === 'IN' ? 'ABSEN MASUK' : 'ABSEN PULANG', canvas.width - 110, canvas.height - barH + 18);
 
     const photoBase64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
 
