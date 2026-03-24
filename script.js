@@ -2522,10 +2522,17 @@ function openEditEmployee(id) {
 }
 function closeEditEmployee() { document.getElementById('editEmployeeModal').classList.add('opacity-0'); setTimeout(() => document.getElementById('editEmployeeModal').classList.add('hidden'), 300); editingEmployeeId = null; }
 // ===== VOLUNTEER SELF-ATTENDANCE (Absensi Mandiri Relawan) =====
-// Geofence config — set the center coordinates for your location
+// // Geofence config — set the center coordinates for Rawa Bunga location
+// const GEOFENCE_CONFIG = {
+//     lat: -6.21973,    // Latitude titik pusat (ubah sesuai lokasi)
+//     lng: 106.87015,   // Longitude titik pusat (ubah sesuai lokasi)
+//     radius: 15          // Radius toleransi dalam meter
+// };
+
+// Geofence config — set the center coordinates for Demo location
 const GEOFENCE_CONFIG = {
-    lat: -6.21973,    // Latitude titik pusat (ubah sesuai lokasi)
-    lng: 106.87015,   // Longitude titik pusat (ubah sesuai lokasi)
+    lat: -6.22368,    // Latitude titik pusat (ubah sesuai lokasi)
+    lng: 106.89102,   // Longitude titik pusat (ubah sesuai lokasi)
     radius: 15          // Radius toleransi dalam meter
 };
 
