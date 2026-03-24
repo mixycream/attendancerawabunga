@@ -208,7 +208,7 @@ window.onload = () => {
             localStorage.removeItem('mbg_user');
             localStorage.removeItem('mbg_session_start');
             currentUser = null;
-            showToast('Sesi habis (30 menit). Silakan login ulang.', 'error');
+            showToast('Sesi habis. Silakan login ulang.', 'error');
             return;
         }
 
@@ -254,6 +254,26 @@ try {
     });
 } catch(e) {}
 
+function setLoginLoading(loading) {
+    const btn = document.getElementById('loginBtn');
+    const text = document.getElementById('loginBtnText');
+    const loader = document.getElementById('loginBtnLoader');
+    if (!btn || !text || !loader) return;
+    if (loading) {
+        btn.disabled = true;
+        btn.classList.add('cursor-wait');
+        text.classList.add('opacity-0', 'scale-90');
+        loader.classList.remove('opacity-0', 'scale-90', 'pointer-events-none');
+        loader.classList.add('opacity-100', 'scale-100');
+    } else {
+        btn.disabled = false;
+        btn.classList.remove('cursor-wait');
+        text.classList.remove('opacity-0', 'scale-90');
+        loader.classList.add('opacity-0', 'scale-90', 'pointer-events-none');
+        loader.classList.remove('opacity-100', 'scale-100');
+    }
+}
+
 async function handleLogin(e) {
     e.preventDefault();
     const u = document.getElementById('usernameInput').value.toLowerCase().trim();
@@ -263,9 +283,14 @@ async function handleLogin(e) {
         return alert("PENTING: Edit file script.js baris ke-3, masukkan URL Google Script Anda!");
     }
 
+    setLoginLoading(true);
+
     // Semua login melalui server (code.gs) — satu jalur aman
     const resp = await callApi('login', { username: u, password: p });
-    if (!resp.ok || !resp.data) return showToast('Gagal terhubung ke server. Periksa koneksi internet.', 'error');
+    if (!resp.ok || !resp.data) {
+        setLoginLoading(false);
+        return showToast('Gagal terhubung ke server. Periksa koneksi internet.', 'error');
+    }
 
     if (resp.data.status === 'success') {
         const user = resp.data.user || { u: u, role: 'employee' };
@@ -286,6 +311,7 @@ async function handleLogin(e) {
         const remember = document.getElementById('rememberMe')?.checked;
         if (remember) localStorage.setItem('remembered_username', u); else localStorage.removeItem('remembered_username');
     } else {
+        setLoginLoading(false);
         showToast(resp.data.message || 'Username / Password Salah', 'error');
     }
 }
@@ -322,7 +348,7 @@ function startSessionTimer() {
     clearTimeout(sessionTimer);
     localStorage.setItem('mbg_session_start', Date.now().toString());
     sessionTimer = setTimeout(() => {
-        showToast('Sesi habis (30 menit). Silakan login ulang.', 'error');
+        showToast('Sesi habis. Silakan login ulang.', 'error');
         setTimeout(() => forceLogout(), 1500);
     }, SESSION_TIMEOUT);
 }
@@ -332,7 +358,7 @@ function resetSessionTimer() {
     clearTimeout(sessionTimer);
     localStorage.setItem('mbg_session_start', Date.now().toString());
     sessionTimer = setTimeout(() => {
-        showToast('Sesi habis (30 menit). Silakan login ulang.', 'error');
+        showToast('Sesi habis. Silakan login ulang.', 'error');
         setTimeout(() => forceLogout(), 1500);
     }, SESSION_TIMEOUT);
 }
@@ -355,8 +381,56 @@ function toggleLoader(show, text="Menghubungkan...") {
     }
 }
 
+// --- Inline sync button animation ---
+let _syncingButton = null;
+function setSyncButtonLoading(btn, loading) {
+    if (!btn) return;
+    const icon = btn.querySelector('i.fas, svg');
+    if (loading) {
+        btn.disabled = true;
+        btn.classList.add('pointer-events-none');
+        _syncingButton = btn;
+        btn._origHTML = btn.innerHTML;
+        const isSmall = btn.classList.contains('w-8') || btn.classList.contains('w-9') || btn.classList.contains('w-10');
+        if (isSmall) {
+            btn.innerHTML = '<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"></circle><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" stroke-linecap="round" class="opacity-80"></path></svg>';
+        } else {
+            btn.innerHTML = '<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"></circle><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" stroke-linecap="round" class="opacity-80"></path></svg> <span class="hidden md:inline">Syncing...</span>';
+        }
+    } else {
+        btn.disabled = false;
+        btn.classList.remove('pointer-events-none');
+        _syncingButton = null;
+    }
+}
+
+function showSyncSuccess(btn) {
+    if (!btn) return;
+    const isSmall = btn.classList.contains('w-8') || btn.classList.contains('w-9') || btn.classList.contains('w-10');
+    const prevClasses = btn.className;
+    btn.classList.add('border-emerald-300', 'text-emerald-600', 'bg-emerald-50');
+    btn.classList.remove('text-slate-600', 'text-slate-500', 'text-slate-200', 'text-slate-300', 'border-slate-200', 'bg-white');
+    if (isSmall) {
+        btn.innerHTML = '<i class="fas fa-check text-xs"></i>';
+    } else {
+        btn.innerHTML = '<i class="fas fa-check"></i> <span class="hidden md:inline">Berhasil</span>';
+    }
+    setTimeout(() => {
+        btn.className = prevClasses;
+        if (btn._origHTML) btn.innerHTML = btn._origHTML;
+        delete btn._origHTML;
+    }, 1800);
+}
+
 async function fetchData(force = false) {
-    toggleLoader(true, "Sinkronisasi Data...");
+    // Find which sync button was clicked (if manual)
+    const triggerBtn = force ? (_syncingButton || document.getElementById('adminSyncBtn') || document.querySelector('[onclick*="fetchData(true)"]')) : null;
+    
+    if (force && triggerBtn) {
+        if (!triggerBtn.disabled) setSyncButtonLoading(triggerBtn, true);
+    } else {
+        toggleLoader(true, "Sinkronisasi Data...");
+    }
     let retries = 3;
     let lastError = null;
 
@@ -380,7 +454,12 @@ async function fetchData(force = false) {
                 }
 
                 refreshUI();
-                toggleLoader(false);
+                if (force && triggerBtn) {
+                    setSyncButtonLoading(triggerBtn, false);
+                    showSyncSuccess(triggerBtn);
+                } else {
+                    toggleLoader(false);
+                }
                 return;
             } else {
                 lastError = data.message || 'Status gagal';
@@ -397,7 +476,12 @@ async function fetchData(force = false) {
 
     // Semua retry gagal
     showToast("Koneksi Error. Menggunakan data lokal terakhir.", "error");
-    toggleLoader(false);
+    if (force && triggerBtn) {
+        setSyncButtonLoading(triggerBtn, false);
+        if (triggerBtn._origHTML) { triggerBtn.innerHTML = triggerBtn._origHTML; delete triggerBtn._origHTML; }
+    } else {
+        toggleLoader(false);
+    }
 }
 
 async function postData(action, payload) {
@@ -1442,14 +1526,187 @@ function toggleSidebar() {
 function previewImage(url) { document.getElementById('imgModalSrc').src = url; document.getElementById('imgDownloadLink').href = url; document.getElementById('imgModal').classList.remove('hidden'); setTimeout(() => document.getElementById('imgModal').classList.remove('opacity-0'), 10); }
 function closePreview() { document.getElementById('imgModal').classList.add('opacity-0'); setTimeout(() => document.getElementById('imgModal').classList.add('hidden'), 300); }
 function switchTab(id) {
-    ['dashboard','employees','salaries'].forEach(t => document.getElementById('tab-'+t).classList.add('hidden'));
-    document.getElementById('tab-'+id).classList.remove('hidden');
+    ['dashboard','employees','salaries','manual_attendance'].forEach(t => document.getElementById('tab-'+t)?.classList.add('hidden'));
+    document.getElementById('tab-'+id)?.classList.remove('hidden');
     if(window.innerWidth < 768) { document.getElementById('sidebar').classList.add('-translate-x-full'); document.getElementById('sidebarOverlay').classList.add('hidden'); }
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     Array.from(document.querySelectorAll('.nav-item')).find(b => b.getAttribute('onclick').includes(id))?.classList.add('active');
-    const titles = { 'dashboard': 'Dashboard', 'employees': 'Data Relawan', 'salaries': 'Laporan Gaji' };
-    document.getElementById('pageTitle').innerText = titles[id];
+    const titles = { 'dashboard': 'Dashboard', 'employees': 'Data Relawan', 'salaries': 'Laporan Gaji', 'manual_attendance': 'Absen Manual' };
+    document.getElementById('pageTitle').innerText = titles[id] || id;
+    if (id === 'manual_attendance') maInit();
 }
+// =============================================
+// MANUAL ATTENDANCE (Absen Manual) System
+// =============================================
+let maSelectedEmployees = new Set();
+let maSelectedDates = new Set();
+let maCalendarDate = new Date();
+
+function maInit() {
+    maRenderEmployeeList();
+    maRenderCalendar();
+    maRenderHistory();
+}
+
+function maRenderEmployeeList(filter = '') {
+    const container = document.getElementById('maEmployeeList');
+    const filtered = employees.filter(e => e.name.toLowerCase().includes(filter.toLowerCase()));
+    container.innerHTML = filtered.length === 0 ? '<div class="p-4 text-center text-xs text-slate-400">Tidak ada relawan ditemukan</div>' :
+        filtered.map(e => `
+        <label class="flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50/50 cursor-pointer transition-colors">
+            <input type="checkbox" class="ma-emp-cb w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" value="${e.id}" ${maSelectedEmployees.has(e.id)?'checked':''} onchange="maToggleEmployee('${e.id}', this.checked)">
+            <span class="text-sm text-slate-700">${e.name}</span>
+            <span class="text-[10px] text-slate-400 ml-auto">${e.division || '-'}</span>
+        </label>`).join('');
+    maUpdateCount();
+}
+
+function maFilterEmployees() {
+    maRenderEmployeeList(document.getElementById('maSearchEmployee').value);
+}
+
+function maToggleEmployee(id, checked) {
+    if (checked) maSelectedEmployees.add(id); else maSelectedEmployees.delete(id);
+    maUpdateCount();
+}
+
+function maSelectAll() {
+    const filter = document.getElementById('maSearchEmployee').value.toLowerCase();
+    employees.filter(e => e.name.toLowerCase().includes(filter)).forEach(e => maSelectedEmployees.add(e.id));
+    maRenderEmployeeList(filter);
+}
+
+function maDeselectAll() {
+    maSelectedEmployees.clear();
+    maRenderEmployeeList(document.getElementById('maSearchEmployee').value);
+}
+
+function maUpdateCount() {
+    document.getElementById('maSelectedCount').textContent = maSelectedEmployees.size + ' dipilih';
+}
+
+function maChangeMonth(delta) {
+    maCalendarDate.setMonth(maCalendarDate.getMonth() + delta);
+    maRenderCalendar();
+}
+
+function maRenderCalendar() {
+    const year = maCalendarDate.getFullYear();
+    const month = maCalendarDate.getMonth();
+    const monthNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    document.getElementById('maCalendarMonth').textContent = monthNames[month] + ' ' + year;
+
+    const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const grid = document.getElementById('maCalendarGrid');
+    let html = '';
+
+    for (let i = 0; i < firstDay; i++) html += '<div></div>';
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const isSelected = maSelectedDates.has(dateStr);
+        html += `<button onclick="maToggleDate('${dateStr}')" class="h-9 rounded-lg text-xs font-bold transition-all active:scale-90 ${isSelected ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30' : 'text-slate-600 hover:bg-blue-100'}">${d}</button>`;
+    }
+    grid.innerHTML = html;
+    maRenderDateTags();
+}
+
+function maToggleDate(dateStr) {
+    if (maSelectedDates.has(dateStr)) maSelectedDates.delete(dateStr); else maSelectedDates.add(dateStr);
+    maRenderCalendar();
+}
+
+function maRenderDateTags() {
+    const container = document.getElementById('maSelectedDatesTags');
+    const sorted = [...maSelectedDates].sort();
+    container.innerHTML = sorted.length === 0 ? '<span class="text-xs text-slate-400 italic">Belum ada tanggal dipilih</span>' :
+        sorted.map(d => `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-[11px] font-bold border border-blue-100">${d} <button onclick="maRemoveDate('${d}')" class="text-blue-400 hover:text-red-500 ml-0.5">&times;</button></span>`).join('');
+}
+
+function maRemoveDate(dateStr) {
+    maSelectedDates.delete(dateStr);
+    maRenderCalendar();
+}
+
+function maRenderHistory() {
+    const tbody = document.getElementById('maHistoryBody');
+    const manualLogs = logs.filter(l => l.absentBy && l.absentBy !== '-' && l.absentBy !== '').slice(-50).reverse();
+    if (manualLogs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-xs text-slate-400">Belum ada riwayat absen manual</td></tr>';
+        return;
+    }
+    tbody.innerHTML = manualLogs.map(l => `
+        <tr class="hover:bg-slate-50/50 transition-colors">
+            <td class="px-6 py-3 text-slate-600 text-xs whitespace-nowrap">${l.date} ${l.time || ''}</td>
+            <td class="px-6 py-3 text-slate-700 font-bold text-xs">${l.name}</td>
+            <td class="px-6 py-3 text-center"><span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${l.type==='IN'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${l.type}</span></td>
+            <td class="px-6 py-3 text-slate-500 text-xs">${l.note || '-'}</td>
+            <td class="px-6 py-3 text-slate-400 text-xs">${l.absentBy}</td>
+        </tr>`).join('');
+}
+
+async function maSubmit() {
+    if (maSelectedEmployees.size === 0) return Swal.fire('Oops', 'Pilih minimal 1 relawan.', 'warning');
+    if (maSelectedDates.size === 0) return Swal.fire('Oops', 'Pilih minimal 1 tanggal.', 'warning');
+
+    const type = document.getElementById('maType').value;
+    const time = document.getElementById('maTime').value || '';
+    const note = document.getElementById('maNote').value.trim();
+    const empIds = [...maSelectedEmployees];
+    const dates = [...maSelectedDates].sort();
+    const totalEntries = empIds.length * dates.length;
+
+    const confirm = await Swal.fire({
+        title: 'Konfirmasi Absen Manual',
+        html: `<b>${empIds.length}</b> relawan × <b>${dates.length}</b> tanggal = <b>${totalEntries}</b> entri absen <b>${type}</b>`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Ya, Kirim',
+        cancelButtonText: 'Batal'
+    });
+    if (!confirm.isConfirmed) return;
+
+    const btn = document.getElementById('maSubmitBtn');
+    const origHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<svg class="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Mengirim...';
+
+    try {
+        const entries = [];
+        for (const empId of empIds) {
+            const emp = employees.find(e => e.id === empId);
+            if (!emp) continue;
+            for (const dateStr of dates) {
+                entries.push({ empId, name: emp.name, date: dateStr, time, type, note });
+            }
+        }
+
+        const res = await postData('manualAttendance', {
+            entries,
+            absentBy: currentUser.name || currentUser.username
+        });
+
+        if (res.success) {
+            await Swal.fire('Berhasil!', `${totalEntries} entri absen manual berhasil disimpan.`, 'success');
+            maSelectedEmployees.clear();
+            maSelectedDates.clear();
+            document.getElementById('maNote').value = '';
+            document.getElementById('maTime').value = '';
+            document.getElementById('maSearchEmployee').value = '';
+            await fetchData(false);
+            maInit();
+        } else {
+            Swal.fire('Gagal', res.message || 'Terjadi kesalahan saat menyimpan.', 'error');
+        }
+    } catch (err) {
+        Swal.fire('Error', 'Tidak dapat menghubungi server: ' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHTML;
+    }
+}
+
 function initAdmin() { document.getElementById('adminLayout').classList.remove('hidden'); refreshUI(); }
 
 // =============================================
