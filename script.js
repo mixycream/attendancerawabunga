@@ -1058,12 +1058,22 @@ function renderTrendChart() {
 
     if (trendChartInstance) trendChartInstance.destroy();
 
+    const labelColors = labels.map(d => {
+        const dt = new Date(d + 'T00:00:00');
+        return (dt.getDay() === 0 || getHoliday(d)) ? '#ef4444' : '#64748b';
+    });
+
     trendChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels.map(d => {
                 const parts = d.split('-');
-                return `${parts[2]}/${parts[1]}`; 
+                const dt = new Date(d + 'T00:00:00');
+                const dayNames = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+                const holiday = getHoliday(d);
+                let lbl = `${dayNames[dt.getDay()]} ${parts[2]}/${parts[1]}`;
+                if (holiday) lbl += ' \u25CF';
+                return lbl;
             }),
             datasets: [
                 { label: 'Hadir', data: presentData, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.4, fill: true },
@@ -1075,7 +1085,10 @@ function renderTrendChart() {
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { position: 'top' } },
-            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1 } },
+                x: { ticks: { color: labelColors } }
+            }
         }
     });
 }
@@ -1562,6 +1575,72 @@ let maPaused = false;
 let maSending = false;
 const MA_CHECKPOINT_KEY = 'maCheckpoint';
 
+// Hari Libur Nasional Indonesia (format: 'MM-DD' untuk tahunan, 'YYYY-MM-DD' untuk spesifik)
+// Update setiap tahun untuk tanggal yang berubah (hijriah, imlek, dll)
+const INDONESIA_HOLIDAYS = {
+    // === 2025 ===
+    '2025-01-01': 'Tahun Baru Masehi',
+    '2025-01-27': 'Isra Miraj Nabi Muhammad SAW',
+    '2025-01-29': 'Tahun Baru Imlek',
+    '2025-03-28': 'Hari Suci Nyepi',
+    '2025-03-29': 'Hari Raya Idul Fitri',
+    '2025-03-30': 'Hari Raya Idul Fitri',
+    '2025-03-31': 'Cuti Bersama Idul Fitri',
+    '2025-04-01': 'Cuti Bersama Idul Fitri',
+    '2025-04-18': 'Wafat Isa Al Masih',
+    '2025-05-01': 'Hari Buruh Internasional',
+    '2025-05-12': 'Hari Raya Waisak',
+    '2025-05-29': 'Kenaikan Isa Al Masih',
+    '2025-06-01': 'Hari Lahir Pancasila',
+    '2025-06-06': 'Hari Raya Idul Adha',
+    '2025-06-27': 'Tahun Baru Hijriah',
+    '2025-08-17': 'Hari Kemerdekaan RI',
+    '2025-09-05': 'Maulid Nabi Muhammad SAW',
+    '2025-12-25': 'Hari Natal',
+    // === 2026 ===
+    '2026-01-01': 'Tahun Baru Masehi',
+    '2026-01-16': 'Isra Miraj Nabi Muhammad SAW',
+    '2026-02-17': 'Tahun Baru Imlek',
+    '2026-03-17': 'Hari Suci Nyepi',
+    '2026-03-20': 'Hari Raya Idul Fitri',
+    '2026-03-21': 'Hari Raya Idul Fitri',
+    '2026-03-22': 'Cuti Bersama Idul Fitri',
+    '2026-03-23': 'Cuti Bersama Idul Fitri',
+    '2026-04-03': 'Wafat Isa Al Masih',
+    '2026-05-01': 'Hari Buruh Internasional',
+    '2026-05-16': 'Kenaikan Isa Al Masih',
+    '2026-05-26': 'Hari Raya Idul Adha',
+    '2026-05-31': 'Hari Raya Waisak',
+    '2026-06-01': 'Hari Lahir Pancasila',
+    '2026-06-17': 'Tahun Baru Hijriah',
+    '2026-08-17': 'Hari Kemerdekaan RI',
+    '2026-08-26': 'Maulid Nabi Muhammad SAW',
+    '2026-12-25': 'Hari Natal',
+    // === 2027 ===
+    '2027-01-01': 'Tahun Baru Masehi',
+    '2027-01-05': 'Isra Miraj Nabi Muhammad SAW',
+    '2027-02-06': 'Tahun Baru Imlek',
+    '2027-03-09': 'Hari Raya Idul Fitri',
+    '2027-03-10': 'Hari Raya Idul Fitri',
+    '2027-03-11': 'Cuti Bersama Idul Fitri',
+    '2027-03-12': 'Cuti Bersama Idul Fitri',
+    '2027-03-26': 'Wafat Isa Al Masih',
+    '2027-04-07': 'Hari Suci Nyepi',
+    '2027-05-01': 'Hari Buruh Internasional',
+    '2027-05-06': 'Kenaikan Isa Al Masih',
+    '2027-05-16': 'Hari Raya Idul Adha',
+    '2027-05-20': 'Hari Raya Waisak',
+    '2027-06-01': 'Hari Lahir Pancasila',
+    '2027-06-06': 'Tahun Baru Hijriah',
+    '2027-08-15': 'Maulid Nabi Muhammad SAW',
+    '2027-08-17': 'Hari Kemerdekaan RI',
+    '2027-12-25': 'Hari Natal',
+};
+
+function getHoliday(dateStr) {
+    return INDONESIA_HOLIDAYS[dateStr] || null;
+}
+
 function maInit() {
     maSetMode('all');
     maRenderCalendar();
@@ -1724,13 +1803,49 @@ function maRenderCalendar() {
 
     for (let i = 0; i < firstDay; i++) html += '<div></div>';
 
+    const holidaysThisMonth = [];
+
     for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
         const isSelected = maSelectedDates.has(dateStr);
-        html += `<button onclick="maToggleDate('${dateStr}')" class="h-9 rounded-lg text-xs font-bold transition-all active:scale-90 ${isSelected ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30' : 'text-slate-600 hover:bg-blue-100'}">${d}</button>`;
+        const dayOfWeek = new Date(year, month, d).getDay();
+        const isSunday = dayOfWeek === 0;
+        const holiday = getHoliday(dateStr);
+
+        if (holiday) holidaysThisMonth.push({ date: d, name: holiday });
+
+        let btnClass = 'h-9 rounded-lg text-xs font-bold transition-all active:scale-90 relative ';
+        if (isSelected) {
+            btnClass += 'bg-blue-600 text-white shadow-md shadow-blue-600/30';
+        } else if (holiday) {
+            btnClass += 'bg-red-50 text-red-600 hover:bg-red-100 ring-1 ring-red-200';
+        } else if (isSunday) {
+            btnClass += 'text-red-500 hover:bg-red-50';
+        } else {
+            btnClass += 'text-slate-600 hover:bg-blue-100';
+        }
+
+        const tooltip = holiday ? ` title="${holiday}"` : (isSunday ? ' title="Hari Minggu"' : '');
+        const dot = holiday ? '<span class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-red-400"></span>' : '';
+
+        html += `<button onclick="maToggleDate('${dateStr}')"${tooltip} class="${btnClass}">${d}${dot}</button>`;
     }
     grid.innerHTML = html;
     maRenderDateTags();
+
+    // Render holiday legend below calendar
+    const legendEl = document.getElementById('maHolidayLegend');
+    if (legendEl) {
+        if (holidaysThisMonth.length === 0) {
+            legendEl.innerHTML = '';
+        } else {
+            legendEl.innerHTML = '<div class="mt-3 space-y-1">' +
+                '<p class="text-[10px] font-bold text-red-400 uppercase tracking-wider"><i class="fas fa-calendar-times mr-1"></i>Hari Libur Nasional</p>' +
+                holidaysThisMonth.map(h =>
+                    `<div class="flex items-center gap-2 text-[11px]"><span class="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0"></span><span class="text-red-600 font-bold">${h.date}</span><span class="text-slate-500">${h.name}</span></div>`
+                ).join('') + '</div>';
+        }
+    }
 }
 
 function maToggleDate(dateStr) {

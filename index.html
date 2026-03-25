@@ -812,10 +812,11 @@
                                         <span class="text-sm font-bold text-slate-700" id="maCalendarMonth">Maret 2026</span>
                                         <button onclick="maChangeMonth(1)" class="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-blue-600 hover:border-blue-300 flex items-center justify-center transition active:scale-95 shadow-sm"><i class="fas fa-chevron-right text-xs"></i></button>
                                     </div>
-                                    <div class="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400 uppercase mb-1">
-                                        <div>Min</div><div>Sen</div><div>Sel</div><div>Rab</div><div>Kam</div><div>Jum</div><div>Sab</div>
+                                    <div class="grid grid-cols-7 text-center text-[10px] font-bold uppercase mb-1">
+                                        <div class="text-red-500">Min</div><div class="text-slate-400">Sen</div><div class="text-slate-400">Sel</div><div class="text-slate-400">Rab</div><div class="text-slate-400">Kam</div><div class="text-slate-400">Jum</div><div class="text-slate-400">Sab</div>
                                     </div>
                                     <div id="maCalendarGrid" class="grid grid-cols-7 gap-1"></div>
+                                    <div id="maHolidayLegend"></div>
                                 </div>
                                 <div class="mt-2 flex flex-wrap gap-1.5" id="maSelectedDatesTags"></div>
                             </div>
