@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyuT5fA1y4PEstXlf2l3BSOdEKoz-vFuln9eKcy80CKjbaRaHSYdygR_0Iv8SewZL13/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzDMrErt4kMPe0nRRif_tCXS-1Ge8XnQx4Hw4i-LaST2hVwXO98vfaZd3UQWok1AcLi/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -756,7 +756,22 @@ function renderSalary(filteredLogsOverride) {
     
     let salaryData = employees.map(e => {
         const empLogs = useLogs.filter(l => l.empId === e.id);
-        const days = new Set(empLogs.filter(l => l.type === 'IN').map(l => l.date)).size;
+        // Count days only where employee has BOTH IN and OUT (completed shift)
+        const inDates = new Set(empLogs.filter(l => l.type === 'IN').map(l => l.date));
+        const outDates = new Set(empLogs.filter(l => l.type === 'OUT').map(l => l.date));
+        // For overnight shifts, OUT date is next day — also check if previous day had IN
+        const allOutDates = empLogs.filter(l => l.type === 'OUT').map(l => l.date);
+        let days = 0;
+        inDates.forEach(d => {
+            if (outDates.has(d)) { days++; return; }
+            // Check if next day has OUT (overnight shift)
+            const next = new Date(d + 'T00:00:00');
+            next.setDate(next.getDate() + 1);
+            const yyyy = next.getFullYear();
+            const mm = String(next.getMonth() + 1).padStart(2, '0');
+            const dd = String(next.getDate()).padStart(2, '0');
+            if (allOutDates.includes(`${yyyy}-${mm}-${dd}`)) days++;
+        });
         
         let totalOvertimeHours = 0;
         let totalLateCount = 0; 
@@ -1541,11 +1556,117 @@ function switchTab(id) {
 let maSelectedEmployees = new Set();
 let maSelectedDates = new Set();
 let maCalendarDate = new Date();
+let maSelectionMode = 'all'; // 'all' | 'division' | 'individual'
+let maSelectedDivisions = new Set();
+let maPaused = false;
+let maSending = false;
+const MA_CHECKPOINT_KEY = 'maCheckpoint';
 
 function maInit() {
-    maRenderEmployeeList();
+    maSetMode('all');
     maRenderCalendar();
     maRenderHistory();
+    maTypeChanged();
+    maCheckForResume();
+}
+
+function maSetMode(mode) {
+    maSelectionMode = mode;
+    // Update button styles
+    document.querySelectorAll('.ma-mode-btn').forEach(b => {
+        b.className = b.className.replace(/bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600\/20/g, 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600');
+    });
+    const activeBtn = document.getElementById(mode === 'all' ? 'maModeAll' : mode === 'division' ? 'maModeDivision' : 'maModeIndividual');
+    if (activeBtn) activeBtn.className = activeBtn.className.replace(/bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600/g, 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20');
+
+    document.getElementById('maDivisionSection').classList.toggle('hidden', mode !== 'division');
+    document.getElementById('maIndividualSection').classList.toggle('hidden', mode !== 'individual');
+
+    // Update selection
+    maSelectedEmployees.clear();
+    maSelectedDivisions.clear();
+    if (mode === 'all') {
+        employees.forEach(e => maSelectedEmployees.add(e.id));
+    } else if (mode === 'division') {
+        maRenderDivisionChips();
+    } else {
+        maRenderEmployeeList();
+    }
+    // Show/hide exclude section for all/division modes
+    document.getElementById('maExcludeSection').classList.toggle('hidden', mode === 'individual');
+    document.getElementById('maExcludePanel').classList.add('hidden');
+    document.getElementById('maExcludeArrow').style.transform = '';
+    const searchEl = document.getElementById('maExcludeSearch');
+    if (searchEl) searchEl.value = '';
+    maRenderExcludeList();
+    maUpdateCount();
+}
+
+function maGetDivisions() {
+    const divs = new Set();
+    employees.forEach(e => { if (e.division) divs.add(e.division); });
+    return [...divs].sort();
+}
+
+function maRenderDivisionChips() {
+    const container = document.getElementById('maDivisionChips');
+    const divs = maGetDivisions();
+    container.innerHTML = divs.map(d => {
+        const isActive = maSelectedDivisions.has(d);
+        const count = employees.filter(e => e.division === d).length;
+        return `<button onclick="maToggleDivision('${d.replace(/'/g, "\\'")}')" class="px-3 py-2 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
+            isActive ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'
+        }">${d} <span class="opacity-60">(${count})</span></button>`;
+    }).join('');
+}
+
+function maToggleDivision(div) {
+    if (maSelectedDivisions.has(div)) maSelectedDivisions.delete(div);
+    else maSelectedDivisions.add(div);
+    // Rebuild selected employees from selected divisions
+    maSelectedEmployees.clear();
+    employees.forEach(e => { if (maSelectedDivisions.has(e.division)) maSelectedEmployees.add(e.id); });
+    maRenderDivisionChips();
+    maRenderExcludeList();
+    maUpdateCount();
+}
+
+function maToggleExcludePanel() {
+    const panel = document.getElementById('maExcludePanel');
+    const arrow = document.getElementById('maExcludeArrow');
+    const isHidden = panel.classList.toggle('hidden');
+    arrow.style.transform = isHidden ? '' : 'rotate(180deg)';
+    if (!isHidden) maRenderExcludeList();
+}
+
+function maRenderExcludeList() {
+    const container = document.getElementById('maExcludeList');
+    if (!container) return;
+    const search = (document.getElementById('maExcludeSearch')?.value || '').toLowerCase();
+    // Show employees that are in the current selection pool
+    let pool;
+    if (maSelectionMode === 'all') pool = employees;
+    else if (maSelectionMode === 'division') pool = employees.filter(e => maSelectedDivisions.has(e.division));
+    else return;
+    const filtered = pool.filter(e => e.name.toLowerCase().includes(search));
+    if (filtered.length === 0) {
+        container.innerHTML = '<div class="p-3 text-center text-xs text-slate-400">Tidak ada relawan</div>';
+        return;
+    }
+    container.innerHTML = filtered.map(e => {
+        const isIncluded = maSelectedEmployees.has(e.id);
+        return `<label class="flex items-center gap-3 px-4 py-2 hover:bg-orange-50 cursor-pointer transition-colors">
+            <input type="checkbox" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" ${isIncluded ? 'checked' : ''} onchange="maToggleExclude('${e.id}', this.checked)">
+            <span class="text-xs ${isIncluded ? 'text-slate-700' : 'text-slate-400 line-through'}">${e.name}</span>
+            <span class="text-[10px] text-slate-400 ml-auto">${e.division || '-'}</span>
+        </label>`;
+    }).join('');
+}
+
+function maToggleExclude(id, checked) {
+    if (checked) maSelectedEmployees.add(id); else maSelectedEmployees.delete(id);
+    maRenderExcludeList();
+    maUpdateCount();
 }
 
 function maRenderEmployeeList(filter = '') {
@@ -1629,9 +1750,23 @@ function maRemoveDate(dateStr) {
     maRenderCalendar();
 }
 
+function maTypeChanged() {
+    const type = document.getElementById('maType').value;
+    const outWrap = document.getElementById('maTimeOutWrap');
+    const inLabel = document.getElementById('maTimeLabelIn');
+    if (type === 'BOTH') {
+        outWrap.classList.remove('hidden');
+        inLabel.textContent = 'Jam Masuk (opsional, default sesuai shift)';
+    } else {
+        outWrap.classList.add('hidden');
+        document.getElementById('maTimeOut').value = '';
+        inLabel.textContent = 'Jam (opsional, default sesuai shift)';
+    }
+}
+
 function maRenderHistory() {
     const tbody = document.getElementById('maHistoryBody');
-    const manualLogs = logs.filter(l => l.absentBy && l.absentBy !== '-' && l.absentBy !== '').slice(-50).reverse();
+    const manualLogs = logs.filter(l => l.absentBy === 'Admin').slice(-50).reverse();
     if (manualLogs.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-xs text-slate-400">Belum ada riwayat absen manual</td></tr>';
         return;
@@ -1646,65 +1781,236 @@ function maRenderHistory() {
         </tr>`).join('');
 }
 
-async function maSubmit() {
-    if (maSelectedEmployees.size === 0) return Swal.fire('Oops', 'Pilih minimal 1 relawan.', 'warning');
-    if (maSelectedDates.size === 0) return Swal.fire('Oops', 'Pilih minimal 1 tanggal.', 'warning');
+// === Checkpoint helpers ===
+function maSaveCheckpoint(entries, nextIndex, successCount, failCount) {
+    const cp = { entries, nextIndex, successCount, failCount, savedAt: new Date().toISOString() };
+    try { localStorage.setItem(MA_CHECKPOINT_KEY, JSON.stringify(cp)); } catch(e) { console.warn('Checkpoint save failed', e); }
+}
+function maLoadCheckpoint() {
+    try { const raw = localStorage.getItem(MA_CHECKPOINT_KEY); return raw ? JSON.parse(raw) : null; } catch(e) { return null; }
+}
+function maClearCheckpoint() {
+    try { localStorage.removeItem(MA_CHECKPOINT_KEY); } catch(e) {}
+}
 
-    const type = document.getElementById('maType').value;
-    const time = document.getElementById('maTime').value || '';
-    const note = document.getElementById('maNote').value.trim();
-    const empIds = [...maSelectedEmployees];
-    const dates = [...maSelectedDates].sort();
-    const totalEntries = empIds.length * dates.length;
+function maCheckForResume() {
+    const cp = maLoadCheckpoint();
+    const banner = document.getElementById('maResumeBanner');
+    if (!banner) return;
+    if (!cp || cp.nextIndex >= cp.entries.length) {
+        banner.classList.add('hidden');
+        maClearCheckpoint();
+        return;
+    }
+    const remaining = cp.entries.length - cp.nextIndex;
+    const pct = Math.round((cp.nextIndex / cp.entries.length) * 100);
+    const savedDate = new Date(cp.savedAt);
+    const timeStr = savedDate.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    document.getElementById('maResumeInfo').textContent = `${cp.successCount} berhasil, ${remaining} sisa dari ${cp.entries.length} total — terakhir ${timeStr}`;
+    document.getElementById('maResumeProgressBar').style.width = pct + '%';
+    banner.classList.remove('hidden');
+}
 
-    const confirm = await Swal.fire({
-        title: 'Konfirmasi Absen Manual',
-        html: `<b>${empIds.length}</b> relawan × <b>${dates.length}</b> tanggal = <b>${totalEntries}</b> entri absen <b>${type}</b>`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Ya, Kirim',
-        cancelButtonText: 'Batal'
-    });
-    if (!confirm.isConfirmed) return;
+function maDiscardCheckpoint() {
+    if (!confirm('Buang semua data checkpoint? Entri yang belum terkirim akan hilang.')) return;
+    maClearCheckpoint();
+    document.getElementById('maResumeBanner').classList.add('hidden');
+    showToast('Checkpoint dibuang.', 'success');
+}
+
+function maResumeCheckpoint() {
+    const cp = maLoadCheckpoint();
+    if (!cp) { showToast('Tidak ada checkpoint.', 'error'); return; }
+    document.getElementById('maResumeBanner').classList.add('hidden');
+    maSendEntries(cp.entries, cp.nextIndex, cp.successCount, cp.failCount);
+}
+
+function maPauseSubmit() {
+    maPaused = true;
+    const pauseBtn = document.getElementById('maPauseBtn');
+    if (pauseBtn) {
+        pauseBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menjeda...';
+        pauseBtn.disabled = true;
+    }
+}
+
+function maUpdateProgress(current, total, successCount, failCount, entryName) {
+    const pct = Math.round((current / total) * 100);
+    const panel = document.getElementById('maProgressPanel');
+    panel.classList.remove('hidden');
+    document.getElementById('maProgressBar').style.width = pct + '%';
+    document.getElementById('maProgressCount').textContent = `${current}/${total}`;
+    document.getElementById('maProgressLabel').textContent = `Mengirim... ${pct}%`;
+    const failText = failCount > 0 ? ` | ${failCount} gagal` : '';
+    document.getElementById('maProgressDetail').textContent = `✓ ${successCount} berhasil${failText} — ${entryName}`;
+}
+
+async function maSendOneEntry(entry) {
+    const maxRetries = 3;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            const form = new URLSearchParams();
+            const dataObj = { action: 'attendance', ...entry };
+            Object.keys(dataObj).forEach(k => {
+                if (dataObj[k] === undefined || dataObj[k] === null) return;
+                form.append(k, String(dataObj[k]));
+            });
+            const res = await fetch(SCRIPT_URL, { method: 'POST', body: form, redirect: 'follow' });
+            let json = null;
+            try { json = await res.json(); } catch(e) {}
+            if (json && json.status === 'success') return true;
+            // Server responded but not success — retry with backoff
+        } catch(e) {
+            console.warn(`Attempt ${attempt+1} failed for ${entry.name}:`, e);
+        }
+        if (attempt < maxRetries - 1) {
+            await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); // 2s, 4s backoff
+        }
+    }
+    return false;
+}
+
+async function maSendEntries(entries, startIndex = 0, successCount = 0, failCount = 0) {
+    if (maSending) return;
+    maSending = true;
+    maPaused = false;
 
     const btn = document.getElementById('maSubmitBtn');
     const origHTML = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = '<svg class="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Mengirim...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...';
 
-    try {
-        const entries = [];
-        for (const empId of empIds) {
-            const emp = employees.find(e => e.id === empId);
-            if (!emp) continue;
-            for (const dateStr of dates) {
-                entries.push({ empId, name: emp.name, date: dateStr, time, type, note });
+    const pauseBtn = document.getElementById('maPauseBtn');
+    if (pauseBtn) { pauseBtn.innerHTML = '<i class="fas fa-pause"></i> Jeda'; pauseBtn.disabled = false; }
+    document.getElementById('maProgressPanel').classList.remove('hidden');
+
+    let consecutiveFails = 0;
+
+    for (let i = startIndex; i < entries.length; i++) {
+        // Check if paused
+        if (maPaused) {
+            maSaveCheckpoint(entries, i, successCount, failCount);
+            showToast(`Dijeda. ${successCount} berhasil, ${entries.length - i} tersisa. Bisa dilanjutkan nanti.`, 'success');
+            document.getElementById('maProgressPanel').classList.add('hidden');
+            btn.disabled = false;
+            btn.innerHTML = origHTML;
+            maSending = false;
+            maCheckForResume();
+            return;
+        }
+
+        const entry = entries[i];
+        maUpdateProgress(i, entries.length, successCount, failCount, `${entry.name} (${entry.type})`);
+
+        const ok = await maSendOneEntry(entry);
+        if (ok) {
+            successCount++;
+            consecutiveFails = 0;
+        } else {
+            failCount++;
+            consecutiveFails++;
+        }
+
+        // Save checkpoint after every entry
+        maSaveCheckpoint(entries, i + 1, successCount, failCount);
+
+        // Auto-pause after 3 consecutive failures (server likely overloaded)
+        if (consecutiveFails >= 3) {
+            maSaveCheckpoint(entries, i + 1, successCount, failCount);
+            showToast(`3x gagal berturut — otomatis dijeda. ${successCount} berhasil, ${entries.length - (i+1)} tersisa.`, 'error');
+            document.getElementById('maProgressPanel').classList.add('hidden');
+            btn.disabled = false;
+            btn.innerHTML = origHTML;
+            maSending = false;
+            maCheckForResume();
+            return;
+        }
+    }
+
+    // All done!
+    maUpdateProgress(entries.length, entries.length, successCount, failCount, 'Selesai!');
+    maClearCheckpoint();
+    document.getElementById('maProgressPanel').classList.add('hidden');
+
+    if (failCount === 0) {
+        showToast(`${successCount} entri absen manual berhasil disimpan!`, 'success');
+    } else {
+        showToast(`${successCount} berhasil, ${failCount} gagal.`, 'error');
+    }
+
+    maSelectedEmployees.clear();
+    maSelectedDates.clear();
+    document.getElementById('maNote').value = '';
+    document.getElementById('maTimeIn').value = '';
+    document.getElementById('maTimeOut').value = '';
+    document.getElementById('maType').value = 'BOTH';
+    await fetchData(false);
+    maInit();
+    btn.disabled = false;
+    btn.innerHTML = origHTML;
+    maSending = false;
+}
+
+async function maSubmit() {
+    if (maSending) { showToast('Proses sedang berjalan.', 'error'); return; }
+    if (maSelectedEmployees.size === 0) { showToast('Pilih minimal 1 relawan.', 'error'); return; }
+    if (maSelectedDates.size === 0) { showToast('Pilih minimal 1 tanggal.', 'error'); return; }
+
+    const type = document.getElementById('maType').value;
+    const timeIn = document.getElementById('maTimeIn').value || '';
+    const timeOut = document.getElementById('maTimeOut').value || '';
+    const note = document.getElementById('maNote').value.trim();
+    const empIds = [...maSelectedEmployees];
+    const dates = [...maSelectedDates].sort();
+    const multiplier = type === 'BOTH' ? 2 : 1;
+    const totalEntries = empIds.length * dates.length * multiplier;
+    const defaultLoc = `${GEOFENCE_CONFIG.lat}, ${GEOFENCE_CONFIG.lng}`;
+
+    const typeLabel = type === 'BOTH' ? 'IN + OUT' : type;
+    if (!confirm(`Kirim ${totalEntries} entri absen ${typeLabel} untuk ${empIds.length} relawan × ${dates.length} tanggal?`)) return;
+
+    // Build list of entries to send
+    const entries = [];
+    for (const empId of empIds) {
+        const emp = employees.find(e => e.id === empId);
+        if (!emp) continue;
+        const divConfig = appConfig.shifts[emp.division] || null;
+        const defaultIn = divConfig ? divConfig.start : '08:00';
+        const defaultOut = divConfig ? divConfig.end : '17:00';
+        const isOvernightShift = divConfig ? (parseInt(divConfig.end) < parseInt(divConfig.start)) : false;
+
+        for (const dateStr of dates) {
+            if (type === 'IN' || type === 'BOTH') {
+                entries.push({
+                    empId: emp.id, name: emp.name, type: 'IN',
+                    date: dateStr, forcedTime: timeIn || defaultIn,
+                    location: defaultLoc, image: '', overtime: 0,
+                    lateMinutes: 0, note: note, absentBy: 'Admin'
+                });
+            }
+            if (type === 'OUT' || type === 'BOTH') {
+                let outDate = dateStr;
+                if (type === 'BOTH' && isOvernightShift) {
+                    const d = new Date(dateStr + 'T00:00:00');
+                    d.setDate(d.getDate() + 1);
+                    const yyyy = d.getFullYear();
+                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    outDate = `${yyyy}-${mm}-${dd}`;
+                }
+                entries.push({
+                    empId: emp.id, name: emp.name, type: 'OUT',
+                    date: outDate, forcedTime: timeOut || defaultOut,
+                    location: defaultLoc, image: '', overtime: 0,
+                    lateMinutes: 0, note: note, absentBy: 'Admin'
+                });
             }
         }
-
-        const res = await postData('manualAttendance', {
-            entries,
-            absentBy: currentUser.name || currentUser.username
-        });
-
-        if (res.success) {
-            await Swal.fire('Berhasil!', `${totalEntries} entri absen manual berhasil disimpan.`, 'success');
-            maSelectedEmployees.clear();
-            maSelectedDates.clear();
-            document.getElementById('maNote').value = '';
-            document.getElementById('maTime').value = '';
-            document.getElementById('maSearchEmployee').value = '';
-            await fetchData(false);
-            maInit();
-        } else {
-            Swal.fire('Gagal', res.message || 'Terjadi kesalahan saat menyimpan.', 'error');
-        }
-    } catch (err) {
-        Swal.fire('Error', 'Tidak dapat menghubungi server: ' + err.message, 'error');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = origHTML;
     }
+
+    // Save initial checkpoint and start sending
+    maSaveCheckpoint(entries, 0, 0, 0);
+    maSendEntries(entries, 0, 0, 0);
 }
 
 function initAdmin() { document.getElementById('adminLayout').classList.remove('hidden'); refreshUI(); }
@@ -2792,6 +3098,33 @@ function volScanLoop() {
     } else {
         requestAnimationFrame(volScanLoop);
     }
+}
+
+function volUploadQR(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const img = new Image();
+    img.onload = function() {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
+        if (code && code.data) {
+            volValidateQR(code.data);
+        } else {
+            showToast('QR Code tidak ditemukan di foto. Pastikan foto jelas dan tidak blur.', 'error');
+        }
+        URL.revokeObjectURL(img.src);
+    };
+    img.onerror = function() {
+        showToast('Gagal membaca file gambar.', 'error');
+        URL.revokeObjectURL(img.src);
+    };
+    img.src = URL.createObjectURL(file);
+    event.target.value = '';
 }
 
 function volValidateQR(data) {

@@ -763,17 +763,44 @@
                             <!-- Step 1: Pilih Relawan -->
                             <div class="mb-6">
                                 <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">1. Pilih Relawan</label>
-                                <div class="relative mb-3">
-                                    <input type="text" id="maSearchEmployee" oninput="maFilterEmployees()" class="input-field pl-10" placeholder="Cari nama relawan...">
-                                    <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 text-sm"></i>
+                                <div class="flex flex-wrap gap-2 mb-3">
+                                    <button onclick="maSetMode('all')" id="maModeAll" class="ma-mode-btn px-4 py-2 rounded-xl text-xs font-bold border transition-all active:scale-95 bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20"><i class="fas fa-users mr-1.5"></i>Semua Relawan</button>
+                                    <button onclick="maSetMode('division')" id="maModeDivision" class="ma-mode-btn px-4 py-2 rounded-xl text-xs font-bold border transition-all active:scale-95 bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600"><i class="fas fa-sitemap mr-1.5"></i>Per Divisi</button>
+                                    <button onclick="maSetMode('individual')" id="maModeIndividual" class="ma-mode-btn px-4 py-2 rounded-xl text-xs font-bold border transition-all active:scale-95 bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600"><i class="fas fa-user mr-1.5"></i>Pilih Manual</button>
                                 </div>
-                                <div class="flex items-center gap-3 mb-3">
-                                    <button onclick="maSelectAll()" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition">Pilih Semua</button>
-                                    <span class="text-slate-300">|</span>
-                                    <button onclick="maDeselectAll()" class="text-xs font-bold text-slate-400 hover:text-slate-600 transition">Hapus Semua</button>
-                                    <span class="ml-auto text-xs font-bold text-slate-500" id="maSelectedCount">0 dipilih</span>
+                                <!-- Division selector -->
+                                <div id="maDivisionSection" class="hidden mb-3">
+                                    <div class="flex flex-wrap gap-2" id="maDivisionChips"></div>
                                 </div>
-                                <div id="maEmployeeList" class="max-h-52 overflow-y-auto border border-slate-100 rounded-xl divide-y divide-slate-50"></div>
+                                <!-- Exclude list (for all/division modes) -->
+                                <div id="maExcludeSection" class="hidden mt-3">
+                                    <div class="flex items-center gap-2 mb-2 cursor-pointer select-none" onclick="maToggleExcludePanel()">
+                                        <i class="fas fa-user-minus text-orange-400 text-xs"></i>
+                                        <span class="text-[10px] font-bold text-orange-500 uppercase tracking-wider">Kecuali (uncheck untuk mengecualikan)</span>
+                                        <i class="fas fa-chevron-down text-[9px] text-orange-300 transition-transform" id="maExcludeArrow"></i>
+                                    </div>
+                                    <div id="maExcludePanel" class="hidden">
+                                        <div class="relative mb-2">
+                                            <input type="text" id="maExcludeSearch" oninput="maRenderExcludeList()" class="input-field pl-10 text-xs py-2" placeholder="Cari nama untuk dikecualikan...">
+                                            <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 text-xs"></i>
+                                        </div>
+                                        <div id="maExcludeList" class="max-h-44 overflow-y-auto border border-orange-100 rounded-xl divide-y divide-orange-50 bg-orange-50/30"></div>
+                                    </div>
+                                </div>
+                                <!-- Individual selector -->
+                                <div id="maIndividualSection" class="hidden">
+                                    <div class="relative mb-3">
+                                        <input type="text" id="maSearchEmployee" oninput="maFilterEmployees()" class="input-field pl-10" placeholder="Cari nama relawan...">
+                                        <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 text-sm"></i>
+                                    </div>
+                                    <div class="flex items-center gap-3 mb-3">
+                                        <button onclick="maSelectAll()" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition">Pilih Semua</button>
+                                        <span class="text-slate-300">|</span>
+                                        <button onclick="maDeselectAll()" class="text-xs font-bold text-slate-400 hover:text-slate-600 transition">Hapus Semua</button>
+                                    </div>
+                                    <div id="maEmployeeList" class="max-h-52 overflow-y-auto border border-slate-100 rounded-xl divide-y divide-slate-50"></div>
+                                </div>
+                                <div class="mt-2 text-xs font-bold text-slate-500" id="maSelectedCount">0 dipilih</div>
                             </div>
 
                             <!-- Step 2: Pilih Tanggal -->
@@ -794,22 +821,71 @@
                             </div>
 
                             <!-- Step 3: Tipe & Catatan -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                <div>
-                                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">3. Tipe Absen</label>
-                                    <select id="maType" class="input-field cursor-pointer">
-                                        <option value="IN">Masuk (IN)</option>
-                                        <option value="OUT">Pulang (OUT)</option>
-                                    </select>
+                            <div class="mb-6">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">3. Tipe Absen</label>
+                                <select id="maType" onchange="maTypeChanged()" class="input-field cursor-pointer">
+                                    <option value="BOTH">Masuk & Keluar (IN + OUT)</option>
+                                    <option value="IN">Masuk (IN)</option>
+                                    <option value="OUT">Pulang (OUT)</option>
+                                </select>
+                            </div>
+                            <div id="maTimeSection" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                <div id="maTimeInWrap">
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block" id="maTimeLabelIn">Jam (opsional, default sesuai shift)</label>
+                                    <input type="time" id="maTimeIn" class="input-field" placeholder="HH:mm">
                                 </div>
-                                <div>
-                                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">Jam (opsional, default sesuai shift)</label>
-                                    <input type="time" id="maTime" class="input-field" placeholder="HH:mm">
+                                <div id="maTimeOutWrap" class="hidden">
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">Jam Keluar (opsional, default sesuai shift)</label>
+                                    <input type="time" id="maTimeOut" class="input-field" placeholder="HH:mm">
                                 </div>
                             </div>
                             <div class="mb-6">
                                 <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">4. Catatan / Alasan</label>
                                 <textarea id="maNote" rows="2" class="input-field resize-none" placeholder="Contoh: Relawan lupa scan QR, izin terlambat input..."></textarea>
+                            </div>
+
+                            <!-- Checkpoint Resume Banner -->
+                            <div id="maResumeBanner" class="hidden mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200 shadow-sm">
+                                <div class="flex items-start gap-3">
+                                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                                        <i class="fas fa-exclamation-triangle text-amber-600"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="font-bold text-amber-800 text-sm">Proses Sebelumnya Belum Selesai</p>
+                                        <p id="maResumeInfo" class="text-xs text-amber-600 mt-0.5"></p>
+                                        <div id="maResumeProgress" class="mt-2 w-full bg-amber-200 rounded-full h-2">
+                                            <div id="maResumeProgressBar" class="bg-amber-500 h-2 rounded-full transition-all" style="width:0%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2 mt-3 ml-[52px]">
+                                    <button onclick="maResumeCheckpoint()" class="px-4 py-2 rounded-lg bg-amber-600 text-white font-bold text-xs hover:bg-amber-700 transition-all flex items-center gap-1.5">
+                                        <i class="fas fa-play"></i> Lanjutkan
+                                    </button>
+                                    <button onclick="maDiscardCheckpoint()" class="px-4 py-2 rounded-lg bg-white text-amber-700 font-bold text-xs border border-amber-300 hover:bg-amber-50 transition-all flex items-center gap-1.5">
+                                        <i class="fas fa-trash-alt"></i> Buang
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Progress Panel (visible during sending) -->
+                            <div id="maProgressPanel" class="hidden mb-4 p-4 rounded-xl bg-blue-50 border border-blue-200 shadow-sm">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="font-bold text-blue-800 text-sm flex items-center gap-2">
+                                        <svg class="animate-spin h-4 w-4 text-blue-600" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                        <span id="maProgressLabel">Mengirim...</span>
+                                    </span>
+                                    <span id="maProgressCount" class="text-xs font-mono text-blue-600">0/0</span>
+                                </div>
+                                <div class="w-full bg-blue-200 rounded-full h-2.5 mb-2">
+                                    <div id="maProgressBar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width:0%"></div>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span id="maProgressDetail" class="text-[10px] text-blue-500"></span>
+                                    <button onclick="maPauseSubmit()" id="maPauseBtn" class="px-3 py-1.5 rounded-lg bg-white text-blue-700 font-bold text-[10px] border border-blue-300 hover:bg-blue-50 transition-all flex items-center gap-1">
+                                        <i class="fas fa-pause"></i> Jeda
+                                    </button>
+                                </div>
                             </div>
 
                             <!-- Submit -->
@@ -1235,10 +1311,16 @@
                         </span>
                     </div>
                 </div>
-                <p class="text-xs text-slate-400 text-center max-w-xs mb-6">Arahkan kamera ke QR Code pribadi Anda untuk verifikasi identitas.</p>
-                <button onclick="volCancelFlow()" class="w-full max-w-sm py-3 text-slate-500 text-xs font-bold bg-slate-800/50 hover:bg-slate-800 rounded-2xl active:scale-95 border border-white/5 transition uppercase tracking-widest">
-                    Batal
-                </button>
+                <p class="text-xs text-slate-400 text-center max-w-xs mb-4">Arahkan kamera ke QR Code pribadi Anda untuk verifikasi identitas.</p>
+                <div class="w-full max-w-sm flex gap-2 mb-3">
+                    <button onclick="volCancelFlow()" class="flex-1 py-3 text-slate-500 text-xs font-bold bg-slate-800/50 hover:bg-slate-800 rounded-2xl active:scale-95 border border-white/5 transition uppercase tracking-widest">
+                        Batal
+                    </button>
+                    <label class="flex-1 py-3 text-emerald-400 text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 rounded-2xl active:scale-95 border border-emerald-500/20 transition uppercase tracking-widest cursor-pointer flex items-center justify-center gap-2">
+                        <i class="fas fa-image"></i> Upload QR
+                        <input type="file" accept="image/*" onchange="volUploadQR(event)" class="hidden">
+                    </label>
+                </div>
                 <div class="absolute bottom-4 text-[10px] text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
             </div>
 
