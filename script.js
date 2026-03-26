@@ -183,6 +183,12 @@ let activeWorkerTimer = null;
 
 // --- HELPER FUNCTIONS ---
 
+// Helper: Local date string YYYY-MM-DD (avoid toISOString UTC bug)
+function getLocalDateStr(d) {
+    d = d || new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 // Format Menit ke "X Jam Y Menit"
 function formatDuration(totalMinutes) {
     if (!totalMinutes || totalMinutes <= 0) return "-";
@@ -590,7 +596,7 @@ function refreshUI() {
 
     document.getElementById('configOvertimeRate').value = appConfig.overtimeRate;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateStr();
     const todayLogs = logs.filter(l => l.date === today);
     const present = todayLogs.filter(l => l.type === 'IN').length;
     
@@ -869,9 +875,8 @@ function openCetakModal() {
     const today = new Date();
     const twoWeeksAgo = new Date(today);
     twoWeeksAgo.setDate(today.getDate() - 13); // 14 hari termasuk hari ini
-    const toISO = d => d.toISOString().split('T')[0];
-    document.getElementById('cetakTglMulai').value = toISO(twoWeeksAgo);
-    document.getElementById('cetakTglSelesai').value = toISO(today);
+    document.getElementById('cetakTglMulai').value = getLocalDateStr(twoWeeksAgo);
+    document.getElementById('cetakTglSelesai').value = getLocalDateStr(today);
     modal.classList.remove('hidden');
     setTimeout(() => modal.classList.remove('opacity-0'), 10);
 }
@@ -1230,7 +1235,7 @@ function renderTrendChart() {
     const labels = [...Array(7)].map((_, i) => {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        return d.toISOString().split('T')[0];
+        return getLocalDateStr(d);
     }).reverse();
 
     const presentData = labels.map(date => logs.filter(l => l.date === date && l.type === 'IN').length);
@@ -1352,8 +1357,8 @@ async function submitAbsence(type) {
     if (!isLocationLocked) return showToast("Tunggu GPS Terkunci!\nPastikan GPS dan Lokasi Aktif.", "error");
     if (securitySelfAttendanceMode && type !== 'IN') return showToast("Gunakan Absen Masuk untuk absen security awal shift.", "error");
 
-    const today = new Date().toISOString().split('T')[0];
     const now = new Date();
+    const today = getLocalDateStr(now);
     
     const empLogs = logs.filter(l => l.empId === scannedEmployee.id).sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
     const lastLog = empLogs.length > 0 ? empLogs[0] : null;
@@ -1384,8 +1389,14 @@ async function submitAbsence(type) {
         if (divConfig && typeof divConfig !== 'string') {
             const shiftStartH = parseInt(divConfig.start.split(':')[0]);
             const shiftStartM = parseInt(divConfig.start.split(':')[1]);
+            const shiftEndH = parseInt(divConfig.end.split(':')[0]);
+            const isOvernight = shiftEndH < shiftStartH;
             let expectedStart = new Date();
             expectedStart.setHours(shiftStartH, shiftStartM, 0, 0);
+            // Overnight shift: jika sekarang lewat tengah malam, shift mulai kemarin
+            if (isOvernight && expectedStart > now) {
+                expectedStart.setDate(expectedStart.getDate() - 1);
+            }
             const diffMs = now - expectedStart;
             const diffMin = Math.floor(diffMs / 60000);
 
@@ -1646,7 +1657,7 @@ function checkClockInAllowed(empId, division) {
 
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
-    const today = now.toISOString().split('T')[0];
+    const today = getLocalDateStr(now);
 
     const [startH, startM] = divConfig.start.split(':').map(Number);
     const shiftStartMin = startH * 60 + startM;
@@ -1705,7 +1716,7 @@ function openModalList(title, mode, filterParam = null) {
     document.getElementById('activeModalTitle').innerText = title;
     const render = () => {
         const now = new Date();
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateStr();
         let filtered = [];
         if (mode === 'all') {
             document.getElementById('activeModalSubtitle').innerText = "Seluruh database relawan";
@@ -2529,7 +2540,7 @@ function nSwitchTab(id) {
 
 // --- OVERVIEW TAB ---
 function nRenderOverview() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateStr();
     const activeCount = logs.filter(l => l.date === today && l.type === 'IN').length;
     
     // Metrics
@@ -3006,7 +3017,7 @@ function updateSecurityProfileIndicator() {
 
 function hasSecurityCheckedInToday() {
     if (!currentUser || !currentUser.id) return false;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateStr();
     return logs.some(l => String(l.empId) === String(currentUser.id) && l.date === today && l.type === 'IN');
 }
 
@@ -3333,7 +3344,7 @@ function volUpdateTodayStatus() {
     }
     const empId = volGuestMode ? volScannedEmployee?.id : currentUser?.id;
     if (!empId) { infoEl.innerHTML = 'Belum absen hari ini.'; volUpdateAbsenButton(null); return; }
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateStr();
     const myLogs = logs.filter(l => String(l.empId) === String(empId) && l.date === today)
         .sort((a, b) => new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time));
 
@@ -3630,8 +3641,8 @@ async function volSubmitSelfie() {
         return showToast(`Anda di luar area absensi (${Math.round(dist)}m).`, 'error');
     }
 
-    const today = new Date().toISOString().split('T')[0];
     const now = new Date();
+    const today = getLocalDateStr(now);
 
     // Validate attendance logic
     const empLogs = logs.filter(l => String(l.empId) === String(volScannedEmployee.id))
@@ -3671,8 +3682,14 @@ async function volSubmitSelfie() {
         if (divConfig && typeof divConfig !== 'string') {
             const shiftStartH = parseInt(divConfig.start.split(':')[0]);
             const shiftStartM = parseInt(divConfig.start.split(':')[1]);
+            const shiftEndH = parseInt(divConfig.end.split(':')[0]);
+            const isOvernight = shiftEndH < shiftStartH;
             let expectedStart = new Date();
             expectedStart.setHours(shiftStartH, shiftStartM, 0, 0);
+            // Overnight shift: jika sekarang lewat tengah malam, shift mulai kemarin
+            if (isOvernight && expectedStart > now) {
+                expectedStart.setDate(expectedStart.getDate() - 1);
+            }
             const diffMs = now - expectedStart;
             const diffMin = Math.floor(diffMs / 60000);
             if (diffMin > 0) {
