@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzDMrErt4kMPe0nRRif_tCXS-1Ge8XnQx4Hw4i-LaST2hVwXO98vfaZd3UQWok1AcLi/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzDGy8B97tBoBCM-SJXCVeDHq9GGKIUreQrUhM6-0jEXgsRj8V4JeuprnocsWogMEIb/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -846,6 +846,20 @@ function renderSalary(filteredLogsOverride) {
             <td class="p-4 text-right font-extrabold text-slate-800 text-base">Rp ${e.total.toLocaleString()}</td>
         </tr>`;
     }).join('');
+
+    // Total footer row
+    const totalDays = salaryData.reduce((s, e) => s + e.days, 0);
+    const totalOT = salaryData.reduce((s, e) => s + e.totalOvertimeHours, 0);
+    const totalLate = salaryData.reduce((s, e) => s + e.totalLateCount, 0);
+    const grandTotal = salaryData.reduce((s, e) => s + e.total, 0);
+    body.innerHTML += `
+    <tr class="bg-slate-100 border-t-2 border-slate-300 break-inside-avoid">
+        <td colspan="2" class="p-4 text-right font-extrabold text-slate-700 text-sm uppercase tracking-wider">Total Keseluruhan</td>
+        <td class="p-4 text-center font-extrabold text-slate-700 text-sm">${totalDays} Hari</td>
+        <td class="p-4 text-center font-bold ${totalLate > 0 ? 'text-red-500' : 'text-slate-400'}">${totalLate}x</td>
+        <td class="p-4 text-center font-extrabold text-amber-600 text-sm">${totalOT} Jam</td>
+        <td class="p-4 text-right font-extrabold text-blue-700 text-lg">Rp ${grandTotal.toLocaleString()}</td>
+    </tr>`;
 }
 
 // --- CETAK REKAP GAJI (Print with Kop Surat) ---
@@ -869,6 +883,157 @@ function closeCetakModal() {
 function confirmCetakGaji() {
     closeCetakModal();
     setTimeout(() => cetakRekapGaji(), 350);
+}
+
+// Helper: generate official filename
+function generateRekapFilename(ext) {
+    const bulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const tglMulai = document.getElementById('cetakTglMulai')?.value || '';
+    const tglSelesai = document.getElementById('cetakTglSelesai')?.value || '';
+    let periode;
+    if (tglMulai && tglSelesai) {
+        const dM = new Date(tglMulai + 'T00:00:00');
+        const dS = new Date(tglSelesai + 'T00:00:00');
+        periode = `${dM.getDate()}-${bulan[dM.getMonth()]}-${dM.getFullYear()}_sd_${dS.getDate()}-${bulan[dS.getMonth()]}-${dS.getFullYear()}`;
+    } else {
+        const now = new Date();
+        periode = `${bulan[now.getMonth()]}-${now.getFullYear()}`;
+    }
+    return `Rekap_Gaji_SPPG_Rawa_Bunga_1_${periode}.${ext}`;
+}
+
+async function downloadRekapData() {
+    const btn = document.getElementById('btnDownloadRekap');
+    const origHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyiapkan data...';
+
+    try {
+        const tglMulai = document.getElementById('cetakTglMulai')?.value || '';
+        const tglSelesai = document.getElementById('cetakTglSelesai')?.value || '';
+        const filteredLogs = (tglMulai && tglSelesai) ? logs.filter(l => l.date >= tglMulai && l.date <= tglSelesai) : logs;
+
+        // Build salary data
+        const salaryRows = employees.map(e => {
+            const empLogs = filteredLogs.filter(l => l.empId === e.id);
+            const inDates = new Set(empLogs.filter(l => l.type === 'IN').map(l => l.date));
+            const outDates = new Set(empLogs.filter(l => l.type === 'OUT').map(l => l.date));
+            const allOutDates = empLogs.filter(l => l.type === 'OUT').map(l => l.date);
+            let days = 0;
+            inDates.forEach(d => {
+                if (outDates.has(d)) { days++; return; }
+                const next = new Date(d + 'T00:00:00');
+                next.setDate(next.getDate() + 1);
+                const yyyy = next.getFullYear();
+                const mm = String(next.getMonth() + 1).padStart(2, '0');
+                const dd = String(next.getDate()).padStart(2, '0');
+                if (allOutDates.includes(`${yyyy}-${mm}-${dd}`)) days++;
+            });
+            let totalOT = 0, totalLate = 0;
+            empLogs.filter(l => l.type === 'OUT' && l.overtime > 0).forEach(l => totalOT += (parseInt(l.overtime) || 0));
+            empLogs.filter(l => l.type === 'IN' && l.lateMinutes > 0).forEach(() => totalLate++);
+            const basic = days * e.salary;
+            const otPay = totalOT * appConfig.overtimeRate;
+            return { id: e.id, name: e.name, division: e.division, salary: e.salary, days, totalOT, totalLate, basic, otPay, total: basic + otPay };
+        });
+
+        // Sheet 1: Rekap Gaji
+        const ws1Data = [['No', 'Nama', 'Divisi', 'Gaji/Hari', 'Hari Kerja', 'Gaji Pokok', 'Jam Lembur', 'Upah Lembur', 'Telat (x)', 'Total Take Home Pay']];
+        salaryRows.forEach((r, i) => {
+            ws1Data.push([i + 1, r.name, r.division, r.salary, r.days, r.basic, r.totalOT, r.otPay, r.totalLate, r.total]);
+        });
+        const totalAll = salaryRows.reduce((s, r) => s + r.total, 0);
+        ws1Data.push(['', '', '', '', '', '', '', '', 'GRAND TOTAL', totalAll]);
+
+        // Sheet 2: Detail Log Absensi
+        const ws2Data = [['Tanggal', 'Jam', 'ID', 'Nama', 'Tipe', 'Lembur (Jam)', 'Telat (Menit)', 'Lokasi', 'Catatan', 'Oleh']];
+        filteredLogs.forEach(l => {
+            ws2Data.push([l.date, l.time, l.empId, l.name, l.type, l.overtime || 0, l.lateMinutes || 0, l.location, l.note, l.absentBy]);
+        });
+
+        // Sheet 3: Detail Lembur
+        const ws3Data = [['Nama', 'Divisi', 'Tanggal', 'Shift Pulang', 'Actual Out', 'Jam Lembur']];
+        employees.forEach(e => {
+            filteredLogs.filter(l => l.empId === e.id && l.type === 'OUT' && l.overtime > 0).forEach(l => {
+                const shift = appConfig.shifts[e.division];
+                const shiftEnd = shift ? (typeof shift === 'string' ? '-' : shift.end) : '-';
+                ws3Data.push([e.name, e.division, l.date, shiftEnd, l.time, l.overtime]);
+            });
+        });
+
+        // Sheet 4: Detail Keterlambatan
+        const ws4Data = [['Nama', 'Divisi', 'Tanggal', 'Shift Masuk', 'Actual In', 'Terlambat (Menit)', 'Catatan']];
+        employees.forEach(e => {
+            filteredLogs.filter(l => l.empId === e.id && l.type === 'IN' && l.lateMinutes > 0).forEach(l => {
+                const shift = appConfig.shifts[e.division];
+                const shiftStart = shift ? (typeof shift === 'string' ? '-' : shift.start) : '-';
+                ws4Data.push([e.name, e.division, l.date, shiftStart, l.time, l.lateMinutes, l.note]);
+            });
+        });
+
+        // Create workbook
+        const wb = XLSX.utils.book_new();
+        const ws1 = XLSX.utils.aoa_to_sheet(ws1Data);
+        const ws2 = XLSX.utils.aoa_to_sheet(ws2Data);
+        const ws3 = XLSX.utils.aoa_to_sheet(ws3Data);
+        const ws4 = XLSX.utils.aoa_to_sheet(ws4Data);
+
+        // Set column widths
+        ws1['!cols'] = [{wch:4},{wch:25},{wch:20},{wch:14},{wch:10},{wch:14},{wch:10},{wch:14},{wch:8},{wch:18}];
+        ws2['!cols'] = [{wch:12},{wch:10},{wch:10},{wch:25},{wch:6},{wch:10},{wch:10},{wch:30},{wch:25},{wch:12}];
+
+        XLSX.utils.book_append_sheet(wb, ws1, 'Rekap Gaji');
+        XLSX.utils.book_append_sheet(wb, ws2, 'Log Absensi');
+        XLSX.utils.book_append_sheet(wb, ws3, 'Detail Lembur');
+        XLSX.utils.book_append_sheet(wb, ws4, 'Detail Keterlambatan');
+
+        const xlsxData = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+
+        // Create ZIP
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengunduh foto absen...';
+        const zip = new JSZip();
+        zip.file(generateRekapFilename('xlsx'), xlsxData);
+
+        // Fetch attendance photos
+        const photosFolder = zip.folder('Foto_Absen');
+        const photoLogs = filteredLogs.filter(l => l.photo && typeof l.photo === 'string' && l.photo.startsWith('http'));
+        let downloaded = 0;
+        const maxPhotos = photoLogs.length;
+
+        for (const l of photoLogs) {
+            try {
+                btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Foto ${++downloaded}/${maxPhotos}...`;
+                const resp = await fetch(l.photo);
+                if (resp.ok) {
+                    const blob = await resp.blob();
+                    const safeName = `${l.name}_${l.date}_${l.type}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+                    photosFolder.file(`${safeName}.jpg`, blob);
+                }
+            } catch (e) {
+                console.warn('Photo download failed:', l.photo, e);
+            }
+        }
+
+        // Generate and download ZIP
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Membuat ZIP...';
+        const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = generateRekapFilename('zip');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showToast(`Download selesai! ${maxPhotos} foto + Excel dalam ZIP.`, 'success');
+    } catch (err) {
+        console.error('Download rekap error:', err);
+        showToast('Gagal download: ' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHTML;
+    }
 }
 
 function cetakRekapGaji() {
@@ -1033,10 +1198,15 @@ function cetakRekapGaji() {
     if (!showKop && sectionKop) { restore.push([sectionKop, sectionKop.style.display]); sectionKop.style.display = 'none'; }
     if (!showKop && sectionTtd) { restore.push([sectionTtd, sectionTtd.style.display]); sectionTtd.style.display = 'none'; }
 
+    // Set document title for PDF filename
+    const origTitle = document.title;
+    document.title = generateRekapFilename('pdf');
+
     window.print();
 
     // Restore after print
     setTimeout(() => {
+        document.title = origTitle;
         restore.forEach(([el, orig]) => el.style.display = orig || '');
         renderSalary(); // Re-render with all logs (unfiltered)
     }, 500);
@@ -1180,6 +1350,13 @@ async function submitAbsence(type) {
         if(lastLog && lastLog.type === 'IN') {
             showToast("Sesi Masih Aktif!", "error");
             setTimeout(resetSecurityFlow, 1500); 
+            return;
+        }
+        // Cek batasan 1 jam sebelum shift & 1x per hari
+        const clockInCheck = checkClockInAllowed(scannedEmployee.id, scannedEmployee.division);
+        if (!clockInCheck.allowed) {
+            showToast(clockInCheck.message, "error");
+            setTimeout(resetSecurityFlow, 1500);
             return;
         }
     }
@@ -1448,6 +1625,59 @@ function getShiftTime(division) {
     if (!shift) return "-";
     if (typeof shift === 'string') return shift; 
     return `${shift.start} - ${shift.end}`;
+}
+
+// --- Batasan Absensi: 1 jam sebelum shift & 1x per hari ---
+function checkClockInAllowed(empId, division) {
+    const divConfig = appConfig.shifts[division];
+    if (!divConfig || typeof divConfig === 'string') return { allowed: true };
+
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const today = now.toISOString().split('T')[0];
+
+    const [startH, startM] = divConfig.start.split(':').map(Number);
+    const shiftStartMin = startH * 60 + startM;
+    const [endH, endM] = divConfig.end.split(':').map(Number);
+    const shiftEndMin = endH * 60 + endM;
+    const isOvernight = shiftEndMin <= shiftStartMin;
+
+    // Cek 1: Sudah absen masuk hari ini? (1x per shift per hari)
+    const alreadyIN = logs.some(l =>
+        String(l.empId) === String(empId) &&
+        l.date === today &&
+        (l.type === 'IN' || l.type === 'PENDING')
+    );
+    if (alreadyIN) {
+        return { allowed: false, message: 'Sudah absen masuk hari ini! Maksimal 1x absen masuk per hari.' };
+    }
+
+    // Cek 2: Apakah dalam window 1 jam sebelum shift?
+    let minutesBefore = shiftStartMin - nowMin;
+    if (minutesBefore < 0) minutesBefore += 1440;
+
+    if (minutesBefore <= 60) return { allowed: true };
+
+    // Jika sudah dalam jam shift (telat tapi masih jam kerja) → boleh
+    let inShift = false;
+    if (isOvernight) {
+        inShift = nowMin >= shiftStartMin || nowMin <= shiftEndMin;
+    } else {
+        inShift = nowMin >= shiftStartMin && nowMin <= shiftEndMin;
+    }
+    if (inShift) return { allowed: true };
+
+    // Diluar window → tolak
+    let earliestMin = shiftStartMin - 60;
+    if (earliestMin < 0) earliestMin += 1440;
+    const eh = Math.floor(earliestMin / 60);
+    const em = earliestMin % 60;
+    const earliestStr = `${String(eh).padStart(2,'0')}:${String(em).padStart(2,'0')}`;
+
+    return {
+        allowed: false,
+        message: `Belum bisa absen! Absen masuk dibuka jam ${earliestStr} (1 jam sebelum shift ${divConfig.start}).`
+    };
 }
 
 // Modal Helpers
@@ -3398,6 +3628,13 @@ async function volSubmitSelfie() {
     if (volAbsenType === 'IN') {
         if (lastLog && lastLog.type === 'IN') {
             showToast('Sesi masih aktif! Anda sudah Absen Masuk.', 'error');
+            volCancelFlow();
+            return;
+        }
+        // Cek batasan 1 jam sebelum shift & 1x per hari
+        const clockInCheck = checkClockInAllowed(volScannedEmployee.id, volScannedEmployee.division);
+        if (!clockInCheck.allowed) {
+            showToast(clockInCheck.message, 'error');
             volCancelFlow();
             return;
         }
