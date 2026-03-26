@@ -1301,7 +1301,8 @@ function renderDivisionGrid() {
 
 // --- SECURITY LOGIC UPDATED ---
 function validateEmployee(id) {
-    const emp = employees.find(e => e.id == id || e.name.toLowerCase() == id.toLowerCase());
+    const cleanId = String(id).trim().replace(/\s+/g, ' ');
+    const emp = employees.find(e => String(e.id).trim() == cleanId || e.name.trim().replace(/\s+/g, ' ').toLowerCase() == cleanId.toLowerCase());
     if(emp) {
         if (!securitySelfAttendanceMode && String(emp.division || '').toLowerCase().includes('keamanan')) {
             showToast("Security tidak bisa di-scan dari halaman relawan.", "error");
@@ -3484,7 +3485,8 @@ function volUploadQR(event) {
 }
 
 function volValidateQR(data) {
-    const emp = employees.find(e => e.id == data || e.name.toLowerCase() == data.toLowerCase());
+    const cleanData = String(data).trim().replace(/\s+/g, ' ');
+    const emp = employees.find(e => String(e.id).trim() == cleanData || e.name.trim().replace(/\s+/g, ' ').toLowerCase() == cleanData.toLowerCase());
     if (!emp) {
         showToast('QR tidak dikenali', 'error');
         requestAnimationFrame(volScanLoop);
