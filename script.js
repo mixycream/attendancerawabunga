@@ -1017,14 +1017,25 @@ async function downloadRekapData() {
         // Generate and download ZIP
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Membuat ZIP...';
         const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
-        const url = URL.createObjectURL(zipBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = generateRekapFilename('zip');
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+
+        // Android WebView: simpan via native bridge
+        if (window.AndroidApp && window.AndroidApp.saveFile) {
+            const reader = new FileReader();
+            reader.onloadend = function() {
+                const base64 = reader.result.split(',')[1];
+                AndroidApp.saveFile(base64, generateRekapFilename('zip'), 'application/zip');
+            };
+            reader.readAsDataURL(zipBlob);
+        } else {
+            const url = URL.createObjectURL(zipBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = generateRekapFilename('zip');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
 
         showToast(`Download selesai! ${maxPhotos} foto + Excel dalam ZIP.`, 'success');
     } catch (err) {
