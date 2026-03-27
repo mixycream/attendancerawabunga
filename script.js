@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzDGy8B97tBoBCM-SJXCVeDHq9GGKIUreQrUhM6-0jEXgsRj8V4JeuprnocsWogMEIb/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzaxnLjn64yVEJDJAf1b1fZCeCTs-vQl8pBIWqw3VnTfVnSHDYIrlYBcSNdsWmyfc9t/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -601,7 +601,7 @@ function refreshUI() {
     const present = todayLogs.filter(l => l.type === 'IN').length;
     
     // Hitung Late Count
-    const lateCount = todayLogs.filter(l => l.lateMinutes > 0 || l.type === 'PENDING').length;
+    const lateCount = todayLogs.filter(l => l.lateMinutes > 0).length;
     
     let overtimeCount = 0;
     todayLogs.filter(l => l.type === 'OUT').forEach(l => { if(l.overtime > 0) overtimeCount++; });
@@ -634,24 +634,24 @@ function refreshUI() {
         } else if (l.type === 'OUT') {
             badge = 'bg-amber-100 text-amber-700';
             statusText = 'OUT';
-        } else if (l.type === 'PENDING') {
-            badge = 'bg-red-100 text-red-600 animate-pulse';
-            statusText = 'KONFIRMASI TELAT';
         } else if (l.type === 'REJECTED') {
             badge = 'bg-slate-200 text-slate-500 line-through';
             statusText = 'DITOLAK';
+        } else {
+            badge = 'bg-slate-100 text-slate-500';
+            statusText = l.type;
         }
 
         let actionArea = `<span class="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide ${badge}">${statusText}</span>`;
-        
-        if (l.type === 'PENDING') {
-            actionArea = `
-            <div class="flex flex-col gap-1 items-center">
-                <div class="text-[9px] font-bold text-red-500 uppercase">Perlu Konfirmasi</div>
-                <div class="flex gap-1">
-                    <button onclick="confirmLate('${l.row}', 'IN')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1 rounded text-[10px] font-bold shadow-sm transition">Terima</button>
-                    <button onclick="confirmLate('${l.row}', 'OUT')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-[10px] font-bold shadow-sm transition">Tolak</button>
-                </div>
+        if (l.type === 'IN' && l.lateMinutes >= 30) {
+            actionArea = `<div class="flex flex-col items-center gap-0.5">
+                <span class="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-red-100 text-red-600">TELAT</span>
+                <span class="text-[9px] text-red-400">${formatDuration(l.lateMinutes)}</span>
+            </div>`;
+        }
+        if (l.type === 'OUT' && l.note && l.note.startsWith('[Pulang')) {
+            actionArea = `<div class="flex flex-col items-center gap-0.5">
+                <span class="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-amber-100 text-amber-600">PULANG AWAL</span>
             </div>`;
         }
 
@@ -673,6 +673,8 @@ function refreshUI() {
             if (l.note) {
                 lateInfo += `<div class="text-[9px] text-slate-400 mt-1 italic max-w-[100px] truncate" title="${l.note}">"${l.note}"</div>`;
             }
+        } else if (l.type === 'OUT' && l.note && l.note.startsWith('[Pulang')) {
+            lateInfo = `<div class="text-[9px] text-amber-500 mt-1 italic max-w-[100px] truncate" title="${l.note}">"${l.note}"</div>`;
         }
             
         return `
@@ -741,13 +743,107 @@ function refreshUI() {
 }
 
 async function confirmLate(row, newStatus) {
-    if(!confirm(`Konfirmasi status menjadi ${newStatus}?`)) return;
     const logIndex = logs.findIndex(l => l.row == row);
+    if(!confirm(`Konfirmasi status menjadi ${newStatus}?`)) return;
     if(logIndex !== -1) {
         logs[logIndex].type = newStatus;
         refreshUI();
     }
     await postData('confirmAttendance', { row: row, newStatus: newStatus });
+}
+
+async function deleteAttendanceLog(row, name) {
+    if (!confirm(`Hapus data absensi ${name} pada baris ini?\nAbsensi akan dihapus dan tidak dihitung gaji.`)) return;
+    const logIndex = logs.findIndex(l => l.row == row);
+    if (logIndex !== -1) {
+        logs.splice(logIndex, 1);
+        refreshUI();
+        renderViolationsTab();
+    }
+    await postData('deleteAttendance', { row: row });
+}
+
+// --- VIOLATIONS TAB (Pelanggaran) ---
+function renderViolationsTab() {
+    const body = document.getElementById('violationsTableBody');
+    const emptyEl = document.getElementById('violationsEmpty');
+    if (!body) return;
+
+    const filter = document.getElementById('violationFilter')?.value || 'all';
+    const monthVal = document.getElementById('violationMonth')?.value || '';
+
+    // Identify violations: late IN (>=30 min) or early OUT (note starts with [Pulang)
+    let violations = [];
+    logs.forEach(l => {
+        let vType = null;
+        let duration = 0;
+        if (l.type === 'IN' && l.lateMinutes >= 30) {
+            vType = 'late';
+            duration = l.lateMinutes;
+        } else if (l.type === 'OUT' && l.note && l.note.startsWith('[Pulang')) {
+            vType = 'early';
+            const match = l.note.match(/\[Pulang (\d+) mnt/);
+            duration = match ? parseInt(match[1]) : 0;
+        }
+        if (vType) violations.push({ ...l, vType, duration });
+    });
+
+    // Filter by type
+    if (filter === 'late') violations = violations.filter(v => v.vType === 'late');
+    if (filter === 'early') violations = violations.filter(v => v.vType === 'early');
+
+    // Filter by month
+    if (monthVal) {
+        violations = violations.filter(v => v.date && v.date.startsWith(monthVal));
+    }
+
+    // Sort newest first
+    violations.sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+
+    // Stats
+    const lateCount = violations.filter(v => v.vType === 'late').length;
+    const earlyCount = violations.filter(v => v.vType === 'early').length;
+    const statLate = document.getElementById('violStatLate');
+    const statEarly = document.getElementById('violStatEarly');
+    const statTotal = document.getElementById('violStatTotal');
+    if (statLate) statLate.innerText = lateCount;
+    if (statEarly) statEarly.innerText = earlyCount;
+    if (statTotal) statTotal.innerText = violations.length;
+
+    if (violations.length === 0) {
+        body.innerHTML = '';
+        if (emptyEl) emptyEl.classList.remove('hidden');
+        body.closest('.overflow-x-auto')?.classList.add('hidden');
+        return;
+    }
+    if (emptyEl) emptyEl.classList.add('hidden');
+    body.closest('.overflow-x-auto')?.classList.remove('hidden');
+
+    body.innerHTML = violations.map(v => {
+        const typeBadge = v.vType === 'late'
+            ? '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-600">TERLAMBAT</span>'
+            : '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-600">PULANG AWAL</span>';
+        const durationText = v.duration > 0 ? formatDuration(v.duration) : '-';
+        const noteText = v.note || '-';
+        const safeName = (v.name || '').replace(/'/g, "\\'");
+        return `<tr class="bg-white hover:bg-slate-50 transition">
+            <td class="px-4 py-3">
+                <div class="font-bold text-slate-700 text-xs">${v.date}</div>
+                <div class="text-[10px] text-slate-400">${v.time}</div>
+            </td>
+            <td class="px-4 py-3 font-bold text-slate-700 text-xs">${v.name}</td>
+            <td class="px-4 py-3 text-center">${typeBadge}</td>
+            <td class="px-4 py-3 text-center">
+                <span class="font-bold text-xs ${v.vType === 'late' ? 'text-red-500' : 'text-amber-500'}">${durationText}</span>
+            </td>
+            <td class="px-4 py-3 text-xs text-slate-500 max-w-[200px] truncate" title="${noteText}">${noteText}</td>
+            <td class="px-4 py-3 text-center">
+                <button onclick="deleteAttendanceLog('${v.row}', '${safeName}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-sm transition flex items-center gap-1 mx-auto">
+                    <i class="fas fa-trash-alt text-[9px]"></i> Hapus
+                </button>
+            </td>
+        </tr>`;
+    }).join('');
 }
 
 // --- RENDER SALARY & REPORTS ---
@@ -1239,7 +1335,7 @@ function renderTrendChart() {
     }).reverse();
 
     const presentData = labels.map(date => logs.filter(l => l.date === date && l.type === 'IN').length);
-    const lateData = labels.map(date => logs.filter(l => l.date === date && (l.lateMinutes > 0 || l.type === 'PENDING')).length);
+    const lateData = labels.map(date => logs.filter(l => l.date === date && l.lateMinutes > 0).length);
     const overtimeData = labels.map(date => logs.filter(l => l.date === date && l.type === 'OUT' && l.overtime > 0).length);
 
     if (trendChartInstance) trendChartInstance.destroy();
@@ -1380,8 +1476,10 @@ async function submitAbsence(type) {
 
     let overtimeHours = 0;
     let lateMinutes = 0;
+    let earlyMinutes = 0;
     let finalType = type;
     let forcedTime = null; 
+    let needsReason = null;
     let toastMessage = "Absen Berhasil!";
 
     if (type === 'IN') {
@@ -1406,8 +1504,8 @@ async function submitAbsence(type) {
                     forcedTime = divConfig.start; 
                     toastMessage = `Telat ${diffMin}m (Toleransi).`;
                 } else {
-                    finalType = 'PENDING';
-                    toastMessage = "Menunggu Konfirmasi Admin.";
+                    needsReason = 'late';
+                    toastMessage = "Absen Masuk (Terlambat).";
                 }
             }
         }
@@ -1428,8 +1526,14 @@ async function submitAbsence(type) {
              if (shiftEndH < shiftStartH) expectedEnd.setDate(expectedEnd.getDate() + 1);
              const diffMs = now - expectedEnd;
              const diffMinutes = Math.floor(diffMs / 60000);
-             if (diffMinutes > 40) overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
-             toastMessage = `Lembur: ${overtimeHours} Jam`;
+             if (diffMinutes < 0) {
+                 earlyMinutes = Math.abs(diffMinutes);
+                 needsReason = 'early';
+                 toastMessage = "Absen Pulang (Lebih Awal).";
+             } else if (diffMinutes > 40) {
+                 overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
+                 toastMessage = `Lembur: ${overtimeHours} Jam`;
+             }
         }
     }
 
@@ -1458,12 +1562,22 @@ async function submitAbsence(type) {
         absentBy: currentUser ? (currentUser.name || currentUser.u || '-') : '-'
     };
 
-    if (finalType === 'PENDING') {
+    if (needsReason === 'late') {
         pendingAttendancePayload = payload;
         document.getElementById('lateNoteInput').value = ""; 
         document.getElementById('lateAlertModal').classList.remove('hidden');
         setTimeout(() => document.getElementById('lateAlertModal').classList.remove('opacity-0'), 10);
         return; 
+    }
+
+    if (needsReason === 'early') {
+        pendingAttendancePayload = payload;
+        pendingAttendancePayload._earlyMinutes = earlyMinutes;
+        document.getElementById('earlyNoteInput').value = "";
+        document.getElementById('earlyOutDesc').innerText = `Pulang ${earlyMinutes} menit lebih awal dari jadwal shift. Mohon isi alasan untuk dilaporkan ke Admin.`;
+        document.getElementById('earlyOutModal').classList.remove('hidden');
+        setTimeout(() => document.getElementById('earlyOutModal').classList.remove('opacity-0'), 10);
+        return;
     }
 
     const success = await postData('attendance', payload);
@@ -1486,14 +1600,47 @@ async function submitLateReason() {
     const modal = document.getElementById('lateAlertModal');
     modal.classList.add('opacity-0');
     setTimeout(() => modal.classList.add('hidden'), 300);
-    postData('attendance', pendingAttendancePayload).then(success => {
+    const isVolunteer = pendingAttendancePayload.absentBy === 'Mandiri';
+    postData('attendance', pendingAttendancePayload).then(async (success) => {
         if(success) {
             toggleLoader(false);
-            showToast("Laporan Telat Terkirim.", "success");
-            resetSecurityFlow();
+            showToast("Absen Masuk (Terlambat) Tercatat.", "success");
+            if (isVolunteer) {
+                volCancelFlow();
+                await fetchData(true);
+                volUpdateTodayStatus();
+            } else {
+                resetSecurityFlow();
+            }
         }
     });
     pendingAttendancePayload = null; 
+}
+
+async function submitEarlyReason() {
+    if (!pendingAttendancePayload) return;
+    const note = document.getElementById('earlyNoteInput').value;
+    const em = pendingAttendancePayload._earlyMinutes || 0;
+    pendingAttendancePayload.note = `[Pulang ${em} mnt lebih awal] ${note}`.trim();
+    delete pendingAttendancePayload._earlyMinutes;
+    const modal = document.getElementById('earlyOutModal');
+    modal.classList.add('opacity-0');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+    const isVolunteer = pendingAttendancePayload.absentBy === 'Mandiri';
+    postData('attendance', pendingAttendancePayload).then(async (success) => {
+        if(success) {
+            toggleLoader(false);
+            showToast("Laporan Pulang Awal Terkirim.", "success");
+            if (isVolunteer) {
+                volCancelFlow();
+                await fetchData(true);
+                volUpdateTodayStatus();
+            } else {
+                resetSecurityFlow();
+            }
+        }
+    });
+    pendingAttendancePayload = null;
 }
 
 // --- HELPER FUNCTIONS ---
@@ -1669,7 +1816,7 @@ function checkClockInAllowed(empId, division) {
     const alreadyIN = logs.some(l =>
         String(l.empId) === String(empId) &&
         l.date === today &&
-        (l.type === 'IN' || l.type === 'PENDING')
+        l.type === 'IN'
     );
     if (alreadyIN) {
         return { allowed: false, message: 'Sudah absen masuk hari ini! Maksimal 1x absen masuk per hari.' };
@@ -1744,10 +1891,10 @@ function openModalList(title, mode, filterParam = null) {
             }).filter(e => e);
         } else if (mode === 'late') {
             document.getElementById('activeModalSubtitle').innerText = `Terlambat ${today}`;
-            const todayLateLogs = logs.filter(l => l.date === today && (l.lateMinutes > 0 || l.type === 'PENDING'));
+            const todayLateLogs = logs.filter(l => l.date === today && l.lateMinutes > 0);
             filtered = todayLateLogs.map(log => {
                 const emp = employees.find(e => e.id === log.empId);
-                const info = log.type === 'PENDING' ? 'Menunggu Konfirmasi' : `${formatDuration(log.lateMinutes)}`;
+                const info = `${formatDuration(log.lateMinutes)}`;
                 return emp ? { ...emp, extraInfo: info, status: 'late' } : null;
             }).filter(e => e);
         } else if (mode === 'division') {
@@ -1807,14 +1954,15 @@ function toggleSidebar() {
 function previewImage(url) { document.getElementById('imgModalSrc').src = url; document.getElementById('imgDownloadLink').href = url; document.getElementById('imgModal').classList.remove('hidden'); setTimeout(() => document.getElementById('imgModal').classList.remove('opacity-0'), 10); }
 function closePreview() { document.getElementById('imgModal').classList.add('opacity-0'); setTimeout(() => document.getElementById('imgModal').classList.add('hidden'), 300); }
 function switchTab(id) {
-    ['dashboard','employees','salaries','manual_attendance'].forEach(t => document.getElementById('tab-'+t)?.classList.add('hidden'));
+    ['dashboard','employees','salaries','manual_attendance','violations'].forEach(t => document.getElementById('tab-'+t)?.classList.add('hidden'));
     document.getElementById('tab-'+id)?.classList.remove('hidden');
     if(window.innerWidth < 768) { document.getElementById('sidebar').classList.add('-translate-x-full'); document.getElementById('sidebarOverlay').classList.add('hidden'); }
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     Array.from(document.querySelectorAll('.nav-item')).find(b => b.getAttribute('onclick').includes(id))?.classList.add('active');
-    const titles = { 'dashboard': 'Dashboard', 'employees': 'Data Relawan', 'salaries': 'Laporan Gaji', 'manual_attendance': 'Absen Manual' };
+    const titles = { 'dashboard': 'Dashboard', 'employees': 'Data Relawan', 'salaries': 'Laporan Gaji', 'manual_attendance': 'Absen Manual', 'violations': 'Pelanggaran' };
     document.getElementById('pageTitle').innerText = titles[id] || id;
     if (id === 'manual_attendance') maInit();
+    if (id === 'violations') renderViolationsTab();
 }
 // =============================================
 // MANUAL ATTENDANCE (Absen Manual) System
@@ -3311,7 +3459,7 @@ function volDetectAbsenType(empId) {
     const empLogs = logs.filter(l => String(l.empId) === String(empId))
         .sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
     const lastLog = empLogs.length > 0 ? empLogs[0] : null;
-    if (!lastLog || lastLog.type === 'OUT') return 'IN';
+    if (!lastLog || lastLog.type === 'OUT' || lastLog.type === 'REJECTED') return 'IN';
     return 'OUT'; // Sudah Clock In, berarti selanjutnya Clock Out
 }
 
@@ -3323,10 +3471,12 @@ function volUpdateAbsenButton(empId) {
 
     const type = volDetectAbsenType(empId);
     if (type === 'OUT') {
+        btn.disabled = false;
         btn.className = 'w-full py-4 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-bold shadow-lg shadow-amber-600/30 transition active:scale-95 flex items-center justify-center gap-3 border-t border-white/20';
         if (icon) icon.className = 'fas fa-sign-out-alt text-lg';
         if (label) label.innerText = 'Absen Pulang';
     } else {
+        btn.disabled = false;
         btn.className = 'w-full py-4 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-bold shadow-lg shadow-emerald-600/30 transition active:scale-95 flex items-center justify-center gap-3 border-t border-white/20';
         if (icon) icon.className = 'fas fa-sign-in-alt text-lg';
         if (label) label.innerText = 'Absen Masuk';
@@ -3356,7 +3506,7 @@ function volUpdateTodayStatus() {
 
     let html = myLogs.map(l => {
         const icon = l.type === 'IN' ? '🟢' : (l.type === 'OUT' ? '🔴' : '🟡');
-        const label = l.type === 'IN' ? 'Masuk' : (l.type === 'OUT' ? 'Pulang' : 'Pending');
+        const label = l.type === 'IN' ? 'Masuk' : (l.type === 'OUT' ? 'Pulang' : l.type);
         return `<div>${icon} ${label} — ${l.time}</div>`;
     }).join('');
     infoEl.innerHTML = html;
@@ -3673,8 +3823,10 @@ async function volSubmitSelfie() {
 
     let overtimeHours = 0;
     let lateMinutes = 0;
+    let earlyMinutes = 0;
     let finalType = volAbsenType;
     let forcedTime = null;
+    let needsReason = null;
     let toastMsg = 'Absen Berhasil!';
 
     if (volAbsenType === 'IN') {
@@ -3698,8 +3850,8 @@ async function volSubmitSelfie() {
                     forcedTime = divConfig.start;
                     toastMsg = `Telat ${diffMin}m (Toleransi).`;
                 } else {
-                    finalType = 'PENDING';
-                    toastMsg = 'Menunggu Konfirmasi Admin.';
+                    needsReason = 'late';
+                    toastMsg = 'Absen Masuk (Terlambat).';
                 }
             }
         }
@@ -3718,8 +3870,14 @@ async function volSubmitSelfie() {
             if (shiftEndH < shiftStartH) expectedEnd.setDate(expectedEnd.getDate() + 1);
             const diffMs = now - expectedEnd;
             const diffMinutes = Math.floor(diffMs / 60000);
-            if (diffMinutes > 40) overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
-            toastMsg = `Out After: ${overtimeHours} Hours`;
+            if (diffMinutes < 0) {
+                earlyMinutes = Math.abs(diffMinutes);
+                needsReason = 'early';
+                toastMsg = 'Absen Pulang (Lebih Awal).';
+            } else if (diffMinutes > 40) {
+                overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
+                toastMsg = `Out After: ${overtimeHours} Hours`;
+            }
         }
     }
 
@@ -3770,11 +3928,21 @@ async function volSubmitSelfie() {
         absentBy: 'Mandiri'
     };
 
-    if (finalType === 'PENDING') {
+    if (needsReason === 'late') {
         pendingAttendancePayload = payload;
         document.getElementById('lateNoteInput').value = '';
         document.getElementById('lateAlertModal').classList.remove('hidden');
         setTimeout(() => document.getElementById('lateAlertModal').classList.remove('opacity-0'), 10);
+        return;
+    }
+
+    if (needsReason === 'early') {
+        pendingAttendancePayload = payload;
+        pendingAttendancePayload._earlyMinutes = earlyMinutes;
+        document.getElementById('earlyNoteInput').value = '';
+        document.getElementById('earlyOutDesc').innerText = `Pulang ${earlyMinutes} menit lebih awal dari jadwal shift. Mohon isi alasan untuk dilaporkan ke Admin.`;
+        document.getElementById('earlyOutModal').classList.remove('hidden');
+        setTimeout(() => document.getElementById('earlyOutModal').classList.remove('opacity-0'), 10);
         return;
     }
 

@@ -141,6 +141,26 @@
         </div>
     </div>
 
+    <!-- EARLY OUT ALERT MODAL -->
+    <div id="earlyOutModal" class="fixed inset-0 z-[290] bg-amber-900/80 backdrop-blur-sm hidden flex items-center justify-center p-6 transition-opacity duration-300 opacity-0">
+        <div class="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-6 text-center animate-zoom-in">
+            <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                <i class="fas fa-clock"></i>
+            </div>
+            <h3 class="text-xl font-extrabold text-slate-800">Pulang Lebih Awal!</h3>
+            <p id="earlyOutDesc" class="text-sm text-slate-500 mt-2 mb-4 leading-relaxed">
+                Anda pulang sebelum jadwal shift berakhir. Mohon isi alasan untuk dilaporkan ke Admin.
+            </p>
+            <div class="text-left mb-6">
+                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Alasan Pulang Awal</label>
+                <textarea id="earlyNoteInput" rows="2" class="input-field mt-1 resize-none" placeholder="Contoh: Urusan keluarga, Sakit..."></textarea>
+            </div>
+            <button onclick="submitEarlyReason()" class="w-full py-3 rounded-xl bg-amber-500 text-white font-bold hover:bg-amber-600 transition shadow-lg shadow-amber-500/30">
+                Kirim Laporan & Lanjutkan
+            </button>
+        </div>
+    </div>
+
     <!-- CONFIG MODAL -->
     <div id="configModal" class="fixed inset-0 z-[280] bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
         <div class="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden animate-zoom-in flex flex-col max-h-[90vh]">
@@ -493,6 +513,9 @@
                     </button>
                     <button onclick="switchTab('manual_attendance')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
                         <i class="fas fa-calendar-check w-5 text-center group-hover:scale-110 transition-transform"></i> Absen Manual
+                    </button>
+                    <button onclick="switchTab('violations')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
+                        <i class="fas fa-exclamation-circle w-5 text-center group-hover:scale-110 transition-transform"></i> Pelanggaran
                     </button>
                     <button onclick="switchTab('salaries')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
                         <i class="fas fa-file-invoice-dollar w-5 text-center group-hover:scale-110 transition-transform"></i> Rekap Gaji & Lembur
@@ -920,6 +943,64 @@
                                     </thead>
                                     <tbody id="maHistoryBody" class="divide-y divide-slate-50"></tbody>
                                 </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB PELANGGARAN (Keterlambatan & Pulang Awal) -->
+                    <div id="tab-violations" class="hidden animate-fade-in space-y-6">
+                        <div class="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-slate-100">
+                            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                                <div>
+                                    <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2"><i class="fas fa-exclamation-circle text-red-500"></i> Pelanggaran Kehadiran</h3>
+                                    <p class="text-xs text-slate-400 mt-1">Daftar relawan yang terlambat (≥30 menit) atau pulang lebih awal. Hapus absensi jika tidak dihitung gaji.</p>
+                                </div>
+                                <div class="flex gap-2 items-center flex-wrap">
+                                    <select id="violationFilter" onchange="renderViolationsTab()" class="text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none">
+                                        <option value="all">Semua</option>
+                                        <option value="late">Terlambat</option>
+                                        <option value="early">Pulang Awal</option>
+                                    </select>
+                                    <input type="month" id="violationMonth" onchange="renderViolationsTab()" class="text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-red-500 outline-none">
+                                </div>
+                            </div>
+
+                            <!-- Stats -->
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+                                <div class="bg-red-50 rounded-2xl p-4 text-center border border-red-100">
+                                    <div id="violStatLate" class="text-2xl font-black text-red-600">0</div>
+                                    <div class="text-[10px] font-bold text-red-400 uppercase mt-1">Terlambat</div>
+                                </div>
+                                <div class="bg-amber-50 rounded-2xl p-4 text-center border border-amber-100">
+                                    <div id="violStatEarly" class="text-2xl font-black text-amber-600">0</div>
+                                    <div class="text-[10px] font-bold text-amber-400 uppercase mt-1">Pulang Awal</div>
+                                </div>
+                                <div class="bg-slate-50 rounded-2xl p-4 text-center border border-slate-200 col-span-2 md:col-span-1">
+                                    <div id="violStatTotal" class="text-2xl font-black text-slate-600">0</div>
+                                    <div class="text-[10px] font-bold text-slate-400 uppercase mt-1">Total</div>
+                                </div>
+                            </div>
+
+                            <!-- Table -->
+                            <div class="overflow-x-auto rounded-2xl border border-slate-100">
+                                <table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="bg-slate-50 text-slate-400 text-[10px] uppercase tracking-wider">
+                                            <th class="px-4 py-3 font-bold text-left">Tanggal</th>
+                                            <th class="px-4 py-3 font-bold text-left">Nama</th>
+                                            <th class="px-4 py-3 font-bold text-center">Jenis</th>
+                                            <th class="px-4 py-3 font-bold text-center">Durasi</th>
+                                            <th class="px-4 py-3 font-bold text-left">Alasan</th>
+                                            <th class="px-4 py-3 font-bold text-center">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="violationsTableBody" class="divide-y divide-slate-50"></tbody>
+                                </table>
+                            </div>
+                            <div id="violationsEmpty" class="hidden text-center py-12 text-slate-400">
+                                <i class="fas fa-check-circle text-4xl text-emerald-300 mb-3"></i>
+                                <p class="font-bold">Tidak ada pelanggaran</p>
+                                <p class="text-xs mt-1">Semua relawan hadir tepat waktu!</p>
                             </div>
                         </div>
                     </div>
