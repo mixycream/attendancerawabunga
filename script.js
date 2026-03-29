@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwsDiFuZIOISm0V9kLxLvDoInq_MUB5EDHWNLCG0FltKHU5yr8373Mp2qY4TWioNLm2/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxc-BJC9k1BfJ7DQWATpZnEE8qLxIu5XhNY-5JdA0FdFkinw2ag0IQy-LnD1wKSQKV3/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -649,7 +649,7 @@ function refreshUI() {
                 <span class="text-[9px] text-red-400">${formatDuration(l.lateMinutes)}</span>
             </div>`;
         }
-        if (l.type === 'OUT' && l.note && l.note.startsWith('[Pulang')) {
+        if (l.type === 'OUT' && l.note && l.note.includes('[Pulang')) {
             actionArea = `<div class="flex flex-col items-center gap-0.5">
                 <span class="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-amber-100 text-amber-600">PULANG AWAL</span>
             </div>`;
@@ -673,7 +673,7 @@ function refreshUI() {
             if (l.note) {
                 lateInfo += `<div class="text-[9px] text-slate-400 mt-1 italic max-w-[100px] truncate" title="${l.note}">"${l.note}"</div>`;
             }
-        } else if (l.type === 'OUT' && l.note && l.note.startsWith('[Pulang')) {
+        } else if (l.type === 'OUT' && l.note && l.note.includes('[Pulang')) {
             lateInfo = `<div class="text-[9px] text-amber-500 mt-1 italic max-w-[100px] truncate" title="${l.note}">"${l.note}"</div>`;
         }
             
@@ -778,13 +778,13 @@ async function rejectViolation(empId, date, name) {
 }
 
 async function confirmViolation(empId, date, name) {
-    if (!confirm(`Konfirmasi absensi ${name} pada ${date}?\nAbsensi akan dihitung gaji.`)) return;
-    // Remove needsReason flags locally (keep logs, just mark as confirmed)
+    if (!confirm(`Konfirmasi absensi ${name} pada ${date}?\nAbsensi tetap dihitung gaji. Data pelanggaran tetap tercatat.`)) return;
+    // Mark as confirmed by adding [OK] prefix to note — keep lateMinutes & note data visible
     const related = logs.filter(l => String(l.empId) === String(empId) && l.date === date);
     related.forEach(l => {
-        // Clear the late/early violation markers
-        if (l.lateMinutes >= 30) l.lateMinutes = 0;
-        if (l.note && l.note.startsWith('[Pulang')) l.note = '';
+        if ((l.type === 'IN' && l.lateMinutes >= 30) || (l.type === 'OUT' && l.note && l.note.includes('[Pulang'))) {
+            if (!l.note.includes('[OK]')) l.note = '[OK] ' + (l.note || '');
+        }
     });
     refreshUI();
     renderViolationsTab();
@@ -792,6 +792,22 @@ async function confirmViolation(empId, date, name) {
 }
 
 // --- VIOLATIONS TAB (Pelanggaran) ---
+function toggleViolationMenu(menuId) {
+    const menu = document.getElementById(menuId);
+    if (!menu) return;
+    const wasHidden = menu.classList.contains('hidden');
+    closeAllViolationMenus();
+    if (wasHidden) menu.classList.remove('hidden');
+}
+function closeAllViolationMenus() {
+    document.querySelectorAll('[id^="vMenu_"]').forEach(el => el.classList.add('hidden'));
+}
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('[id^="vMenu_"]') && !e.target.closest('button[onclick*="toggleViolationMenu"]')) {
+        closeAllViolationMenus();
+    }
+});
+
 function renderViolationsTab() {
     const body = document.getElementById('violationsTableBody');
     const emptyEl = document.getElementById('violationsEmpty');
@@ -809,7 +825,7 @@ function renderViolationsTab() {
         if (l.type === 'IN' && l.lateMinutes >= 30) {
             vType = 'late';
             duration = l.lateMinutes;
-        } else if (l.type === 'OUT' && l.note && l.note.startsWith('[Pulang')) {
+        } else if (l.type === 'OUT' && l.note && l.note.includes('[Pulang')) {
             vType = 'early';
             const match = l.note.match(/\[Pulang (\d+) mnt/);
             duration = match ? parseInt(match[1]) : 0;
@@ -894,7 +910,6 @@ function renderViolationsTab() {
         if (v.vType === 'late') {
             typeBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-600">TERLAMBAT</span>';
         } else {
-            // Early: ≤90min = yellow, >90min = red
             if (v.duration <= 90) {
                 typeBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-600">PULANG AWAL</span>';
             } else {
@@ -903,31 +918,48 @@ function renderViolationsTab() {
         }
         const durationText = v.duration > 0 ? formatDuration(v.duration) : '-';
         const durationColor = v.vType === 'late' ? 'text-red-500' : (v.duration > 90 ? 'text-red-500' : 'text-amber-500');
-        const noteText = v.note || '-';
+        const noteText = (v.note || '-').replace(/^\[OK\]\s*/, '');
         const safeEmpId = String(v.empId).replace(/'/g, "\\'");
         const safeDate = (v.date || '').replace(/'/g, "\\'");
         const safeName = (v.name || '').replace(/'/g, "\\'");
-        return `<tr class="bg-white hover:bg-slate-50 transition">
+        const isConfirmed = (v.note || '').includes('[OK]');
+
+        let actionHtml;
+        if (isConfirmed) {
+            const menuId = `vMenu_${safeEmpId}_${safeDate}`.replace(/[^a-zA-Z0-9_]/g, '_');
+            actionHtml = `<div class="relative inline-block">
+                <button onclick="toggleViolationMenu('${menuId}')" class="bg-slate-100 hover:bg-slate-200 text-slate-600 w-8 h-8 rounded-lg text-xs shadow-sm transition flex items-center justify-center mx-auto" title="Opsi">
+                    <i class="fas fa-pen text-[10px]"></i>
+                </button>
+                <div id="${menuId}" class="hidden absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-slate-100 z-50 py-1 min-w-[120px]">
+                    <button onclick="rejectViolation('${safeEmpId}', '${safeDate}', '${safeName}'); closeAllViolationMenus()" class="w-full text-left px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-50 transition flex items-center gap-2">
+                        <i class="fas fa-trash-alt text-[10px]"></i> Hapus Absen
+                    </button>
+                </div>
+            </div>`;
+        } else {
+            actionHtml = `<div class="flex gap-1.5 justify-center">
+                <button onclick="confirmViolation('${safeEmpId}', '${safeDate}', '${safeName}')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold shadow-sm transition flex items-center gap-1" title="Konfirmasi (tetap hitung gaji)">
+                    <i class="fas fa-check text-[9px]"></i> OK
+                </button>
+                <button onclick="rejectViolation('${safeEmpId}', '${safeDate}', '${safeName}')" class="bg-red-500 hover:bg-red-600 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold shadow-sm transition flex items-center gap-1" title="Tolak (hapus absen hari itu)">
+                    <i class="fas fa-times text-[9px]"></i> Tolak
+                </button>
+            </div>`;
+        }
+
+        return `<tr class="${isConfirmed ? 'bg-emerald-50/50' : 'bg-white'} hover:bg-slate-50 transition">
             <td class="px-4 py-3">
                 <div class="font-bold text-slate-700 text-xs">${v.date}</div>
                 <div class="text-[10px] text-slate-400">${v.time}</div>
             </td>
-            <td class="px-4 py-3 font-bold text-slate-700 text-xs">${v.name}</td>
+            <td class="px-4 py-3 font-bold text-slate-700 text-xs">${v.name}${isConfirmed ? ' <span class="text-[9px] text-emerald-500 font-bold"><i class="fas fa-check-circle"></i> OK</span>' : ''}</td>
             <td class="px-4 py-3 text-center">${typeBadge}</td>
             <td class="px-4 py-3 text-center">
                 <span class="font-bold text-xs ${durationColor}">${durationText}</span>
             </td>
             <td class="px-4 py-3 text-xs text-slate-500 max-w-[200px] truncate" title="${noteText}">${noteText}</td>
-            <td class="px-4 py-3 text-center">
-                <div class="flex gap-1.5 justify-center">
-                    <button onclick="confirmViolation('${safeEmpId}', '${safeDate}', '${safeName}')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold shadow-sm transition flex items-center gap-1" title="Konfirmasi (tetap hitung gaji)">
-                        <i class="fas fa-check text-[9px]"></i> OK
-                    </button>
-                    <button onclick="rejectViolation('${safeEmpId}', '${safeDate}', '${safeName}')" class="bg-red-500 hover:bg-red-600 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold shadow-sm transition flex items-center gap-1" title="Tolak (hapus absen hari itu)">
-                        <i class="fas fa-times text-[9px]"></i> Tolak
-                    </button>
-                </div>
-            </td>
+            <td class="px-4 py-3 text-center">${actionHtml}</td>
         </tr>`;
     }).join('');
 }
@@ -1593,7 +1625,7 @@ async function submitAbsence(type) {
                     needsReason = 'late';
                     toastMessage = "Absen Masuk (Terlambat).";
                 } else {
-                    return showToast("Tidak bisa absen masuk!\nTelat lebih dari 1.5 jam.\nHubungi Admin via WhatsApp.", "error");
+                    return showToast("Tidak bisa absen masuk!\nTelat lebih dari Jam yang ditentukan.\nHubungi Admin via WhatsApp.", "error");
                 }
             }
         }
@@ -1615,7 +1647,7 @@ async function submitAbsence(type) {
              const diffMs = now - expectedEnd;
              const diffMinutes = Math.floor(diffMs / 60000);
              if (diffMinutes < -210) {
-                 return showToast("Tidak bisa absen pulang!\nMasih lebih dari 3.5 jam sebelum shift selesai.", "error");
+                 return showToast("Tidak bisa absen pulang sebelum shift selesai.", "error");
              } else if (diffMinutes < 0) {
                  earlyMinutes = Math.abs(diffMinutes);
                  toastMessage = "Absen Pulang (Lebih Awal).";
@@ -3917,7 +3949,7 @@ async function volSubmitSelfie() {
                     needsReason = 'late';
                     toastMsg = 'Absen Masuk (Terlambat).';
                 } else {
-                    return showToast("Tidak bisa absen masuk!\nTelat lebih dari 1.5 jam.\nHubungi Admin via WhatsApp.", "error");
+                    return showToast("Tidak bisa absen masuk!\nTelat lebih dari Jam yang ditentukan.\nHubungi Admin via WhatsApp.", "error");
                 }
             }
         }
@@ -3937,7 +3969,7 @@ async function volSubmitSelfie() {
             const diffMs = now - expectedEnd;
             const diffMinutes = Math.floor(diffMs / 60000);
             if (diffMinutes < -210) {
-                return showToast("Tidak bisa absen pulang!\nMasih lebih dari 3.5 jam sebelum shift selesai.", "error");
+                return showToast("Tidak bisa absen pulang sebelum shift selesai.", "error");
             } else if (diffMinutes < 0) {
                 earlyMinutes = Math.abs(diffMinutes);
                 toastMsg = 'Absen Pulang (Lebih Awal).';
