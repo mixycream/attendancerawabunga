@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzaxnLjn64yVEJDJAf1b1fZCeCTs-vQl8pBIWqw3VnTfVnSHDYIrlYBcSNdsWmyfc9t/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwsDiFuZIOISm0V9kLxLvDoInq_MUB5EDHWNLCG0FltKHU5yr8373Mp2qY4TWioNLm2/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -763,6 +763,34 @@ async function deleteAttendanceLog(row, name) {
     await postData('deleteAttendance', { row: row });
 }
 
+async function rejectViolation(empId, date, name) {
+    if (!confirm(`Tolak absensi ${name} pada ${date}?\nSemua data absen (Masuk & Pulang) di hari itu akan dihapus dan tidak dihitung gaji.`)) return;
+    // Remove all logs for this empId + date locally
+    const toRemove = logs.filter(l => String(l.empId) === String(empId) && l.date === date);
+    toRemove.forEach(l => {
+        const idx = logs.indexOf(l);
+        if (idx !== -1) logs.splice(idx, 1);
+    });
+    refreshUI();
+    renderViolationsTab();
+    // Server-side: delete all rows for empId + date
+    await postData('deleteAttendanceByEmpDate', { empId: empId, date: date });
+}
+
+async function confirmViolation(empId, date, name) {
+    if (!confirm(`Konfirmasi absensi ${name} pada ${date}?\nAbsensi akan dihitung gaji.`)) return;
+    // Remove needsReason flags locally (keep logs, just mark as confirmed)
+    const related = logs.filter(l => String(l.empId) === String(empId) && l.date === date);
+    related.forEach(l => {
+        // Clear the late/early violation markers
+        if (l.lateMinutes >= 30) l.lateMinutes = 0;
+        if (l.note && l.note.startsWith('[Pulang')) l.note = '';
+    });
+    refreshUI();
+    renderViolationsTab();
+    await postData('confirmViolation', { empId: empId, date: date });
+}
+
 // --- VIOLATIONS TAB (Pelanggaran) ---
 function renderViolationsTab() {
     const body = document.getElementById('violationsTableBody');
@@ -771,6 +799,7 @@ function renderViolationsTab() {
 
     const filter = document.getElementById('violationFilter')?.value || 'all';
     const monthVal = document.getElementById('violationMonth')?.value || '';
+    const sortVal = document.getElementById('violationSort')?.value || 'newest';
 
     // Identify violations: late IN (>=30 min) or early OUT (note starts with [Pulang)
     let violations = [];
@@ -797,18 +826,59 @@ function renderViolationsTab() {
         violations = violations.filter(v => v.date && v.date.startsWith(monthVal));
     }
 
-    // Sort newest first
-    violations.sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+    // Per-employee aggregation
+    const empStats = {};
+    violations.forEach(v => {
+        const key = String(v.empId);
+        if (!empStats[key]) empStats[key] = { name: v.name, empId: v.empId, lateCount: 0, earlyCount: 0 };
+        if (v.vType === 'late') empStats[key].lateCount++;
+        if (v.vType === 'early') empStats[key].earlyCount++;
+    });
+
+    // Sorting
+    if (sortVal === 'newest') {
+        violations.sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+    } else if (sortVal === 'name_asc') {
+        violations.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    } else if (sortVal === 'most_late') {
+        violations.sort((a, b) => (empStats[String(b.empId)]?.lateCount || 0) - (empStats[String(a.empId)]?.lateCount || 0));
+    } else if (sortVal === 'most_early') {
+        violations.sort((a, b) => (empStats[String(b.empId)]?.earlyCount || 0) - (empStats[String(a.empId)]?.earlyCount || 0));
+    }
 
     // Stats
     const lateCount = violations.filter(v => v.vType === 'late').length;
     const earlyCount = violations.filter(v => v.vType === 'early').length;
+    const peopleCount = Object.keys(empStats).length;
     const statLate = document.getElementById('violStatLate');
     const statEarly = document.getElementById('violStatEarly');
     const statTotal = document.getElementById('violStatTotal');
+    const statPeople = document.getElementById('violStatPeople');
     if (statLate) statLate.innerText = lateCount;
     if (statEarly) statEarly.innerText = earlyCount;
     if (statTotal) statTotal.innerText = violations.length;
+    if (statPeople) statPeople.innerText = peopleCount;
+
+    // Per-employee summary
+    const summarySection = document.getElementById('violationSummarySection');
+    const summaryGrid = document.getElementById('violationSummaryGrid');
+    if (summaryGrid && summarySection) {
+        const empList = Object.values(empStats).sort((a, b) => (b.lateCount + b.earlyCount) - (a.lateCount + a.earlyCount));
+        if (empList.length > 0) {
+            summarySection.classList.remove('hidden');
+            summaryGrid.innerHTML = empList.map(e => `
+                <div class="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-2.5 border border-slate-100">
+                    <span class="font-bold text-xs text-slate-700 truncate mr-2">${e.name}</span>
+                    <div class="flex gap-2 shrink-0">
+                        ${e.lateCount > 0 ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-600">${e.lateCount} Telat</span>` : ''}
+                        ${e.earlyCount > 0 ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-600">${e.earlyCount} Awal</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            summarySection.classList.add('hidden');
+        }
+    }
 
     if (violations.length === 0) {
         body.innerHTML = '';
@@ -820,11 +890,22 @@ function renderViolationsTab() {
     body.closest('.overflow-x-auto')?.classList.remove('hidden');
 
     body.innerHTML = violations.map(v => {
-        const typeBadge = v.vType === 'late'
-            ? '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-600">TERLAMBAT</span>'
-            : '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-600">PULANG AWAL</span>';
+        let typeBadge;
+        if (v.vType === 'late') {
+            typeBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-600">TERLAMBAT</span>';
+        } else {
+            // Early: ≤90min = yellow, >90min = red
+            if (v.duration <= 90) {
+                typeBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-600">PULANG AWAL</span>';
+            } else {
+                typeBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-600">PULANG AWAL</span>';
+            }
+        }
         const durationText = v.duration > 0 ? formatDuration(v.duration) : '-';
+        const durationColor = v.vType === 'late' ? 'text-red-500' : (v.duration > 90 ? 'text-red-500' : 'text-amber-500');
         const noteText = v.note || '-';
+        const safeEmpId = String(v.empId).replace(/'/g, "\\'");
+        const safeDate = (v.date || '').replace(/'/g, "\\'");
         const safeName = (v.name || '').replace(/'/g, "\\'");
         return `<tr class="bg-white hover:bg-slate-50 transition">
             <td class="px-4 py-3">
@@ -834,13 +915,18 @@ function renderViolationsTab() {
             <td class="px-4 py-3 font-bold text-slate-700 text-xs">${v.name}</td>
             <td class="px-4 py-3 text-center">${typeBadge}</td>
             <td class="px-4 py-3 text-center">
-                <span class="font-bold text-xs ${v.vType === 'late' ? 'text-red-500' : 'text-amber-500'}">${durationText}</span>
+                <span class="font-bold text-xs ${durationColor}">${durationText}</span>
             </td>
             <td class="px-4 py-3 text-xs text-slate-500 max-w-[200px] truncate" title="${noteText}">${noteText}</td>
             <td class="px-4 py-3 text-center">
-                <button onclick="deleteAttendanceLog('${v.row}', '${safeName}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-sm transition flex items-center gap-1 mx-auto">
-                    <i class="fas fa-trash-alt text-[9px]"></i> Hapus
-                </button>
+                <div class="flex gap-1.5 justify-center">
+                    <button onclick="confirmViolation('${safeEmpId}', '${safeDate}', '${safeName}')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold shadow-sm transition flex items-center gap-1" title="Konfirmasi (tetap hitung gaji)">
+                        <i class="fas fa-check text-[9px]"></i> OK
+                    </button>
+                    <button onclick="rejectViolation('${safeEmpId}', '${safeDate}', '${safeName}')" class="bg-red-500 hover:bg-red-600 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold shadow-sm transition flex items-center gap-1" title="Tolak (hapus absen hari itu)">
+                        <i class="fas fa-times text-[9px]"></i> Tolak
+                    </button>
+                </div>
             </td>
         </tr>`;
     }).join('');
@@ -1503,9 +1589,11 @@ async function submitAbsence(type) {
                 if (diffMin < 30) {
                     forcedTime = divConfig.start; 
                     toastMessage = `Telat ${diffMin}m (Toleransi).`;
-                } else {
+                } else if (diffMin <= 90) {
                     needsReason = 'late';
                     toastMessage = "Absen Masuk (Terlambat).";
+                } else {
+                    return showToast("Tidak bisa absen masuk!\nTelat lebih dari 1.5 jam.\nHubungi Admin via WhatsApp.", "error");
                 }
             }
         }
@@ -1526,9 +1614,10 @@ async function submitAbsence(type) {
              if (shiftEndH < shiftStartH) expectedEnd.setDate(expectedEnd.getDate() + 1);
              const diffMs = now - expectedEnd;
              const diffMinutes = Math.floor(diffMs / 60000);
-             if (diffMinutes < 0) {
+             if (diffMinutes < -210) {
+                 return showToast("Tidak bisa absen pulang!\nMasih lebih dari 3.5 jam sebelum shift selesai.", "error");
+             } else if (diffMinutes < 0) {
                  earlyMinutes = Math.abs(diffMinutes);
-                 needsReason = 'early';
                  toastMessage = "Absen Pulang (Lebih Awal).";
              } else if (diffMinutes > 40) {
                  overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
@@ -1562,22 +1651,16 @@ async function submitAbsence(type) {
         absentBy: currentUser ? (currentUser.name || currentUser.u || '-') : '-'
     };
 
+    if (earlyMinutes > 0) {
+        payload.note = `[Pulang ${earlyMinutes} mnt lebih awal]`;
+    }
+
     if (needsReason === 'late') {
         pendingAttendancePayload = payload;
         document.getElementById('lateNoteInput').value = ""; 
         document.getElementById('lateAlertModal').classList.remove('hidden');
         setTimeout(() => document.getElementById('lateAlertModal').classList.remove('opacity-0'), 10);
         return; 
-    }
-
-    if (needsReason === 'early') {
-        pendingAttendancePayload = payload;
-        pendingAttendancePayload._earlyMinutes = earlyMinutes;
-        document.getElementById('earlyNoteInput').value = "";
-        document.getElementById('earlyOutDesc').innerText = `Pulang ${earlyMinutes} menit lebih awal dari jadwal shift. Mohon isi alasan untuk dilaporkan ke Admin.`;
-        document.getElementById('earlyOutModal').classList.remove('hidden');
-        setTimeout(() => document.getElementById('earlyOutModal').classList.remove('opacity-0'), 10);
-        return;
     }
 
     const success = await postData('attendance', payload);
@@ -1615,32 +1698,6 @@ async function submitLateReason() {
         }
     });
     pendingAttendancePayload = null; 
-}
-
-async function submitEarlyReason() {
-    if (!pendingAttendancePayload) return;
-    const note = document.getElementById('earlyNoteInput').value;
-    const em = pendingAttendancePayload._earlyMinutes || 0;
-    pendingAttendancePayload.note = `[Pulang ${em} mnt lebih awal] ${note}`.trim();
-    delete pendingAttendancePayload._earlyMinutes;
-    const modal = document.getElementById('earlyOutModal');
-    modal.classList.add('opacity-0');
-    setTimeout(() => modal.classList.add('hidden'), 300);
-    const isVolunteer = pendingAttendancePayload.absentBy === 'Mandiri';
-    postData('attendance', pendingAttendancePayload).then(async (success) => {
-        if(success) {
-            toggleLoader(false);
-            showToast("Laporan Pulang Awal Terkirim.", "success");
-            if (isVolunteer) {
-                volCancelFlow();
-                await fetchData(true);
-                volUpdateTodayStatus();
-            } else {
-                resetSecurityFlow();
-            }
-        }
-    });
-    pendingAttendancePayload = null;
 }
 
 // --- HELPER FUNCTIONS ---
@@ -3351,10 +3408,17 @@ function closeEditEmployee() { document.getElementById('editEmployeeModal').clas
 //     radius: 15          // Radius toleransi dalam meter
 // };
 
-// Geofence config — set the center coordinates for Demo location
+// // Geofence config — set the center coordinates for Demo H location
+// const GEOFENCE_CONFIG = {
+//     lat: -6.22368,    // Latitude titik pusat (ubah sesuai lokasi)
+//     lng: 106.89102,   // Longitude titik pusat (ubah sesuai lokasi)
+//     radius: 15          // Radius toleransi dalam meter
+// };
+
+// Geofence config — set the center coordinates for Demo C location
 const GEOFENCE_CONFIG = {
-    lat: -6.22368,    // Latitude titik pusat (ubah sesuai lokasi)
-    lng: 106.89102,   // Longitude titik pusat (ubah sesuai lokasi)
+    lat: -6.22385,    // Latitude titik pusat (ubah sesuai lokasi)
+    lng: 106.89140,   // Longitude titik pusat (ubah sesuai lokasi)
     radius: 15          // Radius toleransi dalam meter
 };
 
@@ -3849,9 +3913,11 @@ async function volSubmitSelfie() {
                 if (diffMin < 30) {
                     forcedTime = divConfig.start;
                     toastMsg = `Telat ${diffMin}m (Toleransi).`;
-                } else {
+                } else if (diffMin <= 90) {
                     needsReason = 'late';
                     toastMsg = 'Absen Masuk (Terlambat).';
+                } else {
+                    return showToast("Tidak bisa absen masuk!\nTelat lebih dari 1.5 jam.\nHubungi Admin via WhatsApp.", "error");
                 }
             }
         }
@@ -3870,9 +3936,10 @@ async function volSubmitSelfie() {
             if (shiftEndH < shiftStartH) expectedEnd.setDate(expectedEnd.getDate() + 1);
             const diffMs = now - expectedEnd;
             const diffMinutes = Math.floor(diffMs / 60000);
-            if (diffMinutes < 0) {
+            if (diffMinutes < -210) {
+                return showToast("Tidak bisa absen pulang!\nMasih lebih dari 3.5 jam sebelum shift selesai.", "error");
+            } else if (diffMinutes < 0) {
                 earlyMinutes = Math.abs(diffMinutes);
-                needsReason = 'early';
                 toastMsg = 'Absen Pulang (Lebih Awal).';
             } else if (diffMinutes > 40) {
                 overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
@@ -3928,21 +3995,15 @@ async function volSubmitSelfie() {
         absentBy: 'Mandiri'
     };
 
+    if (earlyMinutes > 0) {
+        payload.note = `[Pulang ${earlyMinutes} mnt lebih awal]`;
+    }
+
     if (needsReason === 'late') {
         pendingAttendancePayload = payload;
         document.getElementById('lateNoteInput').value = '';
         document.getElementById('lateAlertModal').classList.remove('hidden');
         setTimeout(() => document.getElementById('lateAlertModal').classList.remove('opacity-0'), 10);
-        return;
-    }
-
-    if (needsReason === 'early') {
-        pendingAttendancePayload = payload;
-        pendingAttendancePayload._earlyMinutes = earlyMinutes;
-        document.getElementById('earlyNoteInput').value = '';
-        document.getElementById('earlyOutDesc').innerText = `Pulang ${earlyMinutes} menit lebih awal dari jadwal shift. Mohon isi alasan untuk dilaporkan ke Admin.`;
-        document.getElementById('earlyOutModal').classList.remove('hidden');
-        setTimeout(() => document.getElementById('earlyOutModal').classList.remove('opacity-0'), 10);
         return;
     }
 
