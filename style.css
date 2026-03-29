@@ -117,6 +117,38 @@ body {
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
+/* Dark Mode */
+html.dark body { background-color: #0f172a; color: #e2e8f0; }
+html.dark #adminLayout { background-color: #0f172a; }
+html.dark #sidebar { background-color: #1e293b; border-color: #334155; }
+html.dark #sidebar .nav-item { color: #94a3b8; }
+html.dark #sidebar .nav-item:hover, html.dark #sidebar .nav-item.active { background-color: #1e40af20; color: #60a5fa; }
+html.dark header { background-color: rgba(30,41,59,0.9); border-color: #334155; }
+html.dark header .font-bold { color: #e2e8f0; }
+html.dark .bg-white { background-color: #1e293b !important; }
+html.dark .bg-slate-50, html.dark .bg-slate-100 { background-color: #334155 !important; }
+html.dark .text-slate-800, html.dark .text-slate-700 { color: #e2e8f0 !important; }
+html.dark .text-slate-600 { color: #cbd5e1 !important; }
+html.dark .text-slate-500 { color: #94a3b8 !important; }
+html.dark .text-slate-400 { color: #64748b !important; }
+html.dark .border-slate-100, html.dark .border-slate-200 { border-color: #334155 !important; }
+html.dark .border-slate-50 { border-color: #1e293b !important; }
+html.dark .divide-slate-50 > :not([hidden]) ~ :not([hidden]) { border-color: #334155; }
+html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: #334155; }
+html.dark .bg-blue-50 { background-color: #1e3a5f !important; }
+html.dark .bg-red-50, html.dark [class*="bg-red-50"] { background-color: #3b1a1a !important; }
+html.dark .bg-amber-50, html.dark [class*="bg-amber-50"] { background-color: #3b2d0a !important; }
+html.dark .bg-emerald-50, html.dark [class*="bg-emerald-50"] { background-color: #0a3b2d !important; }
+html.dark .bg-indigo-50 { background-color: #1e1b4b !important; }
+html.dark .bg-violet-50 { background-color: #2e1065 !important; }
+html.dark .shadow-sm { box-shadow: 0 1px 2px rgba(0,0,0,0.3) !important; }
+html.dark input, html.dark textarea, html.dark select { background-color: #334155 !important; color: #e2e8f0 !important; border-color: #475569 !important; }
+html.dark .input-field { background-color: #334155; color: #e2e8f0; border-color: #475569; }
+html.dark .input-field:focus { background-color: #1e293b; border-color: #3b82f6; }
+html.dark table thead tr { background-color: #334155 !important; }
+html.dark table tbody tr { background-color: #1e293b !important; }
+html.dark table tbody tr:hover { background-color: #334155 !important; }
+
 /* Print Styles */
 @media print {
     .no-print { display: none !important; }

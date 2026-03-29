@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxc-BJC9k1BfJ7DQWATpZnEE8qLxIu5XhNY-5JdA0FdFkinw2ag0IQy-LnD1wKSQKV3/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzJ_abwffaFSd-TZYxnhNfU9_BbO9dViHx9Ivbcadgeiy6SzKBlpUrpcOZngj7cyTHv/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -158,7 +158,13 @@ let logs = [];
 let currentUser = null;
 let appConfig = { 
     overtimeRate: 15000,
-    shifts: {} // Will be populated from cloud
+    shifts: {},
+    disableLate: false,
+    disableEarly: false,
+    disableBoth: false,
+    disableLateReason: '',
+    disableEarlyReason: '',
+    disableBothReason: ''
 }; 
 let sortState = {
     logs: 'time_desc',
@@ -457,6 +463,12 @@ async function fetchData(force = false) {
                     if(data.config.shifts) {
                         appConfig.shifts = data.config.shifts;
                     }
+                    appConfig.disableLate = data.config.disableLate === true || data.config.disableLate === 'true';
+                    appConfig.disableEarly = data.config.disableEarly === true || data.config.disableEarly === 'true';
+                    appConfig.disableBoth = data.config.disableBoth === true || data.config.disableBoth === 'true';
+                    appConfig.disableLateReason = data.config.disableLateReason || '';
+                    appConfig.disableEarlyReason = data.config.disableEarlyReason || '';
+                    appConfig.disableBothReason = data.config.disableBothReason || '';
                 }
 
                 refreshUI();
@@ -1618,7 +1630,14 @@ async function submitAbsence(type) {
 
             if (diffMin > 0) {
                 lateMinutes = diffMin;
-                if (diffMin < 30) {
+                const lateDisabled = appConfig.disableBoth || appConfig.disableLate;
+                if (lateDisabled) {
+                    const reason = appConfig.disableBoth ? appConfig.disableBothReason : appConfig.disableLateReason;
+                    forcedTime = divConfig.start;
+                    toastMessage = reason ? `Absen Masuk (${reason})` : 'Absen Masuk.';
+                    // Keep lateMinutes=0 so it's not flagged as violation
+                    lateMinutes = 0;
+                } else if (diffMin < 30) {
                     forcedTime = divConfig.start; 
                     toastMessage = `Telat ${diffMin}m (Toleransi).`;
                 } else if (diffMin <= 90) {
@@ -1633,7 +1652,6 @@ async function submitAbsence(type) {
     
     if(type === 'OUT') {
         if(!lastLog || lastLog.type === 'OUT') return showToast("Belum Absen Masuk!", "error");
-        
         const divConfig = appConfig.shifts[scannedEmployee.division];
         if (divConfig && typeof divConfig !== 'string') {
              const shiftEndH = parseInt(divConfig.end.split(':')[0]);
@@ -1646,14 +1664,25 @@ async function submitAbsence(type) {
              if (shiftEndH < shiftStartH) expectedEnd.setDate(expectedEnd.getDate() + 1);
              const diffMs = now - expectedEnd;
              const diffMinutes = Math.floor(diffMs / 60000);
-             if (diffMinutes < -210) {
-                 return showToast("Tidak bisa absen pulang sebelum shift selesai.", "error");
-             } else if (diffMinutes < 0) {
-                 earlyMinutes = Math.abs(diffMinutes);
-                 toastMessage = "Absen Pulang (Lebih Awal).";
-             } else if (diffMinutes > 40) {
-                 overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
-                 toastMessage = `Lembur: ${overtimeHours} Jam`;
+             const earlyDisabled = appConfig.disableBoth || appConfig.disableEarly;
+             if (earlyDisabled) {
+                 if (diffMinutes < 0) {
+                     const reason = appConfig.disableBoth ? appConfig.disableBothReason : appConfig.disableEarlyReason;
+                     toastMessage = reason ? `Absen Pulang (${reason})` : 'Absen Pulang.';
+                 } else if (diffMinutes > 40) {
+                     overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
+                     toastMessage = `Lembur: ${overtimeHours} Jam`;
+                 }
+             } else {
+                 if (diffMinutes < -210) {
+                     return showToast("Tidak bisa absen pulang sebelum shift selesai.", "error");
+                 } else if (diffMinutes < 0) {
+                     earlyMinutes = Math.abs(diffMinutes);
+                     toastMessage = "Absen Pulang (Lebih Awal).";
+                 } else if (diffMinutes > 40) {
+                     overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
+                     toastMessage = `Lembur: ${overtimeHours} Jam`;
+                 }
              }
         }
     }
@@ -2043,16 +2072,120 @@ function toggleSidebar() {
 function previewImage(url) { document.getElementById('imgModalSrc').src = url; document.getElementById('imgDownloadLink').href = url; document.getElementById('imgModal').classList.remove('hidden'); setTimeout(() => document.getElementById('imgModal').classList.remove('opacity-0'), 10); }
 function closePreview() { document.getElementById('imgModal').classList.add('opacity-0'); setTimeout(() => document.getElementById('imgModal').classList.add('hidden'), 300); }
 function switchTab(id) {
-    ['dashboard','employees','salaries','manual_attendance','violations'].forEach(t => document.getElementById('tab-'+t)?.classList.add('hidden'));
+    ['dashboard','employees','salaries','manual_attendance','violations','settings'].forEach(t => document.getElementById('tab-'+t)?.classList.add('hidden'));
     document.getElementById('tab-'+id)?.classList.remove('hidden');
     if(window.innerWidth < 768) { document.getElementById('sidebar').classList.add('-translate-x-full'); document.getElementById('sidebarOverlay').classList.add('hidden'); }
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     Array.from(document.querySelectorAll('.nav-item')).find(b => b.getAttribute('onclick').includes(id))?.classList.add('active');
-    const titles = { 'dashboard': 'Dashboard', 'employees': 'Data Relawan', 'salaries': 'Laporan Gaji', 'manual_attendance': 'Absen Manual', 'violations': 'Pelanggaran' };
+    const titles = { 'dashboard': 'Dashboard', 'employees': 'Data Relawan', 'salaries': 'Laporan Gaji', 'manual_attendance': 'Absen Manual', 'violations': 'Pelanggaran', 'settings': 'Pengaturan' };
     document.getElementById('pageTitle').innerText = titles[id] || id;
     if (id === 'manual_attendance') maInit();
     if (id === 'violations') renderViolationsTab();
+    if (id === 'settings') loadSettingsUI();
 }
+
+// =============================================
+// SETTINGS (Pengaturan) System
+// =============================================
+function loadSettingsUI() {
+    const tBoth = document.getElementById('toggleBoth');
+    const tLate = document.getElementById('toggleLate');
+    const tEarly = document.getElementById('toggleEarly');
+    const tDark = document.getElementById('toggleDarkMode');
+    if (tBoth) tBoth.checked = appConfig.disableBoth;
+    if (tLate) tLate.checked = appConfig.disableLate;
+    if (tEarly) tEarly.checked = appConfig.disableEarly;
+    if (tDark) tDark.checked = document.documentElement.classList.contains('dark');
+
+    const bReason = document.getElementById('bothReasonInput');
+    const lReason = document.getElementById('lateReasonInput');
+    const eReason = document.getElementById('earlyReasonInput');
+    if (bReason) bReason.value = appConfig.disableBothReason || '';
+    if (lReason) lReason.value = appConfig.disableLateReason || '';
+    if (eReason) eReason.value = appConfig.disableEarlyReason || '';
+
+    updateSettingsVisibility();
+}
+
+function updateSettingsVisibility() {
+    const bothOn = document.getElementById('toggleBoth')?.checked;
+    const lateOn = document.getElementById('toggleLate')?.checked;
+    const earlyOn = document.getElementById('toggleEarly')?.checked;
+
+    // Show/hide reason textareas
+    document.getElementById('bothReasonWrap')?.classList.toggle('hidden', !bothOn);
+    document.getElementById('lateReasonWrap')?.classList.toggle('hidden', !lateOn);
+    document.getElementById('earlyReasonWrap')?.classList.toggle('hidden', !earlyOn);
+
+    // When "both" is on, disable individual toggles
+    const lateWrap = document.getElementById('settingLateWrap');
+    const earlyWrap = document.getElementById('settingEarlyWrap');
+    if (lateWrap) {
+        lateWrap.style.opacity = bothOn ? '0.5' : '1';
+        lateWrap.style.pointerEvents = bothOn ? 'none' : 'auto';
+    }
+    if (earlyWrap) {
+        earlyWrap.style.opacity = bothOn ? '0.5' : '1';
+        earlyWrap.style.pointerEvents = bothOn ? 'none' : 'auto';
+    }
+}
+
+function handleToggleBoth(checked) {
+    if (checked) {
+        // Turn off individual toggles
+        const tLate = document.getElementById('toggleLate');
+        const tEarly = document.getElementById('toggleEarly');
+        if (tLate) tLate.checked = false;
+        if (tEarly) tEarly.checked = false;
+    }
+    updateSettingsVisibility();
+}
+function handleToggleLate(checked) { updateSettingsVisibility(); }
+function handleToggleEarly(checked) { updateSettingsVisibility(); }
+
+async function saveFeatureSettings() {
+    const disableBoth = document.getElementById('toggleBoth')?.checked || false;
+    const disableLate = document.getElementById('toggleLate')?.checked || false;
+    const disableEarly = document.getElementById('toggleEarly')?.checked || false;
+    const disableBothReason = document.getElementById('bothReasonInput')?.value.trim() || '';
+    const disableLateReason = document.getElementById('lateReasonInput')?.value.trim() || '';
+    const disableEarlyReason = document.getElementById('earlyReasonInput')?.value.trim() || '';
+
+    appConfig.disableBoth = disableBoth;
+    appConfig.disableLate = disableLate;
+    appConfig.disableEarly = disableEarly;
+    appConfig.disableBothReason = disableBothReason;
+    appConfig.disableLateReason = disableLateReason;
+    appConfig.disableEarlyReason = disableEarlyReason;
+
+    toggleLoader(true, 'Menyimpan pengaturan...');
+    const success = await postData('saveFeatureSettings', {
+        disableBoth, disableLate, disableEarly,
+        disableBothReason, disableLateReason, disableEarlyReason
+    });
+    toggleLoader(false);
+    if (success) {
+        showToast('Pengaturan fitur berhasil disimpan!', 'success');
+    }
+}
+
+function toggleDarkMode(on) {
+    if (on) {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('mbg_dark_mode', '1');
+    } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('mbg_dark_mode', '0');
+    }
+}
+
+// Init dark mode from localStorage
+(function() {
+    if (localStorage.getItem('mbg_dark_mode') === '1') {
+        document.documentElement.classList.add('dark');
+    }
+})();
+
 // =============================================
 // MANUAL ATTENDANCE (Absen Manual) System
 // =============================================
@@ -3942,7 +4075,13 @@ async function volSubmitSelfie() {
             const diffMin = Math.floor(diffMs / 60000);
             if (diffMin > 0) {
                 lateMinutes = diffMin;
-                if (diffMin < 30) {
+                const lateDisabled = appConfig.disableBoth || appConfig.disableLate;
+                if (lateDisabled) {
+                    const reason = appConfig.disableBoth ? appConfig.disableBothReason : appConfig.disableLateReason;
+                    forcedTime = divConfig.start;
+                    toastMsg = reason ? `Absen Masuk (${reason})` : 'Absen Masuk.';
+                    lateMinutes = 0;
+                } else if (diffMin < 30) {
                     forcedTime = divConfig.start;
                     toastMsg = `Telat ${diffMin}m (Toleransi).`;
                 } else if (diffMin <= 90) {
@@ -3968,14 +4107,25 @@ async function volSubmitSelfie() {
             if (shiftEndH < shiftStartH) expectedEnd.setDate(expectedEnd.getDate() + 1);
             const diffMs = now - expectedEnd;
             const diffMinutes = Math.floor(diffMs / 60000);
-            if (diffMinutes < -210) {
-                return showToast("Tidak bisa absen pulang sebelum shift selesai.", "error");
-            } else if (diffMinutes < 0) {
-                earlyMinutes = Math.abs(diffMinutes);
-                toastMsg = 'Absen Pulang (Lebih Awal).';
-            } else if (diffMinutes > 40) {
-                overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
-                toastMsg = `Out After: ${overtimeHours} Hours`;
+            const earlyDisabled = appConfig.disableBoth || appConfig.disableEarly;
+            if (earlyDisabled) {
+                if (diffMinutes < 0) {
+                    const reason = appConfig.disableBoth ? appConfig.disableBothReason : appConfig.disableEarlyReason;
+                    toastMsg = reason ? `Absen Pulang (${reason})` : 'Absen Pulang.';
+                } else if (diffMinutes > 40) {
+                    overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
+                    toastMsg = `Out After: ${overtimeHours} Hours`;
+                }
+            } else {
+                if (diffMinutes < -210) {
+                    return showToast("Tidak bisa absen pulang sebelum shift selesai.", "error");
+                } else if (diffMinutes < 0) {
+                    earlyMinutes = Math.abs(diffMinutes);
+                    toastMsg = 'Absen Pulang (Lebih Awal).';
+                } else if (diffMinutes > 40) {
+                    overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
+                    toastMsg = `Out After: ${overtimeHours} Hours`;
+                }
             }
         }
     }

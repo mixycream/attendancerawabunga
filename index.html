@@ -25,6 +25,7 @@
 
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
@@ -499,6 +500,9 @@
                     </button>
                     <button onclick="switchTab('salaries')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
                         <i class="fas fa-file-invoice-dollar w-5 text-center group-hover:scale-110 transition-transform"></i> Rekap Gaji & Lembur
+                    </button>
+                    <button onclick="switchTab('settings')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
+                        <i class="fas fa-cog w-5 text-center group-hover:scale-110 transition-transform"></i> Pengaturan
                     </button>
                 </nav>
                 <div class="p-6 border-t border-slate-50 space-y-4">
@@ -1136,6 +1140,192 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- TAB SETTINGS -->
+                    <div id="tab-settings" class="hidden animate-fade-in space-y-6">
+                        <!-- Header -->
+                        <div class="flex flex-col md:flex-row justify-between items-center bg-slate-800 p-6 rounded-[2rem] shadow-lg shadow-slate-800/20 text-white">
+                            <div class="mb-4 md:mb-0">
+                                <h2 class="text-xl font-bold flex items-center gap-2"><i class="fas fa-cog"></i> Pengaturan</h2>
+                                <p class="text-slate-300 text-xs mt-1">Kelola fitur & preferensi sistem absensi</p>
+                            </div>
+                        </div>
+
+                        <!-- FITUR KONTROL -->
+                        <div class="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2 mb-1"><i class="fas fa-sliders-h text-blue-500"></i> Kontrol Fitur Kehadiran</h3>
+                                <p class="text-xs text-slate-400">Nonaktifkan fitur telat / pulang awal untuk semua relawan. Relawan bebas absen tanpa batasan waktu.</p>
+                            </div>
+
+                            <!-- Toggle: Matikan Telat + Pulang Awal Berbarengan -->
+                            <div id="settingBothWrap" class="bg-gradient-to-r from-violet-50 to-indigo-50 rounded-2xl p-5 border border-indigo-100">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1 mr-4">
+                                        <div class="font-bold text-sm text-slate-800 flex items-center gap-2">
+                                            <i class="fas fa-shield-alt text-indigo-500"></i> Matikan Telat & Pulang Awal
+                                        </div>
+                                        <p class="text-[11px] text-slate-500 mt-1">Nonaktifkan kedua fitur sekaligus. Relawan bebas masuk & pulang kapan saja.</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                        <input type="checkbox" id="toggleBoth" onchange="handleToggleBoth(this.checked)" class="sr-only peer">
+                                        <div class="w-11 h-6 bg-slate-200 peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    </label>
+                                </div>
+                                <div id="bothReasonWrap" class="hidden mt-4">
+                                    <label class="text-[10px] font-bold text-slate-500 uppercase">Alasan dinonaktifkan</label>
+                                    <textarea id="bothReasonInput" rows="2" class="w-full mt-1 text-sm border border-indigo-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-indigo-400 outline-none resize-none" placeholder="Contoh: Libur nasional, Event khusus..."></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Toggle: Matikan Fitur Telat -->
+                            <div id="settingLateWrap" class="bg-red-50/50 rounded-2xl p-5 border border-red-100">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1 mr-4">
+                                        <div class="font-bold text-sm text-slate-800 flex items-center gap-2">
+                                            <i class="fas fa-clock text-red-500"></i> Matikan Fitur Telat
+                                        </div>
+                                        <p class="text-[11px] text-slate-500 mt-1">Relawan bebas masuk jam berapa saja tanpa tercatat terlambat.</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                        <input type="checkbox" id="toggleLate" onchange="handleToggleLate(this.checked)" class="sr-only peer">
+                                        <div class="w-11 h-6 bg-slate-200 peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                                    </label>
+                                </div>
+                                <div id="lateReasonWrap" class="hidden mt-4">
+                                    <label class="text-[10px] font-bold text-slate-500 uppercase">Alasan dinonaktifkan</label>
+                                    <textarea id="lateReasonInput" rows="2" class="w-full mt-1 text-sm border border-red-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-red-400 outline-none resize-none" placeholder="Contoh: Ada acara pagi, Jadwal fleksibel hari ini..."></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Toggle: Matikan Fitur Pulang Awal -->
+                            <div id="settingEarlyWrap" class="bg-amber-50/50 rounded-2xl p-5 border border-amber-100">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1 mr-4">
+                                        <div class="font-bold text-sm text-slate-800 flex items-center gap-2">
+                                            <i class="fas fa-sign-out-alt text-amber-500"></i> Matikan Fitur Pulang Awal
+                                        </div>
+                                        <p class="text-[11px] text-slate-500 mt-1">Relawan bebas pulang jam berapa saja tanpa tercatat pulang awal.</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                        <input type="checkbox" id="toggleEarly" onchange="handleToggleEarly(this.checked)" class="sr-only peer">
+                                        <div class="w-11 h-6 bg-slate-200 peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                                    </label>
+                                </div>
+                                <div id="earlyReasonWrap" class="hidden mt-4">
+                                    <label class="text-[10px] font-bold text-slate-500 uppercase">Alasan dinonaktifkan</label>
+                                    <textarea id="earlyReasonInput" rows="2" class="w-full mt-1 text-sm border border-amber-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-amber-400 outline-none resize-none" placeholder="Contoh: Pulang cepat hari ini, Shift pendek..."></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Save Button -->
+                            <button onclick="saveFeatureSettings()" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-lg shadow-blue-600/20 transition-all flex items-center gap-2 justify-center">
+                                <i class="fas fa-save"></i> Simpan Pengaturan Fitur
+                            </button>
+                        </div>
+
+                        <!-- TAMPILAN -->
+                        <div class="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-5">
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2 mb-1"><i class="fas fa-palette text-purple-500"></i> Tampilan</h3>
+                                <p class="text-xs text-slate-400">Sesuaikan tampilan aplikasi</p>
+                            </div>
+                            <div class="flex items-center justify-between bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                                <div class="flex-1 mr-4">
+                                    <div class="font-bold text-sm text-slate-800 flex items-center gap-2">
+                                        <i class="fas fa-moon text-purple-500"></i> Mode Gelap
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 mt-1">Tampilan lebih nyaman di malam hari</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                    <input type="checkbox" id="toggleDarkMode" onchange="toggleDarkMode(this.checked)" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-200 peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- TENTANG APLIKASI -->
+                        <div class="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-5">
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2 mb-1"><i class="fas fa-info-circle text-sky-500"></i> Tentang Aplikasi</h3>
+                            </div>
+                            <div class="bg-gradient-to-br from-slate-50 to-blue-50/50 rounded-2xl p-6 border border-slate-100 space-y-4">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-xl shadow-lg shadow-blue-600/30">
+                                        <i class="fas fa-cloud"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-extrabold text-slate-800 text-lg">Cloud MBG</h4>
+                                        <p class="text-xs text-slate-500">Sistem Absensi & Penggajian</p>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3 text-xs">
+                                    <div class="bg-white rounded-xl p-3 border border-slate-100">
+                                        <span class="text-slate-400 font-bold uppercase text-[10px]">Versi</span>
+                                        <p class="font-bold text-slate-700 mt-0.5">2.5.0</p>
+                                    </div>
+                                    <div class="bg-white rounded-xl p-3 border border-slate-100">
+                                        <span class="text-slate-400 font-bold uppercase text-[10px]">Diperbarui</span>
+                                        <p class="font-bold text-slate-700 mt-0.5">29 Maret 2026</p>
+                                    </div>
+                                    <div class="bg-white rounded-xl p-3 border border-slate-100 col-span-2">
+                                        <span class="text-slate-400 font-bold uppercase text-[10px]">Lisensi</span>
+                                        <p class="font-bold text-slate-700 mt-0.5">Proprietary — Hak Cipta © 2026</p>
+                                        <p class="text-[10px] text-slate-400 mt-1">Aplikasi ini dilindungi hak cipta. Dilarang menyalin, mendistribusikan, atau memodifikasi tanpa izin tertulis dari pengembang.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Developer Info -->
+                            <div class="space-y-3">
+                                <h4 class="font-bold text-sm text-slate-700 flex items-center gap-2"><i class="fas fa-code text-emerald-500"></i> Pengembang</h4>
+                                <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow">MF</div>
+                                        <div>
+                                            <p class="font-bold text-slate-800 text-sm">Muhammad Fikri S. Ak.</p>
+                                            <p class="text-[11px] text-slate-400">Full-Stack Developer</p>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <a href="mailto:muhammadfikri070@gmail.com" class="flex items-center gap-2.5 bg-white rounded-xl px-4 py-2.5 border border-slate-100 hover:border-blue-200 hover:bg-blue-50 transition text-xs group">
+                                            <i class="fas fa-envelope text-blue-500 group-hover:scale-110 transition-transform"></i>
+                                            <span class="text-slate-600 truncate">muhammadfikri070@gmail.com</span>
+                                        </a>
+                                        <a href="https://wa.me/6285883595850" target="_blank" class="flex items-center gap-2.5 bg-white rounded-xl px-4 py-2.5 border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50 transition text-xs group">
+                                            <i class="fab fa-whatsapp text-emerald-500 group-hover:scale-110 transition-transform"></i>
+                                            <span class="text-slate-600">0858-8359-5850</span>
+                                        </a>
+                                        <a href="https://github.com/EnjoyCreat662" target="_blank" class="flex items-center gap-2.5 bg-white rounded-xl px-4 py-2.5 border border-slate-100 hover:border-slate-300 hover:bg-slate-50 transition text-xs group">
+                                            <i class="fab fa-github text-slate-700 group-hover:scale-110 transition-transform"></i>
+                                            <span class="text-slate-600">EnjoyCreat662</span>
+                                        </a>
+                                        <a href="https://instagram.com/enjoycreamid" target="_blank" class="flex items-center gap-2.5 bg-white rounded-xl px-4 py-2.5 border border-slate-100 hover:border-pink-200 hover:bg-pink-50 transition text-xs group">
+                                            <i class="fab fa-instagram text-pink-500 group-hover:scale-110 transition-transform"></i>
+                                            <span class="text-slate-600">@enjoycreamid</span>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Support -->
+                            <div class="bg-blue-50 rounded-2xl p-5 border border-blue-100">
+                                <div class="flex items-start gap-3">
+                                    <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shrink-0">
+                                        <i class="fas fa-headset"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-sm text-slate-800">Butuh Bantuan?</h4>
+                                        <p class="text-[11px] text-slate-500 mt-1 leading-relaxed">Hubungi pengembang melalui WhatsApp atau Email untuk bantuan teknis, pelaporan bug, atau permintaan fitur baru.</p>
+                                        <a href="https://wa.me/6285883595850?text=Halo%20Fikri%2C%20saya%20butuh%20bantuan%20terkait%20aplikasi%20Cloud%20MBG" target="_blank" class="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-bold mt-3 shadow-sm transition">
+                                            <i class="fab fa-whatsapp"></i> Hubungi via WhatsApp
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </main>
         </div>
