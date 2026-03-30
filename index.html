@@ -122,6 +122,31 @@
         </div>
     </div>
 
+    <!-- ATTENDANCE SUCCESS OVERLAY -->
+    <div id="absenSuccessOverlay" class="fixed inset-0 z-[300] hidden items-center justify-center p-6" style="pointer-events:none;">
+        <!-- Background fade -->
+        <div id="absenSuccessBg" class="absolute inset-0 bg-black/0 transition-all duration-500"></div>
+        <!-- Content -->
+        <div id="absenSuccessCard" class="relative w-full max-w-xs text-center transform scale-50 opacity-0 transition-all duration-500" style="pointer-events:auto;">
+            <!-- Confetti particles container -->
+            <div id="absenConfetti" class="absolute inset-0 overflow-hidden pointer-events-none"></div>
+            <!-- Circle pulse ring -->
+            <div id="absenPulseRing" class="mx-auto w-28 h-28 rounded-full flex items-center justify-center mb-5 relative">
+                <div class="absolute inset-0 rounded-full animate-absen-ping opacity-30"></div>
+                <div class="absolute inset-0 rounded-full animate-absen-ping2 opacity-20"></div>
+                <div id="absenSuccessIcon" class="relative w-24 h-24 rounded-full flex items-center justify-center text-white text-4xl shadow-2xl">
+                    <i class="fas fa-check opacity-0" id="absenCheckIcon" style="transition: opacity 0.3s, transform 0.3s; transform: scale(0.3);"></i>
+                </div>
+            </div>
+            <h2 id="absenSuccessTitle" class="text-2xl font-black text-white drop-shadow-lg"></h2>
+            <p id="absenSuccessName" class="text-base font-bold text-white/90 mt-2 drop-shadow"></p>
+            <p id="absenSuccessDetail" class="text-sm text-white/70 mt-1 drop-shadow"></p>
+            <div id="absenSuccessTime" class="mt-4 inline-flex items-center gap-2 bg-white/15 backdrop-blur-md px-5 py-2 rounded-full text-white/90 text-sm font-mono border border-white/20">
+                <i class="far fa-clock"></i> <span id="absenSuccessTimeText"></span>
+            </div>
+        </div>
+    </div>
+
     <!-- LATE ALERT MODAL -->
     <div id="lateAlertModal" class="fixed inset-0 z-[290] bg-red-900/80 backdrop-blur-sm hidden flex items-center justify-center p-6 transition-opacity duration-300 opacity-0">
         <div class="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-6 text-center animate-zoom-in">

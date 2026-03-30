@@ -1729,13 +1729,15 @@ async function submitAbsence(type) {
     const success = await postData('attendance', payload);
     if(success) {
         toggleLoader(false);
-        showToast(toastMessage, "success");
+        const empName = scannedEmployee ? scannedEmployee.name : '';
+        const absenType = finalType;
         if (securitySelfAttendanceMode && finalType === 'IN' && currentUser && String(scannedEmployee.id) === String(currentUser.id)) {
             securitySelfAttendanceDone = true;
             securitySelfAttendanceMode = false;
             updateSecurityEntryGate();
         }
         resetSecurityFlow();
+        showAbsenSuccess({ type: absenType, name: empName, message: toastMessage });
     }
 }
 
@@ -1747,16 +1749,19 @@ async function submitLateReason() {
     modal.classList.add('opacity-0');
     setTimeout(() => modal.classList.add('hidden'), 300);
     const isVolunteer = pendingAttendancePayload.absentBy === 'Mandiri';
+    const empName = pendingAttendancePayload.name || '';
     postData('attendance', pendingAttendancePayload).then(async (success) => {
         if(success) {
             toggleLoader(false);
-            showToast("Absen Masuk (Terlambat) Tercatat.", "success");
             if (isVolunteer) {
                 volCancelFlow();
-                await fetchData(true);
-                volUpdateTodayStatus();
+                showAbsenSuccess({
+                    type: 'IN', name: empName, message: 'Absen Masuk (Terlambat) Tercatat.',
+                    onDone: async () => { await fetchData(true); volUpdateTodayStatus(); }
+                });
             } else {
                 resetSecurityFlow();
+                showAbsenSuccess({ type: 'IN', name: empName, message: 'Absen Masuk (Terlambat) Tercatat.' });
             }
         }
     });
@@ -3641,10 +3646,10 @@ function volUpdateGeofenceUI() {
 
     if (isInside) {
         bar.className = 'mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/15 border border-emerald-400/20 text-[10px] text-emerald-300 font-bold transition-all duration-300';
-        txt.innerText = `Geofence: Dalam area (${Math.round(dist)}m Dapur)`;
+        txt.innerText = `Geofence: Dalam area (${Math.round(dist)}m) dari Dapur`;
     } else {
         bar.className = 'mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/15 border border-red-400/20 text-[10px] text-red-300 font-bold transition-all duration-300';
-        txt.innerText = `Geofence: Di luar area (${Math.round(dist)}m Dapur)`;
+        txt.innerText = `Geofence: Di luar area (${Math.round(dist)}m) dari Dapur`;
     }
     return isInside;
 }
@@ -4036,7 +4041,7 @@ async function volSubmitSelfie() {
     if (!appConfig.disableGeofence) {
         const dist = haversineDistance(volCurrentLocation.lat, volCurrentLocation.lng, GEOFENCE_CONFIG.lat, GEOFENCE_CONFIG.lng);
         if (dist > GEOFENCE_CONFIG.radius) {
-            return showToast(`Di luar area absensi (${Math.round(dist)}m dari Dapur).`, 'error');
+            return showToast(`Di luar area absensi (${Math.round(dist)}m) dari Dapur.`, 'error');
         }
     }
 
@@ -4212,11 +4217,13 @@ async function volSubmitSelfie() {
     const success = await postData('attendance', payload);
     if (success) {
         toggleLoader(false);
-        showToast(toastMsg, 'success');
+        const empName = volScannedEmployee ? volScannedEmployee.name : '';
+        const absenType = finalType;
         volCancelFlow();
-        // Refresh data to update today status
-        await fetchData(true);
-        volUpdateTodayStatus();
+        showAbsenSuccess({
+            type: absenType, name: empName, message: toastMsg,
+            onDone: async () => { await fetchData(true); volUpdateTodayStatus(); }
+        });
     }
 }
 
@@ -4282,4 +4289,89 @@ function showToast(msg, type='success') {
     if(type === 'error') { i.className = "w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white text-xs"; i.innerHTML = '<i class="fas fa-times"></i>'; } 
     else { i.className = "w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs"; i.innerHTML = '<i class="fas fa-check"></i>'; }
     t.classList.remove('-translate-y-[200%]', 'opacity-0'); setTimeout(() => t.classList.add('-translate-y-[200%]', 'opacity-0'), 6000); 
+}
+
+// === ATTENDANCE SUCCESS ANIMATION ===
+function showAbsenSuccess({ type, name, message, onDone }) {
+    const overlay = document.getElementById('absenSuccessOverlay');
+    const bg = document.getElementById('absenSuccessBg');
+    const card = document.getElementById('absenSuccessCard');
+    const icon = document.getElementById('absenSuccessIcon');
+    const checkIcon = document.getElementById('absenCheckIcon');
+    const pulseRing = document.getElementById('absenPulseRing');
+    const confettiBox = document.getElementById('absenConfetti');
+    if (!overlay) { if (onDone) onDone(); return; }
+
+    const isIN = type === 'IN';
+    const gradientColor = isIN ? 'from-emerald-500 to-teal-600' : 'from-amber-500 to-orange-600';
+    const bgColor = isIN ? 'rgba(5,150,105,0.92)' : 'rgba(217,119,6,0.92)';
+    const pingColor = isIN ? 'bg-emerald-400' : 'bg-amber-400';
+
+    // Setup content
+    document.getElementById('absenSuccessTitle').textContent = isIN ? 'Absen Masuk Berhasil!' : 'Absen Pulang Berhasil!';
+    document.getElementById('absenSuccessName').textContent = name || '';
+    document.getElementById('absenSuccessDetail').textContent = message || '';
+    const now = new Date();
+    document.getElementById('absenSuccessTimeText').textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+
+    // Setup styles
+    icon.className = `relative w-24 h-24 rounded-full flex items-center justify-center text-white text-4xl shadow-2xl bg-gradient-to-br ${gradientColor}`;
+    const rings = pulseRing.querySelectorAll('.animate-absen-ping, .animate-absen-ping2');
+    rings.forEach(r => r.className = r.className.replace(/bg-\w+-\d+/g, '') + ` ${pingColor}`);
+
+    // Reset
+    checkIcon.style.opacity = '0';
+    checkIcon.style.transform = 'scale(0.3)';
+    card.style.transform = 'scale(0.5)';
+    card.style.opacity = '0';
+    bg.style.backgroundColor = 'rgba(0,0,0,0)';
+    confettiBox.innerHTML = '';
+
+    // Show overlay
+    overlay.classList.remove('hidden');
+    overlay.classList.add('flex');
+
+    // Animate in
+    requestAnimationFrame(() => {
+        bg.style.backgroundColor = bgColor;
+        card.style.transform = 'scale(1)';
+        card.style.opacity = '1';
+        // Check icon pop
+        setTimeout(() => {
+            checkIcon.style.opacity = '1';
+            checkIcon.style.transform = 'scale(1)';
+        }, 350);
+        // Confetti burst
+        setTimeout(() => spawnConfetti(confettiBox), 400);
+    });
+
+    // Auto dismiss after 2.8s
+    setTimeout(() => {
+        card.style.transform = 'scale(0.8)';
+        card.style.opacity = '0';
+        bg.style.backgroundColor = 'rgba(0,0,0,0)';
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+            overlay.classList.remove('flex');
+            confettiBox.innerHTML = '';
+            if (onDone) onDone();
+        }, 500);
+    }, 2800);
+}
+
+function spawnConfetti(container) {
+    const colors = ['#34d399','#fbbf24','#60a5fa','#f87171','#a78bfa','#fb923c','#2dd4bf','#e879f9'];
+    for (let i = 0; i < 40; i++) {
+        const p = document.createElement('div');
+        p.className = 'confetti-particle';
+        p.style.left = Math.random() * 100 + '%';
+        p.style.top = '-10px';
+        p.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        p.style.width = (4 + Math.random() * 6) + 'px';
+        p.style.height = (4 + Math.random() * 6) + 'px';
+        p.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+        p.style.animationDuration = (1.5 + Math.random() * 2) + 's';
+        p.style.animationDelay = (Math.random() * 0.6) + 's';
+        container.appendChild(p);
+    }
 }
