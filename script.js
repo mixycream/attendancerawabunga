@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzJ_abwffaFSd-TZYxnhNfU9_BbO9dViHx9Ivbcadgeiy6SzKBlpUrpcOZngj7cyTHv/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxXk0e0xEOwHVyr7PyEQSn9Ao1XybMF-0jzqaKWAV-K2TMkUf4Nu6Jc0MsCp_Ltmk3T/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -164,7 +164,8 @@ let appConfig = {
     disableBoth: false,
     disableLateReason: '',
     disableEarlyReason: '',
-    disableBothReason: ''
+    disableBothReason: '',
+    disableGeofence: false
 }; 
 let sortState = {
     logs: 'time_desc',
@@ -469,6 +470,7 @@ async function fetchData(force = false) {
                     appConfig.disableLateReason = data.config.disableLateReason || '';
                     appConfig.disableEarlyReason = data.config.disableEarlyReason || '';
                     appConfig.disableBothReason = data.config.disableBothReason || '';
+                    appConfig.disableGeofence = data.config.disableGeofence === true || data.config.disableGeofence === 'true';
                 }
 
                 refreshUI();
@@ -2096,6 +2098,8 @@ function loadSettingsUI() {
     if (tLate) tLate.checked = appConfig.disableLate;
     if (tEarly) tEarly.checked = appConfig.disableEarly;
     if (tDark) tDark.checked = document.documentElement.classList.contains('dark');
+    const tGeo = document.getElementById('toggleGeofence');
+    if (tGeo) tGeo.checked = appConfig.disableGeofence;
 
     const bReason = document.getElementById('bothReasonInput');
     const lReason = document.getElementById('lateReasonInput');
@@ -2142,6 +2146,7 @@ function handleToggleBoth(checked) {
 }
 function handleToggleLate(checked) { updateSettingsVisibility(); }
 function handleToggleEarly(checked) { updateSettingsVisibility(); }
+function handleToggleGeofence(checked) { /* no extra UI needed */ }
 
 async function saveFeatureSettings() {
     const disableBoth = document.getElementById('toggleBoth')?.checked || false;
@@ -2150,6 +2155,7 @@ async function saveFeatureSettings() {
     const disableBothReason = document.getElementById('bothReasonInput')?.value.trim() || '';
     const disableLateReason = document.getElementById('lateReasonInput')?.value.trim() || '';
     const disableEarlyReason = document.getElementById('earlyReasonInput')?.value.trim() || '';
+    const disableGeofence = document.getElementById('toggleGeofence')?.checked || false;
 
     appConfig.disableBoth = disableBoth;
     appConfig.disableLate = disableLate;
@@ -2157,11 +2163,13 @@ async function saveFeatureSettings() {
     appConfig.disableBothReason = disableBothReason;
     appConfig.disableLateReason = disableLateReason;
     appConfig.disableEarlyReason = disableEarlyReason;
+    appConfig.disableGeofence = disableGeofence;
 
     toggleLoader(true, 'Menyimpan pengaturan...');
     const success = await postData('saveFeatureSettings', {
         disableBoth, disableLate, disableEarly,
-        disableBothReason, disableLateReason, disableEarlyReason
+        disableBothReason, disableLateReason, disableEarlyReason,
+        disableGeofence
     });
     toggleLoader(false);
     if (success) {
@@ -3566,12 +3574,12 @@ function openEditEmployee(id) {
 }
 function closeEditEmployee() { document.getElementById('editEmployeeModal').classList.add('opacity-0'); setTimeout(() => document.getElementById('editEmployeeModal').classList.add('hidden'), 300); editingEmployeeId = null; }
 // ===== VOLUNTEER SELF-ATTENDANCE (Absensi Mandiri Relawan) =====
-// // Geofence config — set the center coordinates for Rawa Bunga location
-// const GEOFENCE_CONFIG = {
-//     lat: -6.21973,    // Latitude titik pusat (ubah sesuai lokasi)
-//     lng: 106.87015,   // Longitude titik pusat (ubah sesuai lokasi)
-//     radius: 15          // Radius toleransi dalam meter
-// };
+// Geofence config — set the center coordinates for Rawa Bunga location
+const GEOFENCE_CONFIG = {
+    lat: -6.21973,    // Latitude titik pusat (ubah sesuai lokasi)
+    lng: 106.87015,   // Longitude titik pusat (ubah sesuai lokasi)
+    radius: 15          // Radius toleransi dalam meter
+};
 
 // // Geofence config — set the center coordinates for Demo H location
 // const GEOFENCE_CONFIG = {
@@ -3580,12 +3588,12 @@ function closeEditEmployee() { document.getElementById('editEmployeeModal').clas
 //     radius: 15          // Radius toleransi dalam meter
 // };
 
-// Geofence config — set the center coordinates for Demo C location
-const GEOFENCE_CONFIG = {
-    lat: -6.22385,    // Latitude titik pusat (ubah sesuai lokasi)
-    lng: 106.89140,   // Longitude titik pusat (ubah sesuai lokasi)
-    radius: 15          // Radius toleransi dalam meter
-};
+// // Geofence config — set the center coordinates for Demo C location
+// const GEOFENCE_CONFIG = {
+//     lat: -6.22385,    // Latitude titik pusat (ubah sesuai lokasi)
+//     lng: 106.89140,   // Longitude titik pusat (ubah sesuai lokasi)
+//     radius: 15          // Radius toleransi dalam meter
+// };
 
 // Volunteer-specific state
 let volScanStream = null;
@@ -3615,6 +3623,13 @@ function volUpdateGeofenceUI() {
     const txt = document.getElementById('volGeofenceText');
     if (!bar || !txt) return;
 
+    // Jika geofence dimatikan admin → sembunyikan bar sepenuhnya
+    if (appConfig.disableGeofence) {
+        bar.style.display = 'none';
+        return true;
+    }
+    bar.style.display = '';
+
     if (!volLocationLocked) {
         bar.className = 'mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-yellow-500/15 border border-yellow-400/20 text-[10px] text-yellow-300 font-bold transition-all duration-300';
         txt.innerText = 'Geofence: Menunggu lokasi...';
@@ -3626,10 +3641,10 @@ function volUpdateGeofenceUI() {
 
     if (isInside) {
         bar.className = 'mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/15 border border-emerald-400/20 text-[10px] text-emerald-300 font-bold transition-all duration-300';
-        txt.innerText = `Geofence: Dalam area (${Math.round(dist)}m)`;
+        txt.innerText = `Geofence: Dalam area (${Math.round(dist)}m Dapur)`;
     } else {
         bar.className = 'mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/15 border border-red-400/20 text-[10px] text-red-300 font-bold transition-all duration-300';
-        txt.innerText = `Geofence: Di luar area (${Math.round(dist)}m dari dalam Dapur SPPG Rawa Bunga 1)`;
+        txt.innerText = `Geofence: Di luar area (${Math.round(dist)}m Dapur)`;
     }
     return isInside;
 }
@@ -3794,10 +3809,13 @@ function volShowPage(page) {
 function volStartAbsen() {
     if (!volLocationLocked) return showToast('Tunggu GPS terkunci dulu!', 'error');
 
-    // Check geofence
-    const dist = haversineDistance(volCurrentLocation.lat, volCurrentLocation.lng, GEOFENCE_CONFIG.lat, GEOFENCE_CONFIG.lng);
-    if (dist > GEOFENCE_CONFIG.radius) {
-        return showToast(`Anda di luar area absensi (${Math.round(dist)}m). Maksimal ${GEOFENCE_CONFIG.radius}m.`, 'error');
+    // Check geofence (skip jika admin matikan)
+    if (!appConfig.disableGeofence) {
+        const dist = haversineDistance(volCurrentLocation.lat, volCurrentLocation.lng, GEOFENCE_CONFIG.lat, GEOFENCE_CONFIG.lng);
+        if (dist > GEOFENCE_CONFIG.radius) {
+            // return showToast(`Anda di luar area absensi (${Math.round(dist)}m). Maksimal ${GEOFENCE_CONFIG.radius}m.`, 'error');
+                        return showToast(`Relawan di luar area absensi (${Math.round(dist)}m). Maksimal ${GEOFENCE_CONFIG.radius}m. dari Dapur`, 'error');
+        }
     }
 
     // Di mode login, sudah tahu user-nya → langsung tentukan tipe
@@ -4014,10 +4032,12 @@ async function volSubmitSelfie() {
         }
     }
 
-    // Re-check geofence at submit time
-    const dist = haversineDistance(volCurrentLocation.lat, volCurrentLocation.lng, GEOFENCE_CONFIG.lat, GEOFENCE_CONFIG.lng);
-    if (dist > GEOFENCE_CONFIG.radius) {
-        return showToast(`Anda di luar area absensi (${Math.round(dist)}m).`, 'error');
+    // Re-check geofence at submit time (skip jika admin matikan)
+    if (!appConfig.disableGeofence) {
+        const dist = haversineDistance(volCurrentLocation.lat, volCurrentLocation.lng, GEOFENCE_CONFIG.lat, GEOFENCE_CONFIG.lng);
+        if (dist > GEOFENCE_CONFIG.radius) {
+            return showToast(`Di luar area absensi (${Math.round(dist)}m dari Dapur).`, 'error');
+        }
     }
 
     const now = new Date();
@@ -4030,7 +4050,7 @@ async function volSubmitSelfie() {
 
     if (volAbsenType === 'IN') {
         if (lastLog && lastLog.type === 'IN') {
-            showToast('Sesi masih aktif! Anda sudah Absen Masuk.', 'error');
+            showToast('Sesi masih aktif! Kamu sudah Absen Masuk.', 'error');
             volCancelFlow();
             return;
         }
