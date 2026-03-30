@@ -1,6 +1,59 @@
+// --- WORKING TIMES HANDLER ---
+async function loadWorkingTimes() {
+    try {
+        const res = await fetch(SCRIPT_URL + '?action=getWorkingTimes');
+        const data = await res.json();
+        if (data.status === 'success' && data.workingTimes) {
+            appConfig.shifts = data.workingTimes;
+        }
+    } catch (e) {
+        showToast('Gagal load jam kerja dari server', 'error');
+    }
+}
+
+async function saveWorkingTimes() {
+    // Ambil data dari UI (input jam kerja)
+    const rows = document.querySelectorAll('.working-time-row');
+    const workingTimes = {};
+    rows.forEach(row => {
+        const div = row.getAttribute('data-division');
+        const start = row.querySelector('.input-shift-start').value;
+        const end = row.querySelector('.input-shift-end').value;
+        workingTimes[div] = { start, end };
+    });
+    toggleLoader(true, 'Menyimpan jam kerja...');
+    const res = await callApi('saveWorkingTimes', { workingTimes });
+    toggleLoader(false);
+    if (res.ok && res.data && res.data.status === 'success') {
+        showToast('Jam kerja berhasil disimpan!', 'success');
+        await loadWorkingTimes();
+        renderWorkingTimesCard();
+    } else {
+        showToast('Gagal simpan jam kerja!', 'error');
+    }
+}
+
+function renderWorkingTimesCard() {
+    // Render kartu jam kerja (dipisah dari lembur)
+    const container = document.getElementById('workingTimesCard');
+    if (!container) return;
+    const shifts = appConfig.shifts || {};
+    let html = `<div class="font-bold text-lg mb-2">Set Jam Kerja</div>`;
+    html += `<div class="overflow-x-auto"><table class="min-w-[320px] w-full text-xs"><thead><tr><th class="p-2">Divisi</th><th class="p-2">Jam Masuk</th><th class="p-2">Jam Pulang</th></tr></thead><tbody>`;
+    Object.keys(shifts).forEach(div => {
+        html += `<tr class="working-time-row" data-division="${div}">
+            <td class="p-2 font-bold text-slate-700">${div}</td>
+            <td class="p-2"><input type="time" class="input-shift-start border rounded px-2 py-1 w-24" value="${shifts[div].start}" /></td>
+            <td class="p-2"><input type="time" class="input-shift-end border rounded px-2 py-1 w-24" value="${shifts[div].end}" /></td>
+        </tr>`;
+    });
+    html += `</tbody></table></div>`;
+    html += `<button class="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition" onclick="saveWorkingTimes()">Simpan Jam Kerja</button>`;
+    container.innerHTML = html;
+}
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxXk0e0xEOwHVyr7PyEQSn9Ao1XybMF-0jzqaKWAV-K2TMkUf4Nu6Jc0MsCp_Ltmk3T/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzNReJReQtKLe_j3Jq7CJtVSoP5UUub6q3hU5wbZWrHzluxjqr2If_vZCaPIiA-e41C/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -438,7 +491,6 @@ function showSyncSuccess(btn) {
 async function fetchData(force = false) {
     // Find which sync button was clicked (if manual)
     const triggerBtn = force ? (_syncingButton || document.getElementById('adminSyncBtn') || document.querySelector('[onclick*="fetchData(true)"]')) : null;
-    
     if (force && triggerBtn) {
         if (!triggerBtn.disabled) setSyncButtonLoading(triggerBtn, true);
     } else {
@@ -446,24 +498,19 @@ async function fetchData(force = false) {
     }
     let retries = 3;
     let lastError = null;
-
     while (retries > 0) {
         try {
             const res = await fetch(SCRIPT_URL + "?action=getData", { timeout: 10000 });
             const data = await res.json();
-
             if(data.status === 'success') {
                 employees = data.employees;
                 logs = data.logs;
-
                 if(data.config) {
                     if(data.config.overtimeRate) {
                         appConfig.overtimeRate = parseInt(data.config.overtimeRate);
                         localStorage.setItem('mbg_overtime_rate', appConfig.overtimeRate);
                     }
-                    if(data.config.shifts) {
-                        appConfig.shifts = data.config.shifts;
-                    }
+                    // appConfig.shifts akan diisi dari WorkingTimes, bukan dari config lama
                     appConfig.disableLate = data.config.disableLate === true || data.config.disableLate === 'true';
                     appConfig.disableEarly = data.config.disableEarly === true || data.config.disableEarly === 'true';
                     appConfig.disableBoth = data.config.disableBoth === true || data.config.disableBoth === 'true';
@@ -472,7 +519,8 @@ async function fetchData(force = false) {
                     appConfig.disableBothReason = data.config.disableBothReason || '';
                     appConfig.disableGeofence = data.config.disableGeofence === true || data.config.disableGeofence === 'true';
                 }
-
+                // Load jam kerja dari sheet WorkingTimes
+                await loadWorkingTimes();
                 refreshUI();
                 if (force && triggerBtn) {
                     setSyncButtonLoading(triggerBtn, false);
@@ -493,7 +541,6 @@ async function fetchData(force = false) {
             if (retries > 0) await new Promise(r => setTimeout(r, 500));
         }
     }
-
     // Semua retry gagal
     showToast("Koneksi Error. Menggunakan data lokal terakhir.", "error");
     if (force && triggerBtn) {
@@ -609,39 +656,33 @@ function refreshUI() {
     }
 
     document.getElementById('configOvertimeRate').value = appConfig.overtimeRate;
-
+    // Render kartu jam kerja (dipisah dari lembur)
+    renderWorkingTimesCard();
     const today = getLocalDateStr();
     const todayLogs = logs.filter(l => l.date === today);
     const present = todayLogs.filter(l => l.type === 'IN').length;
-    
     // Hitung Late Count
     const lateCount = todayLogs.filter(l => l.lateMinutes > 0).length;
-    
     let overtimeCount = 0;
     todayLogs.filter(l => l.type === 'OUT').forEach(l => { if(l.overtime > 0) overtimeCount++; });
-
     const workingCount = employees.filter(e => {
-        const myLogs = logs.filter(l => l.empId === e.id).sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+        const myLogs = logs.filter(l => l.empId === e.id).sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + b.time));
         return myLogs.length > 0 && myLogs[0].type === 'IN';
     }).length;
-
     // Update Stats Cards
     document.getElementById('statEmp').innerText = employees.length;
     document.getElementById('statPresent').innerText = present;
     document.getElementById('statWorking').innerText = workingCount + " Sedang Bekerja";
     document.getElementById('statOvertime').innerText = overtimeCount;
     document.getElementById('statLate').innerText = lateCount; 
-
     // Render Components
     renderTrendChart();
     renderDivisionGrid();
-
     // --- RENDER LOGS (TABEL AKTIVITAS) ---
     const sortedLogs = getSortedData(logs, 'logs');
     const logBody = document.getElementById('logsTableBody');
     logBody.innerHTML = sortedLogs.slice(0, 20).map(l => {
         let badge = '', statusText = '';
-        
         if (l.type === 'IN') {
             badge = 'bg-emerald-100 text-emerald-700';
             statusText = 'IN';
@@ -655,7 +696,6 @@ function refreshUI() {
             badge = 'bg-slate-100 text-slate-500';
             statusText = l.type;
         }
-
         let actionArea = `<span class="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide ${badge}">${statusText}</span>`;
         if (l.type === 'IN' && l.lateMinutes >= 30) {
             actionArea = `<div class="flex flex-col items-center gap-0.5">
@@ -668,7 +708,6 @@ function refreshUI() {
                 <span class="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-amber-100 text-amber-600">PULANG AWAL</span>
             </div>`;
         }
-
         let photoHtml = '<div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-300 mx-auto"><i class="fas fa-user"></i></div>';
         if(l.photo && (l.photo.startsWith('http') || l.photo.startsWith('data:image'))) {
              const photoUrl = convertDriveUrl(l.photo);
@@ -677,10 +716,8 @@ function refreshUI() {
              const fallbackSvg = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2260%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2240%22%3E%26%238287;%3C/text%3E%3C/svg%3E';
              photoHtml = `<img src="${photoUrl}" onclick="previewImage('${safeUrl}'); event.stopPropagation();" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md cursor-pointer hover:scale-110 transition mx-auto" crossorigin="anonymous" onerror="console.warn('Photo failed to load:', this.src); this.onerror=null; this.src='${fallbackSvg}';">`;
         }
-        
         // Pemisahan Kolom & Format
         let overtimeInfo = l.overtime > 0 ? `<span class="text-amber-600 font-bold">${l.overtime} Jam</span>` : '-';
-        
         let lateInfo = '-';
         if (l.note && l.note.includes('[Bebas')) {
             lateInfo = `<div class="text-[9px] text-blue-500 font-semibold mt-1 italic max-w-[120px] truncate" title="${l.note}"><i class="fas fa-shield-alt mr-0.5"></i>${l.note.includes('[Bebas Masuk]') ? 'Bebas Masuk' : 'Bebas Pulang'}</div>`;
@@ -692,7 +729,6 @@ function refreshUI() {
         } else if (l.type === 'OUT' && l.note && l.note.includes('[Pulang')) {
             lateInfo = `<div class="text-[9px] text-amber-500 mt-1 italic max-w-[100px] truncate" title="${l.note}">"${l.note}"</div>`;
         }
-            
         return `
         <tr class="bg-white hover:bg-slate-50 border-b border-slate-50 transition group">
             <td class="px-6 py-4 text-center">${photoHtml}</td>
@@ -710,7 +746,6 @@ function refreshUI() {
             <td class="px-6 py-4 text-center text-xs font-semibold text-slate-600">${l.absentBy || '-'}</td>
         </tr>`;
     }).join('');
-
     // --- RENDER EMPLOYEE LIST (DAFTAR RELAWAN) ---
     const sortedEmployees = getSortedData(employees, 'employees');
     const empBody = document.getElementById('employeeTableBody');
@@ -721,12 +756,10 @@ function refreshUI() {
                  const photoUrl = convertDriveUrl(e.photo);
                  profilePic = `<img src="${photoUrl}" crossorigin="anonymous" class="w-8 h-8 rounded-full object-cover border border-slate-200" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2260%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2240%22%3E%26%238287;%3C/text%3E%3C/svg%3E';">`;
             }
-
             const shiftTime = getShiftTime(e.division);
             const roleKey = e.role || inferRoleFromDivision(e.division);
             const roleLabel = ROLE_LABELS[roleKey] || roleKey;
             const roleClass = roleKey === 'employee' ? 'bg-slate-100 text-slate-600' : 'bg-blue-50 text-blue-700';
-
             return `
             <tr class="border-b border-slate-50 hover:bg-slate-50 transition">
                 <td class="px-6 py-4">
@@ -754,7 +787,6 @@ function refreshUI() {
             </tr>
         `}).join('');
     }
-
     renderSalary();
 }
 
