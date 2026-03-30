@@ -682,7 +682,9 @@ function refreshUI() {
         let overtimeInfo = l.overtime > 0 ? `<span class="text-amber-600 font-bold">${l.overtime} Jam</span>` : '-';
         
         let lateInfo = '-';
-        if (l.lateMinutes > 0) {
+        if (l.note && l.note.includes('[Bebas')) {
+            lateInfo = `<div class="text-[9px] text-blue-500 font-semibold mt-1 italic max-w-[120px] truncate" title="${l.note}"><i class="fas fa-shield-alt mr-0.5"></i>${l.note.includes('[Bebas Masuk]') ? 'Bebas Masuk' : 'Bebas Pulang'}</div>`;
+        } else if (l.lateMinutes > 0) {
             lateInfo = `<span class="text-red-500 font-bold text-[10px]">${formatDuration(l.lateMinutes)}</span>`;
             if (l.note) {
                 lateInfo += `<div class="text-[9px] text-slate-400 mt-1 italic max-w-[100px] truncate" title="${l.note}">"${l.note}"</div>`;
@@ -832,8 +834,10 @@ function renderViolationsTab() {
     const sortVal = document.getElementById('violationSort')?.value || 'newest';
 
     // Identify violations: late IN (>=30 min) or early OUT (note starts with [Pulang)
+    // Exclude [Bebas] entries — those are admin-approved free attendance
     let violations = [];
     logs.forEach(l => {
+        if (l.note && l.note.includes('[Bebas')) return;
         let vType = null;
         let duration = 0;
         if (l.type === 'IN' && l.lateMinutes >= 30) {
@@ -1591,8 +1595,9 @@ async function submitAbsence(type) {
     const empLogs = logs.filter(l => l.empId === scannedEmployee.id).sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
     const lastLog = empLogs.length > 0 ? empLogs[0] : null;
 
+    const bothDisabled = appConfig.disableBoth || (appConfig.disableLate && appConfig.disableEarly);
     if(type === 'IN') {
-        if(lastLog && lastLog.type === 'IN') {
+        if(lastLog && lastLog.type === 'IN' && !bothDisabled) {
             showToast("Sesi Masih Aktif!", "error");
             setTimeout(resetSecurityFlow, 1500); 
             return;
@@ -1635,9 +1640,8 @@ async function submitAbsence(type) {
                 const lateDisabled = appConfig.disableBoth || appConfig.disableLate;
                 if (lateDisabled) {
                     const reason = appConfig.disableBoth ? appConfig.disableBothReason : appConfig.disableLateReason;
-                    forcedTime = divConfig.start;
+                    forcedTime = null;
                     toastMessage = reason ? `Absen Masuk (${reason})` : 'Absen Masuk.';
-                    // Keep lateMinutes=0 so it's not flagged as violation
                     lateMinutes = 0;
                 } else if (diffMin < 30) {
                     forcedTime = divConfig.start; 
@@ -1653,9 +1657,9 @@ async function submitAbsence(type) {
     }
     
     if(type === 'OUT') {
-        if(!lastLog || lastLog.type === 'OUT') return showToast("Belum Absen Masuk!", "error");
+        if((!lastLog || lastLog.type === 'OUT') && !bothDisabled) return showToast("Belum Absen Masuk!", "error");
         const divConfig = appConfig.shifts[scannedEmployee.division];
-        if (divConfig && typeof divConfig !== 'string') {
+        if (divConfig && typeof divConfig !== 'string' && lastLog && lastLog.type === 'IN') {
              const shiftEndH = parseInt(divConfig.end.split(':')[0]);
              const shiftStartH = parseInt(divConfig.start.split(':')[0]);
              let logDateParts = lastLog.date.split('-'); 
@@ -1714,7 +1718,11 @@ async function submitAbsence(type) {
         absentBy: currentUser ? (currentUser.name || currentUser.u || '-') : '-'
     };
 
-    if (earlyMinutes > 0) {
+    if (bothDisabled && type === 'IN') {
+        payload.note = '[Bebas Masuk] Fitur absen bebas aktif';
+    } else if (bothDisabled && type === 'OUT' && earlyMinutes > 0) {
+        payload.note = '[Bebas Pulang] Fitur absen bebas aktif';
+    } else if (earlyMinutes > 0) {
         payload.note = `[Pulang ${earlyMinutes} mnt lebih awal]`;
     }
 
@@ -1937,6 +1945,10 @@ function checkClockInAllowed(empId, division) {
     const shiftEndMin = endH * 60 + endM;
     const isOvernight = shiftEndMin <= shiftStartMin;
 
+    // Jika fitur telat+pulang awal dimatikan → bebas masuk kapan saja, kuota 1x tidak berlaku
+    const lateDisabled = appConfig.disableBoth || appConfig.disableLate;
+    if (lateDisabled) return { allowed: true };
+
     // Cek 1: Sudah absen masuk hari ini? (1x per shift per hari)
     const alreadyIN = logs.some(l =>
         String(l.empId) === String(empId) &&
@@ -1946,10 +1958,6 @@ function checkClockInAllowed(empId, division) {
     if (alreadyIN) {
         return { allowed: false, message: 'Sudah absen masuk hari ini! Maksimal 1x absen masuk per hari.' };
     }
-
-    // Jika fitur telat dimatikan → bebas masuk kapan saja (tanpa batasan window)
-    const lateDisabled = appConfig.disableBoth || appConfig.disableLate;
-    if (lateDisabled) return { allowed: true };
 
     // Cek 2: Apakah dalam window 1 jam sebelum shift?
     let minutesBefore = shiftStartMin - nowMin;
@@ -4057,8 +4065,9 @@ async function volSubmitSelfie() {
         .sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
     const lastLog = empLogs.length > 0 ? empLogs[0] : null;
 
+    const volBothDisabled = appConfig.disableBoth || (appConfig.disableLate && appConfig.disableEarly);
     if (volAbsenType === 'IN') {
-        if (lastLog && lastLog.type === 'IN') {
+        if (lastLog && lastLog.type === 'IN' && !volBothDisabled) {
             showToast('Sesi masih aktif! Kamu sudah Absen Masuk.', 'error');
             volCancelFlow();
             return;
@@ -4072,7 +4081,7 @@ async function volSubmitSelfie() {
         }
     }
     if (volAbsenType === 'OUT') {
-        if (!lastLog || lastLog.type === 'OUT') {
+        if ((!lastLog || lastLog.type === 'OUT') && !volBothDisabled) {
             showToast('Belum Absen Masuk!', 'error');
             volCancelFlow();
             return;
@@ -4107,7 +4116,7 @@ async function volSubmitSelfie() {
                 const lateDisabled = appConfig.disableBoth || appConfig.disableLate;
                 if (lateDisabled) {
                     const reason = appConfig.disableBoth ? appConfig.disableBothReason : appConfig.disableLateReason;
-                    forcedTime = divConfig.start;
+                    forcedTime = null;
                     toastMsg = reason ? `Absen Masuk (${reason})` : 'Absen Masuk.';
                     lateMinutes = 0;
                 } else if (diffMin < 30) {
@@ -4125,7 +4134,7 @@ async function volSubmitSelfie() {
 
     if (volAbsenType === 'OUT') {
         const divConfig = appConfig.shifts[volScannedEmployee.division];
-        if (divConfig && typeof divConfig !== 'string') {
+        if (divConfig && typeof divConfig !== 'string' && lastLog && lastLog.type === 'IN') {
             const shiftEndH = parseInt(divConfig.end.split(':')[0]);
             const shiftStartH = parseInt(divConfig.start.split(':')[0]);
             let logDateParts = lastLog.date.split('-');
@@ -4206,7 +4215,11 @@ async function volSubmitSelfie() {
         absentBy: 'Mandiri'
     };
 
-    if (earlyMinutes > 0) {
+    if (volBothDisabled && volAbsenType === 'IN') {
+        payload.note = '[Bebas Masuk] Fitur absen bebas aktif';
+    } else if (volBothDisabled && volAbsenType === 'OUT' && earlyMinutes > 0) {
+        payload.note = '[Bebas Pulang] Fitur absen bebas aktif';
+    } else if (earlyMinutes > 0) {
         payload.note = `[Pulang ${earlyMinutes} mnt lebih awal]`;
     }
 
