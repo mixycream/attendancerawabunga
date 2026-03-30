@@ -1947,6 +1947,10 @@ function checkClockInAllowed(empId, division) {
         return { allowed: false, message: 'Sudah absen masuk hari ini! Maksimal 1x absen masuk per hari.' };
     }
 
+    // Jika fitur telat dimatikan → bebas masuk kapan saja (tanpa batasan window)
+    const lateDisabled = appConfig.disableBoth || appConfig.disableLate;
+    if (lateDisabled) return { allowed: true };
+
     // Cek 2: Apakah dalam window 1 jam sebelum shift?
     let minutesBefore = shiftStartMin - nowMin;
     if (minutesBefore < 0) minutesBefore += 1440;
