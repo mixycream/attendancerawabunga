@@ -1646,11 +1646,11 @@ async function submitAbsence(type) {
                 } else if (diffMin < 30) {
                     forcedTime = divConfig.start; 
                     toastMessage = `Telat ${diffMin}m (Toleransi).`;
-                } else if (diffMin <= 90) {
+                } else if (diffMin <= 35) {
                     needsReason = 'late';
                     toastMessage = "Absen Masuk (Terlambat).";
                 } else {
-                    return showToast("Tidak bisa absen masuk!\nTelat lebih dari Jam yang ditentukan.\nHubungi Admin via WhatsApp.", "error");
+                    return showToast("Tidak bisa absen masuk!\nTelat lebih dari 35 menit.\nHubungi Admin via WhatsApp.", "error");
                 }
             }
         }
@@ -1959,11 +1959,11 @@ function checkClockInAllowed(empId, division) {
         return { allowed: false, message: 'Sudah absen masuk hari ini! Maksimal 1x absen masuk per hari.' };
     }
 
-    // Cek 2: Apakah dalam window 1 jam sebelum shift?
+    // Cek 2: Apakah dalam window 30 menit sebelum shift?
     let minutesBefore = shiftStartMin - nowMin;
     if (minutesBefore < 0) minutesBefore += 1440;
 
-    if (minutesBefore <= 60) return { allowed: true };
+    if (minutesBefore <= 30) return { allowed: true };
 
     // Jika sudah dalam jam shift (telat tapi masih jam kerja) → boleh
     let inShift = false;
@@ -1975,7 +1975,7 @@ function checkClockInAllowed(empId, division) {
     if (inShift) return { allowed: true };
 
     // Diluar window → tolak
-    let earliestMin = shiftStartMin - 60;
+    let earliestMin = shiftStartMin - 30;
     if (earliestMin < 0) earliestMin += 1440;
     const eh = Math.floor(earliestMin / 60);
     const em = earliestMin % 60;
@@ -1983,7 +1983,7 @@ function checkClockInAllowed(empId, division) {
 
     return {
         allowed: false,
-        message: `Belum bisa absen! Absen masuk dibuka jam ${earliestStr} (1 jam sebelum shift ${divConfig.start}).`
+        message: `Belum bisa absen! Absen masuk dibuka jam ${earliestStr} (30 menit sebelum shift ${divConfig.start}).`
     };
 }
 
@@ -4123,11 +4123,11 @@ async function volSubmitSelfie() {
                 } else if (diffMin < 30) {
                     forcedTime = divConfig.start;
                     toastMsg = `Telat ${diffMin}m (Toleransi).`;
-                } else if (diffMin <= 90) {
+                } else if (diffMin <= 35) {
                     needsReason = 'late';
                     toastMsg = 'Absen Masuk (Terlambat).';
                 } else {
-                    return showToast("Tidak bisa absen masuk!\nTelat lebih dari Jam yang ditentukan.\nHubungi Admin via WhatsApp.", "error");
+                    return showToast("Tidak bisa absen masuk!\nTelat lebih dari 35 menit.\nHubungi Admin via WhatsApp.", "error");
                 }
             }
         }
@@ -4355,6 +4355,29 @@ function showAbsenSuccess({ type, name, message, onDone }) {
     // Show overlay
     overlay.classList.remove('hidden');
     overlay.classList.add('flex');
+    overlay.style.pointerEvents = 'auto';
+
+    // Setup close button with 5s cooldown
+    const closeBtn = document.getElementById('absenSuccessCloseBtn');
+    const closeTxt = document.getElementById('absenCloseBtnText');
+    if (closeBtn) {
+        closeBtn.disabled = true;
+        let countdown = 5;
+        closeTxt.textContent = `Tutup (${countdown})`;
+        const cdInterval = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+                closeTxt.textContent = `Tutup (${countdown})`;
+            } else {
+                clearInterval(cdInterval);
+                closeTxt.textContent = 'Tutup';
+                closeBtn.disabled = false;
+            }
+        }, 1000);
+        // Store onDone callback and interval on overlay for dismissal
+        overlay._onDone = onDone;
+        overlay._cdInterval = cdInterval;
+    }
 
     // Animate in
     requestAnimationFrame(() => {
@@ -4369,19 +4392,26 @@ function showAbsenSuccess({ type, name, message, onDone }) {
         // Confetti burst
         setTimeout(() => spawnConfetti(confettiBox), 400);
     });
+}
 
-    // Auto dismiss after 2.8s
+function dismissAbsenSuccess() {
+    const overlay = document.getElementById('absenSuccessOverlay');
+    const bg = document.getElementById('absenSuccessBg');
+    const card = document.getElementById('absenSuccessCard');
+    const confettiBox = document.getElementById('absenConfetti');
+    if (!overlay) return;
+    if (overlay._cdInterval) clearInterval(overlay._cdInterval);
+    const onDone = overlay._onDone;
+    card.style.transform = 'scale(0.8)';
+    card.style.opacity = '0';
+    bg.style.backgroundColor = 'rgba(0,0,0,0)';
     setTimeout(() => {
-        card.style.transform = 'scale(0.8)';
-        card.style.opacity = '0';
-        bg.style.backgroundColor = 'rgba(0,0,0,0)';
-        setTimeout(() => {
-            overlay.classList.add('hidden');
-            overlay.classList.remove('flex');
-            confettiBox.innerHTML = '';
-            if (onDone) onDone();
-        }, 500);
-    }, 2800);
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+        overlay.style.pointerEvents = 'none';
+        if (confettiBox) confettiBox.innerHTML = '';
+        if (onDone) onDone();
+    }, 400);
 }
 
 function spawnConfetti(container) {
