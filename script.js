@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-p-whAPsQ-eptO3jAtBerorPaEFnIOzBBlZKR4eqmeaNilPOldCGSMUpM7-XGyH8/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw_4StHglNPrNUyKj3uPMme0ojVchuqHEOmlrT8wrmgbtsmm3baJU_Y-zdCVbGD3RSm/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
