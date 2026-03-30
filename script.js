@@ -3809,6 +3809,7 @@ function initVolunteer() {
     }
 
     volStartClockAndGPS();
+    volUpdateGeofenceUI();
     volUpdateTodayStatus();
     volShowPage('home');
 }
@@ -4269,6 +4270,13 @@ async function startAbsenMandiri() {
             if (data.config) {
                 if (data.config.overtimeRate) appConfig.overtimeRate = parseInt(data.config.overtimeRate) || appConfig.overtimeRate;
                 if (data.config.shifts) appConfig.shifts = data.config.shifts;
+                appConfig.disableLate = data.config.disableLate === true || data.config.disableLate === 'true';
+                appConfig.disableEarly = data.config.disableEarly === true || data.config.disableEarly === 'true';
+                appConfig.disableBoth = data.config.disableBoth === true || data.config.disableBoth === 'true';
+                appConfig.disableLateReason = data.config.disableLateReason || '';
+                appConfig.disableEarlyReason = data.config.disableEarlyReason || '';
+                appConfig.disableBothReason = data.config.disableBothReason || '';
+                appConfig.disableGeofence = data.config.disableGeofence === true || data.config.disableGeofence === 'true';
             }
         }
     } catch (e) {
