@@ -1644,7 +1644,6 @@ async function submitAbsence(type) {
                     toastMessage = reason ? `Absen Masuk (${reason})` : 'Absen Masuk.';
                     lateMinutes = 0;
                 } else if (diffMin < 30) {
-                    forcedTime = divConfig.start; 
                     toastMessage = `Telat ${diffMin}m (Toleransi).`;
                 } else if (diffMin <= 35) {
                     needsReason = 'late';
@@ -4121,7 +4120,6 @@ async function volSubmitSelfie() {
                     toastMsg = reason ? `Absen Masuk (${reason})` : 'Absen Masuk.';
                     lateMinutes = 0;
                 } else if (diffMin < 30) {
-                    forcedTime = divConfig.start;
                     toastMsg = `Telat ${diffMin}m (Toleransi).`;
                 } else if (diffMin <= 35) {
                     needsReason = 'late';
