@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby8KwXkIOpqiVoTT1A6LgK76HXYQfP8M5s6oZPzkcCawEhSXHswqYxqsJJH2xqTyx6l/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxuO8r3TJB7Sh8LsgArKR9eoLZ-NZnwbPJmWmMBz2Oo5O0d1NRt9o04UkthVPGtvNmb/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -527,7 +527,8 @@ async function postData(action, payload) {
                 const form = new URLSearchParams();
                 Object.keys(dataObj).forEach(k => {
                     if (dataObj[k] === undefined || dataObj[k] === null) return;
-                    form.append(k, String(dataObj[k]));
+                    const val = dataObj[k];
+                    form.append(k, (typeof val === 'object') ? JSON.stringify(val) : String(val));
                 });
                 res = await fetch(SCRIPT_URL, {
                     method: 'POST',
@@ -539,7 +540,8 @@ async function postData(action, payload) {
             const form = new URLSearchParams();
             Object.keys(dataObj).forEach(k => {
                 if (dataObj[k] === undefined || dataObj[k] === null) return;
-                form.append(k, String(dataObj[k]));
+                const val = dataObj[k];
+                form.append(k, (typeof val === 'object') ? JSON.stringify(val) : String(val));
             });
             res = await fetch(SCRIPT_URL, {
                 method: 'POST',
