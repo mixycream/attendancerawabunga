@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxTX6Cm8A2C3krxze6cdXCfrzUMdGODJQubxwlUaE9F4OgmCYl4L91TTJaDyz9jazlH/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxxxc1GDSOoHb3Qr5_UY3veOJlsTtMR0hSNcDmjGptef_A52QQnaAVitb7IsDJ4ggck/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -662,7 +662,7 @@ function refreshUI() {
         }
 
         let actionArea = `<span class="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide ${badge}">${statusText}</span>`;
-        if (l.type === 'IN' && l.lateMinutes >= 30) {
+        if (l.type === 'IN' && l.lateMinutes >= 5) {
             actionArea = `<div class="flex flex-col items-center gap-0.5">
                 <span class="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-red-100 text-red-600">TELAT</span>
                 <span class="text-[9px] text-red-400">${formatDuration(l.lateMinutes)}</span>
@@ -803,7 +803,7 @@ async function confirmViolation(empId, date, name) {
     // Mark as confirmed by adding [OK] prefix to note — keep lateMinutes & note data visible
     const related = logs.filter(l => String(l.empId) === String(empId) && l.date === date);
     related.forEach(l => {
-        if ((l.type === 'IN' && l.lateMinutes >= 30) || (l.type === 'OUT' && l.note && l.note.includes('[Pulang'))) {
+        if ((l.type === 'IN' && l.lateMinutes >= 5) || (l.type === 'OUT' && l.note && l.note.includes('[Pulang'))) {
             if (!l.note.includes('[OK]')) l.note = '[OK] ' + (l.note || '');
         }
     });
@@ -845,7 +845,7 @@ function renderViolationsTab() {
         if (l.note && l.note.includes('[Bebas')) return;
         let vType = null;
         let duration = 0;
-        if (l.type === 'IN' && l.lateMinutes >= 30) {
+        if (l.type === 'IN' && l.lateMinutes >= 5) {
             vType = 'late';
             duration = l.lateMinutes;
         } else if (l.type === 'OUT' && l.note && l.note.includes('[Pulang')) {
@@ -1649,13 +1649,13 @@ async function submitAbsence(type) {
                     forcedTime = null;
                     toastMessage = reason ? `Absen Masuk (${reason})` : 'Absen Masuk.';
                     lateMinutes = 0;
-                } else if (diffMin < 30) {
+                } else if (diffMin < 5) {
                     toastMessage = `Telat ${diffMin}m (Toleransi).`;
-                } else if (diffMin <= 35) {
+                } else if (diffMin <= 30) {
                     needsReason = 'late';
                     toastMessage = "Absen Masuk (Terlambat).";
                 } else {
-                    return showToast("Tidak bisa absen masuk!\nTelat lebih dari 35 menit.\nHubungi Admin via WhatsApp.", "error");
+                    return showLateBlockedModal(scannedEmployee.name, scannedEmployee.division, divConfig.start);
                 }
             }
         }
@@ -1792,6 +1792,76 @@ async function submitLateReason() {
         }
     });
     pendingAttendancePayload = null; 
+}
+
+// --- Late Blocked Modal (>30 menit telat) ---
+let _lateBlockedInfo = {};
+
+function showLateBlockedModal(name, division, shiftStart) {
+    _lateBlockedInfo = { name, division, shiftStart };
+    const overlay = document.getElementById('lateBlockedModal');
+    const bg = document.getElementById('lateBlockedBg');
+    const card = document.getElementById('lateBlockedCard');
+    const xIcon = document.getElementById('lateBlockedXIcon');
+    const msg = document.getElementById('lateBlockedMsg');
+
+    msg.textContent = `Maaf ${name}, kamu tidak bisa absen di atas 30 menit pada jam kerja divisi ${division} (${shiftStart}). Silahkan isi form di bawah.`;
+    document.getElementById('lateBlockedReasonInput').value = '';
+
+    // Reset animation state
+    xIcon.style.opacity = '0';
+    xIcon.style.transform = 'scale(0.3)';
+    card.style.transform = 'scale(0.5)';
+    card.style.opacity = '0';
+    bg.style.backgroundColor = 'rgba(0,0,0,0)';
+
+    overlay.classList.remove('hidden');
+    overlay.classList.add('flex');
+    overlay.style.pointerEvents = 'auto';
+
+    requestAnimationFrame(() => {
+        bg.style.backgroundColor = 'rgba(127,29,29,0.92)';
+        card.style.transform = 'scale(1)';
+        card.style.opacity = '1';
+        setTimeout(() => {
+            xIcon.style.opacity = '1';
+            xIcon.style.transform = 'scale(1)';
+        }, 300);
+    });
+}
+
+function dismissLateBlocked() {
+    const overlay = document.getElementById('lateBlockedModal');
+    const bg = document.getElementById('lateBlockedBg');
+    const card = document.getElementById('lateBlockedCard');
+    bg.style.backgroundColor = 'rgba(0,0,0,0)';
+    card.style.transform = 'scale(0.5)';
+    card.style.opacity = '0';
+    setTimeout(() => {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+        overlay.style.pointerEvents = 'none';
+    }, 400);
+}
+
+function sendLateWA() {
+    const reason = (document.getElementById('lateBlockedReasonInput').value || '').trim();
+    if (!reason) {
+        showToast('Mohon isi alasan terlebih dahulu.', 'error');
+        return;
+    }
+    const now = new Date();
+    const hour = now.getHours();
+    const greeting = hour < 11 ? 'Pagi' : hour < 15 ? 'Siang' : 'Sore';
+    const name = _lateBlockedInfo.name || '-';
+    const division = _lateBlockedInfo.division || '-';
+
+    const message = `Assalamualaikum Selamat ${greeting},\nSaya ${name} dari ${division},\nSaya tidak bisa melakukan absen dikarenakan lewat dari 30 menit dari jam kerja yang ditentukan.\n\nAlasan saya: ${reason}`;
+
+    const phone = '6285691037996';
+    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank');
+    dismissLateBlocked();
 }
 
 async function submitEarlyReason() {
@@ -4175,13 +4245,13 @@ async function volSubmitSelfie() {
                     forcedTime = null;
                     toastMsg = reason ? `Absen Masuk (${reason})` : 'Absen Masuk.';
                     lateMinutes = 0;
-                } else if (diffMin < 30) {
+                } else if (diffMin < 5) {
                     toastMsg = `Telat ${diffMin}m (Toleransi).`;
-                } else if (diffMin <= 35) {
+                } else if (diffMin <= 30) {
                     needsReason = 'late';
                     toastMsg = 'Absen Masuk (Terlambat).';
                 } else {
-                    return showToast("Tidak bisa absen masuk!\nTelat lebih dari 35 menit.\nHubungi Admin via WhatsApp.", "error");
+                    return showLateBlockedModal(volScannedEmployee.name, volScannedEmployee.division, divConfig.start);
                 }
             }
         }
