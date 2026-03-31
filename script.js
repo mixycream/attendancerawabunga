@@ -1780,7 +1780,8 @@ async function submitLateReason() {
     if (!pendingAttendancePayload) return;
     const note = (document.getElementById('lateNoteInput').value || '').trim();
     if (!note) {
-        showToast('Mohon isi alasan keterlambatan terlebih dahulu.', 'error');
+        document.getElementById('lateNoteWarn').classList.remove('hidden');
+        document.getElementById('lateNoteInput').focus();
         return;
     }
     pendingAttendancePayload.note = note; 
@@ -1860,7 +1861,8 @@ function dismissLateBlocked() {
 function sendLateWA() {
     const reason = (document.getElementById('lateBlockedReasonInput').value || '').trim();
     if (!reason) {
-        showToast('Mohon isi alasan terlebih dahulu.', 'error');
+        document.getElementById('lateBlockedWarn').classList.remove('hidden');
+        document.getElementById('lateBlockedReasonInput').focus();
         return;
     }
     if (!pendingAttendancePayload) return;
@@ -1923,7 +1925,8 @@ async function submitEarlyReason() {
     if (!pendingAttendancePayload) return;
     const note = (document.getElementById('earlyNoteInput').value || '').trim();
     if (!note) {
-        showToast('Mohon isi alasan pulang awal terlebih dahulu.', 'error');
+        document.getElementById('earlyNoteWarn').classList.remove('hidden');
+        document.getElementById('earlyNoteInput').focus();
         return;
     }
     const earlyMins = pendingAttendancePayload._earlyMinutes || 0;
