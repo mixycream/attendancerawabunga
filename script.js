@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxe9gGhZiwAtNnE2CcHvKWmqDU7-bQzOtk5W_rehcz-eMj-OX39QqckEMphbALv5soK/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxvVrgY61SUT6MoOZ5zAmdVStv45X9Qqt0ihcGqmlQSZydIzjdE3pzD-tE-dvZzw1qo/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -1681,7 +1681,7 @@ async function submitAbsence(type) {
                      toastMessage = reason ? `Absen Pulang (${reason})` : 'Absen Pulang.';
                  } else if (diffMinutes > 40) {
                      overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
-                     toastMessage = `Lembur: ${overtimeHours} Jam`;
+                     toastMessage = appConfig.hideOvertime ? 'Absen Pulang Berhasil.' : `Lembur: ${overtimeHours} Jam`;
                  }
              } else {
                  if (diffMinutes < -120) {
@@ -1694,7 +1694,7 @@ async function submitAbsence(type) {
                      toastMessage = 'Absen Pulang Berhasil.';
                  } else if (diffMinutes > 40) {
                      overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
-                     toastMessage = `Lembur: ${overtimeHours} Jam`;
+                     toastMessage = appConfig.hideOvertime ? 'Absen Pulang Berhasil.' : `Lembur: ${overtimeHours} Jam`;
                  }
              }
         }
@@ -4205,7 +4205,7 @@ async function volSubmitSelfie() {
                     toastMsg = reason ? `Absen Pulang (${reason})` : 'Absen Pulang.';
                 } else if (diffMinutes > 40) {
                     overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
-                    toastMsg = `Lembur: ${overtimeHours} Jam`;
+                    toastMsg = appConfig.hideOvertime ? 'Absen Pulang Berhasil.' : `Lembur: ${overtimeHours} Jam`;
                 }
             } else {
                 if (diffMinutes < -120) {
@@ -4218,7 +4218,7 @@ async function volSubmitSelfie() {
                     toastMsg = 'Absen Pulang Berhasil.';
                 } else if (diffMinutes > 40) {
                     overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
-                    toastMsg = `Lembur: ${overtimeHours} Jam`;
+                    toastMsg = appConfig.hideOvertime ? 'Absen Pulang Berhasil.' : `Lembur: ${overtimeHours} Jam`;
                 }
             }
         }
