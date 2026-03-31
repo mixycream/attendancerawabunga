@@ -1633,8 +1633,9 @@ async function submitAbsence(type) {
             const isOvernight = shiftEndH < shiftStartH;
             let expectedStart = new Date();
             expectedStart.setHours(shiftStartH, shiftStartM, 0, 0);
-            // Overnight shift: jika sekarang lewat tengah malam, shift mulai kemarin
-            if (isOvernight && expectedStart > now) {
+            // Overnight shift: jika sekarang lewat tengah malam (jam kecil, sebelum jam pulang),
+            // berarti shift dimulai kemarin malam. Contoh: Cook 23:00-07:00, sekarang jam 02:00
+            if (isOvernight && now.getHours() < shiftEndH) {
                 expectedStart.setDate(expectedStart.getDate() - 1);
             }
             const diffMs = now - expectedStart;
@@ -4159,8 +4160,9 @@ async function volSubmitSelfie() {
             const isOvernight = shiftEndH < shiftStartH;
             let expectedStart = new Date();
             expectedStart.setHours(shiftStartH, shiftStartM, 0, 0);
-            // Overnight shift: jika sekarang lewat tengah malam, shift mulai kemarin
-            if (isOvernight && expectedStart > now) {
+            // Overnight shift: jika sekarang lewat tengah malam (jam kecil, sebelum jam pulang),
+            // berarti shift dimulai kemarin malam. Contoh: Cook 23:00-07:00, sekarang jam 02:00
+            if (isOvernight && now.getHours() < shiftEndH) {
                 expectedStart.setDate(expectedStart.getDate() - 1);
             }
             const diffMs = now - expectedStart;
