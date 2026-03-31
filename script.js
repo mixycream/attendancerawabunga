@@ -1655,7 +1655,8 @@ async function submitAbsence(type) {
                     needsReason = 'late';
                     toastMessage = "Absen Masuk (Terlambat).";
                 } else {
-                    return showLateBlockedModal(scannedEmployee.name, scannedEmployee.division, divConfig.start);
+                    needsReason = 'blocked';
+                    toastMessage = "Absen Masuk (Terlambat >30 menit).";
                 }
             }
         }
@@ -1749,6 +1750,14 @@ async function submitAbsence(type) {
         document.getElementById('earlyNoteInput').value = '';
         document.getElementById('earlyOutModal').classList.remove('hidden');
         setTimeout(() => document.getElementById('earlyOutModal').classList.remove('opacity-0'), 10);
+        return;
+    }
+
+    if (needsReason === 'blocked') {
+        pendingAttendancePayload = payload;
+        pendingAttendancePayload._lateMinutes = lateMinutes;
+        const divConfig = appConfig.shifts[scannedEmployee.division];
+        showLateBlockedModal(scannedEmployee.name, scannedEmployee.division, divConfig ? divConfig.start : '-');
         return;
     }
 
@@ -1850,13 +1859,55 @@ function sendLateWA() {
         showToast('Mohon isi alasan terlebih dahulu.', 'error');
         return;
     }
+    if (!pendingAttendancePayload) return;
+
+    const lateMin = pendingAttendancePayload._lateMinutes || 0;
+    pendingAttendancePayload.note = `[Telat ${lateMin} mnt >30m] ${reason}`;
+    delete pendingAttendancePayload._lateMinutes;
+
+    const isVolunteer = pendingAttendancePayload.absentBy === 'Mandiri';
+    const empName = pendingAttendancePayload.name || '';
+
+    // Simpan ke database dulu
+    postData('attendance', pendingAttendancePayload).then(async (success) => {
+        if (success) {
+            toggleLoader(false);
+            if (isVolunteer) {
+                volCancelFlow();
+                await fetchData(true);
+                volUpdateTodayStatus();
+            } else {
+                resetSecurityFlow();
+            }
+        }
+    });
+
+    pendingAttendancePayload = null;
+
+    // Buka WhatsApp
     const now = new Date();
     const hour = now.getHours();
-    const greeting = hour < 11 ? 'Pagi' : hour < 15 ? 'Siang' : 'Sore';
+    const greeting = hour < 11 ? 'Pagi' : hour < 15 ? 'Siang' : hour < 18 ? 'Sore' : 'Malam';
     const name = _lateBlockedInfo.name || '-';
     const division = _lateBlockedInfo.division || '-';
+    const shiftStart = _lateBlockedInfo.shiftStart || '-';
+    const dateStr = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
 
-    const message = `Assalamualaikum Selamat ${greeting},\nSaya ${name} dari ${division},\nSaya tidak bisa melakukan absen dikarenakan lewat dari 30 menit dari jam kerja yang ditentukan.\n\nAlasan saya: ${reason}`;
+    const message = `Assalamualaikum Warahmatullahi Wabarakatuh,
+Selamat ${greeting} Admin SPPG Rawa Bunga 1.
+
+Perkenalkan saya *${name}* dari divisi *${division}*.
+
+Dengan ini saya menginformasikan bahwa pada hari *${dateStr}* pukul *${timeStr} WIB*, saya terlambat hadir melebihi batas toleransi 30 menit dari jadwal shift pukul *${shiftStart} WIB*.
+
+Adapun alasan keterlambatan saya:
+_${reason}_
+
+Absensi telah tercatat di sistem. Mohon kiranya Admin berkenan untuk melakukan konfirmasi/Tidak pada tab Pelanggaran.
+
+Atas perhatiannya saya ucapkan terima kasih.
+Wassalamualaikum Warahmatullahi Wabarakatuh.`;
 
     const phone = '6285691037996';
     const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
@@ -4251,7 +4302,8 @@ async function volSubmitSelfie() {
                     needsReason = 'late';
                     toastMsg = 'Absen Masuk (Terlambat).';
                 } else {
-                    return showLateBlockedModal(volScannedEmployee.name, volScannedEmployee.division, divConfig.start);
+                    needsReason = 'blocked';
+                    toastMsg = 'Absen Masuk (Terlambat >30 menit).';
                 }
             }
         }
@@ -4366,6 +4418,14 @@ async function volSubmitSelfie() {
         document.getElementById('earlyNoteInput').value = '';
         document.getElementById('earlyOutModal').classList.remove('hidden');
         setTimeout(() => document.getElementById('earlyOutModal').classList.remove('opacity-0'), 10);
+        return;
+    }
+
+    if (needsReason === 'blocked') {
+        pendingAttendancePayload = payload;
+        pendingAttendancePayload._lateMinutes = lateMinutes;
+        const divConfig = appConfig.shifts[volScannedEmployee.division];
+        showLateBlockedModal(volScannedEmployee.name, volScannedEmployee.division, divConfig ? divConfig.start : '-');
         return;
     }
 
