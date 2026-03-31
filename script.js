@@ -3915,7 +3915,7 @@ function volUpdateAbsenButton(empId) {
         btn.disabled = false;
         btn.className = 'w-full py-4 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-bold shadow-lg shadow-emerald-600/30 transition active:scale-95 flex items-center justify-center gap-3 border-t border-white/20';
         if (icon) icon.className = 'fas fa-sign-in-alt text-lg';
-        if (label) label.innerText = 'Absen Masuk';
+        if (label) label.innerText = 'Klik untuk Absen';
     }
 }
 
