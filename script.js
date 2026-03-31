@@ -648,7 +648,8 @@ function refreshUI() {
             badge = 'bg-emerald-100 text-emerald-700';
             statusText = 'IN';
         } else if (l.type === 'OUT') {
-            badge = 'bg-amber-100 text-amber-700';
+            const hasEarlyNote = l.note && l.note.includes('[Pulang');
+            badge = hasEarlyNote ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
             statusText = 'OUT';
         } else if (l.type === 'REJECTED') {
             badge = 'bg-slate-200 text-slate-500 line-through';
@@ -667,7 +668,7 @@ function refreshUI() {
         }
         if (l.type === 'OUT' && l.note && l.note.includes('[Pulang')) {
             actionArea = `<div class="flex flex-col items-center gap-0.5">
-                <span class="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-amber-100 text-amber-600">PULANG AWAL</span>
+                <span class="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-purple-100 text-purple-600">PULANG AWAL</span>
             </div>`;
         }
 
@@ -931,13 +932,13 @@ function renderViolationsTab() {
             typeBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-600">TERLAMBAT</span>';
         } else {
             if (v.duration <= 90) {
-                typeBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-600">PULANG AWAL</span>';
+                typeBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-100 text-purple-600">PULANG AWAL</span>';
             } else {
                 typeBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-600">PULANG AWAL</span>';
             }
         }
         const durationText = v.duration > 0 ? formatDuration(v.duration) : '-';
-        const durationColor = v.vType === 'late' ? 'text-red-500' : (v.duration > 90 ? 'text-red-500' : 'text-amber-500');
+        const durationColor = v.vType === 'late' ? 'text-red-500' : (v.duration > 90 ? 'text-red-500' : 'text-purple-500');
         const noteText = (v.note || '-').replace(/^\[OK\]\s*/, '');
         const safeEmpId = String(v.empId).replace(/'/g, "\\'");
         const safeDate = (v.date || '').replace(/'/g, "\\'");
@@ -1681,11 +1682,14 @@ async function submitAbsence(type) {
                      toastMessage = `Lembur: ${overtimeHours} Jam`;
                  }
              } else {
-                 if (diffMinutes < -210) {
-                     return showToast("Tidak bisa absen pulang sebelum shift selesai.", "error");
-                 } else if (diffMinutes < 0) {
+                 if (diffMinutes < -120) {
+                     return showToast("Tidak bisa absen pulang!\nMaksimal 2 jam sebelum jam pulang.", "error");
+                 } else if (diffMinutes < -20) {
                      earlyMinutes = Math.abs(diffMinutes);
-                     toastMessage = "Absen Pulang (Lebih Awal).";
+                     needsReason = 'early';
+                     toastMessage = `Pulang ${earlyMinutes} menit lebih awal.`;
+                 } else if (diffMinutes < 0) {
+                     toastMessage = 'Absen Pulang Berhasil.';
                  } else if (diffMinutes > 40) {
                      overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
                      toastMessage = `Lembur: ${overtimeHours} Jam`;
@@ -1735,6 +1739,16 @@ async function submitAbsence(type) {
         return; 
     }
 
+    if (needsReason === 'early') {
+        pendingAttendancePayload = payload;
+        pendingAttendancePayload._earlyMinutes = earlyMinutes;
+        pendingAttendancePayload._toastMessage = toastMessage;
+        document.getElementById('earlyNoteInput').value = '';
+        document.getElementById('earlyOutModal').classList.remove('hidden');
+        setTimeout(() => document.getElementById('earlyOutModal').classList.remove('opacity-0'), 10);
+        return;
+    }
+
     const success = await postData('attendance', payload);
     if(success) {
         toggleLoader(false);
@@ -1775,6 +1789,38 @@ async function submitLateReason() {
         }
     });
     pendingAttendancePayload = null; 
+}
+
+async function submitEarlyReason() {
+    if (!pendingAttendancePayload) return;
+    const note = document.getElementById('earlyNoteInput').value;
+    const earlyMins = pendingAttendancePayload._earlyMinutes || 0;
+    const toastMsg = pendingAttendancePayload._toastMessage || pendingAttendancePayload._toastMsg || '';
+    pendingAttendancePayload.note = `[Pulang ${earlyMins} mnt lebih awal] ${note}`.trim();
+    delete pendingAttendancePayload._earlyMinutes;
+    delete pendingAttendancePayload._toastMessage;
+    delete pendingAttendancePayload._toastMsg;
+    const modal = document.getElementById('earlyOutModal');
+    modal.classList.add('opacity-0');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+    const isVolunteer = pendingAttendancePayload.absentBy === 'Mandiri';
+    const empName = pendingAttendancePayload.name || '';
+    postData('attendance', pendingAttendancePayload).then(async (success) => {
+        if (success) {
+            toggleLoader(false);
+            if (isVolunteer) {
+                volCancelFlow();
+                showAbsenSuccess({
+                    type: 'EARLY_OUT', name: empName, message: toastMsg,
+                    onDone: async () => { await fetchData(true); volUpdateTodayStatus(); }
+                });
+            } else {
+                resetSecurityFlow();
+                showAbsenSuccess({ type: 'EARLY_OUT', name: empName, message: toastMsg });
+            }
+        }
+    });
+    pendingAttendancePayload = null;
 }
 
 // --- HELPER FUNCTIONS ---
@@ -3958,7 +4004,7 @@ function volPopulateSelfieInfo() {
         if (typeEl) { typeEl.innerText = 'ABSEN MASUK'; typeEl.className = 'text-[10px] font-bold text-white bg-emerald-500 px-2 py-0.5 rounded'; }
         if (iconEl) iconEl.innerHTML = '<i class="fas fa-sign-in-alt"></i>';
     } else {
-        if (typeEl) { typeEl.innerText = 'ABSEN PULANG'; typeEl.className = 'text-[10px] font-bold text-white bg-amber-500 px-2 py-0.5 rounded'; }
+        if (typeEl) { typeEl.innerText = 'ABSEN PULANG'; typeEl.className = 'text-[10px] font-bold text-white bg-blue-500 px-2 py-0.5 rounded'; }
         if (iconEl) iconEl.innerHTML = '<i class="fas fa-sign-out-alt"></i>';
     }
 }
@@ -4153,17 +4199,20 @@ async function volSubmitSelfie() {
                     toastMsg = reason ? `Absen Pulang (${reason})` : 'Absen Pulang.';
                 } else if (diffMinutes > 40) {
                     overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
-                    toastMsg = `Out After: ${overtimeHours} Hours`;
+                    toastMsg = `Lembur: ${overtimeHours} Jam`;
                 }
             } else {
-                if (diffMinutes < -210) {
-                    return showToast("Tidak bisa absen pulang sebelum shift selesai.", "error");
-                } else if (diffMinutes < 0) {
+                if (diffMinutes < -120) {
+                    return showToast("Tidak bisa absen pulang!\nMaksimal 2 jam sebelum jam pulang.", "error");
+                } else if (diffMinutes < -20) {
                     earlyMinutes = Math.abs(diffMinutes);
-                    toastMsg = 'Absen Pulang (Lebih Awal).';
+                    needsReason = 'early';
+                    toastMsg = `Pulang ${earlyMinutes} menit lebih awal.`;
+                } else if (diffMinutes < 0) {
+                    toastMsg = 'Absen Pulang Berhasil.';
                 } else if (diffMinutes > 40) {
                     overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
-                    toastMsg = `Out After: ${overtimeHours} Hours`;
+                    toastMsg = `Lembur: ${overtimeHours} Jam`;
                 }
             }
         }
@@ -4197,7 +4246,7 @@ async function volSubmitSelfie() {
     ctx.fillText(locStr, 10, canvas.height - barH + 34);
 
     ctx.font = 'bold 10px monospace';
-    ctx.fillStyle = volAbsenType === 'IN' ? '#34d399' : '#fbbf24';
+    ctx.fillStyle = volAbsenType === 'IN' ? '#34d399' : '#60a5fa';
     ctx.fillText(volAbsenType === 'IN' ? 'ABSEN MASUK' : 'ABSEN PULANG', canvas.width - 110, canvas.height - barH + 18);
 
     const photoBase64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
@@ -4229,6 +4278,16 @@ async function volSubmitSelfie() {
         document.getElementById('lateNoteInput').value = '';
         document.getElementById('lateAlertModal').classList.remove('hidden');
         setTimeout(() => document.getElementById('lateAlertModal').classList.remove('opacity-0'), 10);
+        return;
+    }
+
+    if (needsReason === 'early') {
+        pendingAttendancePayload = payload;
+        pendingAttendancePayload._earlyMinutes = earlyMinutes;
+        pendingAttendancePayload._toastMsg = toastMsg;
+        document.getElementById('earlyNoteInput').value = '';
+        document.getElementById('earlyOutModal').classList.remove('hidden');
+        setTimeout(() => document.getElementById('earlyOutModal').classList.remove('opacity-0'), 10);
         return;
     }
 
@@ -4328,12 +4387,28 @@ function showAbsenSuccess({ type, name, message, onDone }) {
     if (!overlay) { if (onDone) onDone(); return; }
 
     const isIN = type === 'IN';
-    const gradientColor = isIN ? 'from-emerald-500 to-teal-600' : 'from-amber-500 to-orange-600';
-    const bgColor = isIN ? 'rgba(5,150,105,0.92)' : 'rgba(217,119,6,0.92)';
-    const pingColor = isIN ? 'bg-emerald-400' : 'bg-amber-400';
+    const isEarlyOut = type === 'EARLY_OUT';
+    let gradientColor, bgColor, pingColor, title;
+
+    if (isIN) {
+        gradientColor = 'from-emerald-500 to-teal-600';
+        bgColor = 'rgba(5,150,105,0.92)';
+        pingColor = 'bg-emerald-400';
+        title = 'Absen Masuk Berhasil!';
+    } else if (isEarlyOut) {
+        gradientColor = 'from-purple-500 to-violet-600';
+        bgColor = 'rgba(139,92,246,0.92)';
+        pingColor = 'bg-purple-400';
+        title = 'Sukses Pulang Lebih Awal';
+    } else {
+        gradientColor = 'from-blue-500 to-indigo-600';
+        bgColor = 'rgba(59,130,246,0.92)';
+        pingColor = 'bg-blue-400';
+        title = 'Absen Pulang Berhasil!';
+    }
 
     // Setup content
-    document.getElementById('absenSuccessTitle').textContent = isIN ? 'Absen Masuk Berhasil!' : 'Absen Pulang Berhasil!';
+    document.getElementById('absenSuccessTitle').textContent = title;
     document.getElementById('absenSuccessName').textContent = name || '';
     document.getElementById('absenSuccessDetail').textContent = message || '';
     const now = new Date();
