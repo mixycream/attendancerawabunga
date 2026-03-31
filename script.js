@@ -1778,7 +1778,11 @@ async function submitAbsence(type) {
 
 async function submitLateReason() {
     if (!pendingAttendancePayload) return;
-    const note = document.getElementById('lateNoteInput').value;
+    const note = (document.getElementById('lateNoteInput').value || '').trim();
+    if (!note) {
+        showToast('Mohon isi alasan keterlambatan terlebih dahulu.', 'error');
+        return;
+    }
     pendingAttendancePayload.note = note; 
     const modal = document.getElementById('lateAlertModal');
     modal.classList.add('opacity-0');
@@ -1917,7 +1921,11 @@ Wassalamualaikum Warahmatullahi Wabarakatuh.`;
 
 async function submitEarlyReason() {
     if (!pendingAttendancePayload) return;
-    const note = document.getElementById('earlyNoteInput').value;
+    const note = (document.getElementById('earlyNoteInput').value || '').trim();
+    if (!note) {
+        showToast('Mohon isi alasan pulang awal terlebih dahulu.', 'error');
+        return;
+    }
     const earlyMins = pendingAttendancePayload._earlyMinutes || 0;
     const toastMsg = pendingAttendancePayload._toastMessage || pendingAttendancePayload._toastMsg || '';
     pendingAttendancePayload.note = `[Pulang ${earlyMins} mnt lebih awal] ${note}`.trim();
