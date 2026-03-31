@@ -1858,7 +1858,7 @@ function dismissLateBlocked() {
     }, 400);
 }
 
-function sendLateWA() {
+function sendLateWA(app) {
     const reason = (document.getElementById('lateBlockedReasonInput').value || '').trim();
     if (!reason) {
         document.getElementById('lateBlockedWarn').classList.remove('hidden');
@@ -1903,20 +1903,31 @@ function sendLateWA() {
     const message = `Assalamualaikum Warahmatullahi Wabarakatuh,
 Selamat ${greeting} Admin SPPG Rawa Bunga 1.
 
-Perkenalkan saya *${name}* dari divisi *${division}*.
+Saya *${name}* dari divisi *${division}*.
 
 Dengan ini saya menginformasikan bahwa pada hari *${dateStr}* pukul *${timeStr} WIB*, saya terlambat hadir melebihi batas toleransi 30 menit dari jadwal shift pukul *${shiftStart} WIB*.
 
 Adapun alasan keterlambatan saya:
 _${reason}_
 
-Absensi telah tercatat di sistem. Mohon kiranya Admin berkenan untuk melakukan konfirmasi/Tidak pada tab Pelanggaran.
+Absensi telah terpending di sistem. Mohon kiranya Admin berkenan untuk melakukan konfirmasi terhadap absensi saya.
 
 Atas perhatiannya saya ucapkan terima kasih.
 Wassalamualaikum Warahmatullahi Wabarakatuh.`;
 
     const phone = '6285691037996';
-    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    const encoded = encodeURIComponent(message);
+
+    let waUrl;
+    if (app === 'wab') {
+        waUrl = `intent://send/${phone}?text=${encoded}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;end`;
+        if (!/android/i.test(navigator.userAgent)) {
+            waUrl = `https://wa.me/${phone}?text=${encoded}`;
+        }
+    } else {
+        waUrl = `https://wa.me/${phone}?text=${encoded}`;
+    }
+
     window.open(waUrl, '_blank');
     dismissLateBlocked();
 }
