@@ -1858,7 +1858,7 @@ function dismissLateBlocked() {
     }, 400);
 }
 
-function sendLateWA(app) {
+function sendLateWA() {
     const reason = (document.getElementById('lateBlockedReasonInput').value || '').trim();
     if (!reason) {
         document.getElementById('lateBlockedWarn').classList.remove('hidden');
@@ -1916,18 +1916,7 @@ Atas perhatiannya saya ucapkan terima kasih.
 Wassalamualaikum Warahmatullahi Wabarakatuh.`;
 
     const phone = '6285691037996';
-    const encoded = encodeURIComponent(message);
-
-    let waUrl;
-    if (app === 'wab') {
-        waUrl = `intent://send/${phone}?text=${encoded}#Intent;scheme=whatsapp;package=com.whatsapp.w4b;end`;
-        if (!/android/i.test(navigator.userAgent)) {
-            waUrl = `https://wa.me/${phone}?text=${encoded}`;
-        }
-    } else {
-        waUrl = `https://wa.me/${phone}?text=${encoded}`;
-    }
-
+    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(waUrl, '_blank');
     dismissLateBlocked();
 }
