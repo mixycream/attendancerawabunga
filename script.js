@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxuO8r3TJB7Sh8LsgArKR9eoLZ-NZnwbPJmWmMBz2Oo5O0d1NRt9o04UkthVPGtvNmb/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxe9gGhZiwAtNnE2CcHvKWmqDU7-bQzOtk5W_rehcz-eMj-OX39QqckEMphbALv5soK/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -165,7 +165,8 @@ let appConfig = {
     disableLateReason: '',
     disableEarlyReason: '',
     disableBothReason: '',
-    disableGeofence: false
+    disableGeofence: false,
+    hideOvertime: false
 }; 
 let sortState = {
     logs: 'time_desc',
@@ -471,6 +472,7 @@ async function fetchData(force = false) {
                     appConfig.disableEarlyReason = data.config.disableEarlyReason || '';
                     appConfig.disableBothReason = data.config.disableBothReason || '';
                     appConfig.disableGeofence = data.config.disableGeofence === true || data.config.disableGeofence === 'true';
+                    appConfig.hideOvertime = data.config.hideOvertime === true || data.config.hideOvertime === 'true';
                 }
 
                 refreshUI();
@@ -682,7 +684,7 @@ function refreshUI() {
         }
         
         // Pemisahan Kolom & Format
-        let overtimeInfo = l.overtime > 0 ? `<span class="text-amber-600 font-bold">${l.overtime} Jam</span>` : '-';
+        let overtimeInfo = (l.overtime > 0 && !appConfig.hideOvertime) ? `<span class="text-amber-600 font-bold">${l.overtime} Jam</span>` : '-';
         
         let lateInfo = '-';
         if (l.note && l.note.includes('[Bebas')) {
@@ -2164,6 +2166,8 @@ function loadSettingsUI() {
     if (tDark) tDark.checked = document.documentElement.classList.contains('dark');
     const tGeo = document.getElementById('toggleGeofence');
     if (tGeo) tGeo.checked = appConfig.disableGeofence;
+    const tOT = document.getElementById('toggleHideOvertime');
+    if (tOT) tOT.checked = appConfig.hideOvertime;
 
     const bReason = document.getElementById('bothReasonInput');
     const lReason = document.getElementById('lateReasonInput');
@@ -2220,6 +2224,7 @@ async function saveFeatureSettings() {
     const disableLateReason = document.getElementById('lateReasonInput')?.value.trim() || '';
     const disableEarlyReason = document.getElementById('earlyReasonInput')?.value.trim() || '';
     const disableGeofence = document.getElementById('toggleGeofence')?.checked || false;
+    const hideOvertime = document.getElementById('toggleHideOvertime')?.checked || false;
 
     appConfig.disableBoth = disableBoth;
     appConfig.disableLate = disableLate;
@@ -2228,12 +2233,13 @@ async function saveFeatureSettings() {
     appConfig.disableLateReason = disableLateReason;
     appConfig.disableEarlyReason = disableEarlyReason;
     appConfig.disableGeofence = disableGeofence;
+    appConfig.hideOvertime = hideOvertime;
 
     toggleLoader(true, 'Menyimpan pengaturan...');
     const success = await postData('saveFeatureSettings', {
         disableBoth, disableLate, disableEarly,
         disableBothReason, disableLateReason, disableEarlyReason,
-        disableGeofence
+        disableGeofence, hideOvertime
     });
     toggleLoader(false);
     if (success) {
@@ -4336,6 +4342,7 @@ async function startAbsenMandiri() {
                 appConfig.disableEarlyReason = data.config.disableEarlyReason || '';
                 appConfig.disableBothReason = data.config.disableBothReason || '';
                 appConfig.disableGeofence = data.config.disableGeofence === true || data.config.disableGeofence === 'true';
+                appConfig.hideOvertime = data.config.hideOvertime === true || data.config.hideOvertime === 'true';
             }
         }
     } catch (e) {
