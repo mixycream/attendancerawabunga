@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzZD673UwwoZMhCA1VG-wDlH5UrZ7tLacoWyX9cpSZ8rOXJvZfHfpGyRVpyK0PvThWE/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxxxc1GDSOoHb3Qr5_UY3veOJlsTtMR0hSNcDmjGptef_A52QQnaAVitb7IsDJ4ggck/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -2401,6 +2401,36 @@ function toggleDarkMode(on) {
 // =============================================
 // PENGUMUMAN (Surat Pengumuman) System
 // =============================================
+const pengExcludedDates = new Set();
+
+function addExcludedDate() {
+    const input = document.getElementById('pengExcludeDate');
+    const val = input?.value;
+    if (!val) return;
+    pengExcludedDates.add(val);
+    input.value = '';
+    renderExcludedList();
+}
+
+function removeExcludedDate(date) {
+    pengExcludedDates.delete(date);
+    renderExcludedList();
+}
+
+function renderExcludedList() {
+    const container = document.getElementById('pengExcludedList');
+    if (!container) return;
+    const dayNames = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const sorted = [...pengExcludedDates].sort();
+    container.innerHTML = sorted.map(d => {
+        const dt = new Date(d + 'T00:00:00');
+        const label = `${dayNames[dt.getDay()]}, ${dt.getDate()}/${dt.getMonth() + 1}/${dt.getFullYear()}`;
+        return `<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
+            ${label}
+            <button onclick="removeExcludedDate('${d}')" class="ml-1 text-red-400 hover:text-red-700">&times;</button>
+        </span>`;
+    }).join('');
+}
 
 function initPengumumanTab() {
     const today = new Date();
@@ -2420,6 +2450,7 @@ function renderPengumumanPreview() {
     const noSurat = document.getElementById('pengNoSurat')?.value || '-';
     const perihal = document.getElementById('pengPerihal')?.value || 'Laporan Kehadiran Relawan';
     const showHadir = document.getElementById('pengChkHadir')?.checked;
+    const showTidakHadir = document.getElementById('pengChkTidakHadir')?.checked;
     const showTelat = document.getElementById('pengChkTelat')?.checked;
     const showTelat30 = document.getElementById('pengChkTelat30')?.checked;
     const showLembur = document.getElementById('pengChkLembur')?.checked;
@@ -2442,66 +2473,152 @@ function renderPengumumanPreview() {
     // Filter logs by period
     const filteredLogs = logs.filter(l => l.date >= tglMulai && l.date <= tglSelesai);
 
-    // Collect all working dates in period (exclude Sundays & holidays)
-    const workDates = [];
-    for (let d = new Date(dM); d <= dS; d.setDate(d.getDate() + 1)) {
-        const ds = getLocalDateStr(d);
-        if (d.getDay() !== 0 && !getHoliday(ds)) workDates.push(ds);
+    // Hari kerja per divisi
+    const dayNames = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    function getWorkDaysForDiv(division) {
+        const d = (division || '').toLowerCase();
+        if (d.includes('helper cook') || d === 'cook' || d.includes('head chef')) {
+            return [0, 1, 2, 3, 4]; // Minggu-Kamis
+        }
+        return [1, 2, 3, 4, 5, 6]; // Senin-Sabtu
     }
 
-    // --- DATA KEHADIRAN ---
+    // Build all dates in period
+    const allDatesInPeriod = [];
+    for (let d = new Date(dM); d <= dS; d.setDate(d.getDate() + 1)) {
+        const ds = getLocalDateStr(d);
+        allDatesInPeriod.push({ date: ds, day: d.getDay() });
+    }
+
+    function getWorkDatesForDiv(division) {
+        const days = getWorkDaysForDiv(division);
+        return allDatesInPeriod
+            .filter(d => days.includes(d.day) && !getHoliday(d.date) && !pengExcludedDates.has(d.date))
+            .map(d => d.date);
+    }
+
+    function formatDateShort(ds) {
+        const dt = new Date(ds + 'T00:00:00');
+        return `${dayNames[dt.getDay()]}, ${dt.getDate()}/${dt.getMonth() + 1}`;
+    }
+
+    // Hadir = tanggal yang punya IN dan OUT (pasangan)
+    function getHadirDates(empId, empWorkDates) {
+        const empLogs = filteredLogs.filter(l => String(l.empId) === String(empId));
+        const inDates = new Set(empLogs.filter(l => l.type === 'IN').map(l => l.date));
+        const outDates = new Set(empLogs.filter(l => l.type === 'OUT').map(l => l.date));
+        const hadirSet = new Set();
+        empWorkDates.forEach(wd => {
+            if (inDates.has(wd)) {
+                const nextDay = new Date(new Date(wd + 'T00:00:00').getTime() + 86400000);
+                const nextDayStr = getLocalDateStr(nextDay);
+                if (outDates.has(wd) || outDates.has(nextDayStr)) {
+                    hadirSet.add(wd);
+                }
+            }
+        });
+        return hadirSet;
+    }
+
+    // Section label counter
+    let sectionIdx = 0;
+    const sectionLetters = 'ABCDEFGH';
+    function nextSection() { return sectionLetters[sectionIdx++] || String(sectionIdx); }
+
+    // --- DATA HADIR ---
     const hadirEl = document.getElementById('pengDataHadir');
     if (showHadir) {
-        const empAttendance = employees.map(e => {
-            const inDates = new Set(filteredLogs.filter(l => String(l.empId) === String(e.id) && l.type === 'IN').map(l => l.date));
-            const hadirCount = workDates.filter(d => inDates.has(d)).length;
-            const tidakHadir = workDates.length - hadirCount;
-            return { name: e.name, division: e.division, hadir: hadirCount, tidakHadir, total: workDates.length };
-        });
-        const totalHadir = empAttendance.reduce((s, e) => s + e.hadir, 0);
-        const totalTidak = empAttendance.reduce((s, e) => s + e.tidakHadir, 0);
+        const label = nextSection();
+        const empHadirData = employees.map(e => {
+            const empWorkDates = getWorkDatesForDiv(e.division);
+            const hadirSet = getHadirDates(e.id, empWorkDates);
+            const hadirDates = empWorkDates.filter(d => hadirSet.has(d));
+            return { name: e.name, division: e.division, hadirCount: hadirDates.length, total: empWorkDates.length, hadirDates };
+        }).filter(e => e.hadirCount > 0);
 
-        hadirEl.innerHTML = `
-            <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">A. Rekapitulasi Kehadiran</h4>
-            <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:12px;">
-                <thead>
-                    <tr style="background:#f1f5f9;">
-                        <th style="border:1px solid #cbd5e1; padding:6px; text-align:center; width:35px;">No</th>
-                        <th style="border:1px solid #cbd5e1; padding:6px;">Nama</th>
-                        <th style="border:1px solid #cbd5e1; padding:6px;">Divisi</th>
-                        <th style="border:1px solid #cbd5e1; padding:6px; text-align:center;">Hadir</th>
-                        <th style="border:1px solid #cbd5e1; padding:6px; text-align:center;">Tidak Hadir</th>
-                        <th style="border:1px solid #cbd5e1; padding:6px; text-align:center;">Total Hari Kerja</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${empAttendance.map((e, i) => `<tr>
-                        <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${i + 1}</td>
-                        <td style="border:1px solid #cbd5e1; padding:5px;">${e.name}</td>
-                        <td style="border:1px solid #cbd5e1; padding:5px;">${e.division}</td>
-                        <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${e.hadir}</td>
-                        <td style="border:1px solid #cbd5e1; padding:5px; text-align:center; ${e.tidakHadir > 0 ? 'color:#dc2626; font-weight:700;' : ''}">${e.tidakHadir}</td>
-                        <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${e.total}</td>
-                    </tr>`).join('')}
-                    <tr style="background:#f1f5f9; font-weight:700;">
-                        <td colspan="3" style="border:1px solid #cbd5e1; padding:5px; text-align:right;">Total</td>
-                        <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${totalHadir}</td>
-                        <td style="border:1px solid #cbd5e1; padding:5px; text-align:center; color:#dc2626;">${totalTidak}</td>
-                        <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${empAttendance.length * workDates.length}</td>
-                    </tr>
-                </tbody>
-            </table>`;
+        if (empHadirData.length > 0) {
+            hadirEl.innerHTML = `
+                <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${label}. Daftar Kehadiran</h4>
+                <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:12px;">
+                    <thead>
+                        <tr style="background:#ecfdf5;">
+                            <th style="border:1px solid #cbd5e1; padding:6px; text-align:center; width:35px;">No</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px;">Nama</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px;">Divisi</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px; text-align:center;">Hadir</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px; text-align:center;">Total</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px;">Hari Kehadiran</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${empHadirData.map((e, i) => `<tr>
+                            <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${i + 1}</td>
+                            <td style="border:1px solid #cbd5e1; padding:5px;">${e.name}</td>
+                            <td style="border:1px solid #cbd5e1; padding:5px;">${e.division}</td>
+                            <td style="border:1px solid #cbd5e1; padding:5px; text-align:center; color:#059669; font-weight:700;">${e.hadirCount}</td>
+                            <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${e.total}</td>
+                            <td style="border:1px solid #cbd5e1; padding:5px; font-size:9px;">${e.hadirDates.map(formatDateShort).join(', ')}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>`;
+        } else {
+            hadirEl.innerHTML = `<h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${label}. Daftar Kehadiran</h4><p style="font-size:11px; color:#777; margin:0 0 12px;">Belum ada data kehadiran pada periode ini.</p>`;
+        }
     } else {
         hadirEl.innerHTML = '';
+    }
+
+    // --- DATA TIDAK HADIR ---
+    const tidakHadirEl = document.getElementById('pengDataTidakHadir');
+    if (showTidakHadir) {
+        const label = nextSection();
+        const empTidakData = employees.map(e => {
+            const empWorkDates = getWorkDatesForDiv(e.division);
+            const hadirSet = getHadirDates(e.id, empWorkDates);
+            const tidakHadirDates = empWorkDates.filter(d => !hadirSet.has(d));
+            return { name: e.name, division: e.division, tidakCount: tidakHadirDates.length, total: empWorkDates.length, tidakHadirDates };
+        }).filter(e => e.tidakCount > 0);
+
+        if (empTidakData.length > 0) {
+            tidakHadirEl.innerHTML = `
+                <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${label}. Daftar Tidak Hadir</h4>
+                <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:12px;">
+                    <thead>
+                        <tr style="background:#fef2f2;">
+                            <th style="border:1px solid #cbd5e1; padding:6px; text-align:center; width:35px;">No</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px;">Nama</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px;">Divisi</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px; text-align:center;">Tidak Hadir</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px; text-align:center;">Total</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px;">Hari Tidak Masuk</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${empTidakData.map((e, i) => `<tr>
+                            <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${i + 1}</td>
+                            <td style="border:1px solid #cbd5e1; padding:5px;">${e.name}</td>
+                            <td style="border:1px solid #cbd5e1; padding:5px;">${e.division}</td>
+                            <td style="border:1px solid #cbd5e1; padding:5px; text-align:center; color:#dc2626; font-weight:700;">${e.tidakCount}</td>
+                            <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${e.total}</td>
+                            <td style="border:1px solid #cbd5e1; padding:5px; font-size:9px; color:#dc2626;">${e.tidakHadirDates.map(formatDateShort).join(', ')}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>`;
+        } else {
+            tidakHadirEl.innerHTML = `<h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${label}. Daftar Tidak Hadir</h4><p style="font-size:11px; color:#777; margin:0 0 12px;">Semua relawan hadir pada periode ini.</p>`;
+        }
+    } else {
+        tidakHadirEl.innerHTML = '';
     }
 
     // --- DATA KETERLAMBATAN (5-30 menit) ---
     const telatEl = document.getElementById('pengDataTelat');
     if (showTelat) {
+        const label = nextSection();
         const lateLogs = filteredLogs.filter(l => l.type === 'IN' && l.lateMinutes >= 5 && l.lateMinutes <= 30);
         if (lateLogs.length > 0) {
             telatEl.innerHTML = `
-                <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">B. Daftar Keterlambatan (5–30 Menit)</h4>
+                <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${label}. Daftar Keterlambatan (5–30 Menit)</h4>
                 <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:12px;">
                     <thead>
                         <tr style="background:#fef2f2;">
@@ -2528,7 +2645,7 @@ function renderPengumumanPreview() {
                     </tbody>
                 </table>`;
         } else {
-            telatEl.innerHTML = `<h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">B. Daftar Keterlambatan (5–30 Menit)</h4><p style="font-size:11px; color:#777; margin:0 0 12px;">Tidak ada data keterlambatan pada periode ini.</p>`;
+            telatEl.innerHTML = `<h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${label}. Daftar Keterlambatan (5–30 Menit)</h4><p style="font-size:11px; color:#777; margin:0 0 12px;">Tidak ada data keterlambatan pada periode ini.</p>`;
         }
     } else {
         telatEl.innerHTML = '';
@@ -2537,11 +2654,11 @@ function renderPengumumanPreview() {
     // --- DATA TELAT > 30 MENIT ---
     const telat30El = document.getElementById('pengDataTelat30');
     if (showTelat30) {
+        const label = nextSection();
         const lateLogs30 = filteredLogs.filter(l => l.type === 'IN' && l.lateMinutes > 30);
-        const sectionLabel = showTelat ? 'C' : 'B';
         if (lateLogs30.length > 0) {
             telat30El.innerHTML = `
-                <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${sectionLabel}. Daftar Keterlambatan Lebih dari 30 Menit</h4>
+                <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${label}. Daftar Keterlambatan Lebih dari 30 Menit</h4>
                 <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:12px;">
                     <thead>
                         <tr style="background:#fef2f2;">
@@ -2568,7 +2685,7 @@ function renderPengumumanPreview() {
                     </tbody>
                 </table>`;
         } else {
-            telat30El.innerHTML = `<h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${sectionLabel}. Daftar Keterlambatan Lebih dari 30 Menit</h4><p style="font-size:11px; color:#777; margin:0 0 12px;">Tidak ada data pada periode ini.</p>`;
+            telat30El.innerHTML = `<h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${label}. Daftar Keterlambatan Lebih dari 30 Menit</h4><p style="font-size:11px; color:#777; margin:0 0 12px;">Tidak ada data pada periode ini.</p>`;
         }
     } else {
         telat30El.innerHTML = '';
@@ -2577,14 +2694,11 @@ function renderPengumumanPreview() {
     // --- DATA LEMBUR ---
     const lemburEl = document.getElementById('pengDataLembur');
     if (showLembur) {
+        const label = nextSection();
         const otLogs = filteredLogs.filter(l => l.type === 'OUT' && l.overtime > 0);
-        let sectionLabel = 'B';
-        if (showTelat && showTelat30) sectionLabel = 'D';
-        else if (showTelat || showTelat30) sectionLabel = 'C';
-
         if (otLogs.length > 0) {
             lemburEl.innerHTML = `
-                <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${sectionLabel}. Daftar Lembur</h4>
+                <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${label}. Daftar Lembur</h4>
                 <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:12px;">
                     <thead>
                         <tr style="background:#fefce8;">
@@ -2609,7 +2723,7 @@ function renderPengumumanPreview() {
                     </tbody>
                 </table>`;
         } else {
-            lemburEl.innerHTML = `<h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${sectionLabel}. Daftar Lembur</h4><p style="font-size:11px; color:#777; margin:0 0 12px;">Tidak ada data lembur pada periode ini.</p>`;
+            lemburEl.innerHTML = `<h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${label}. Daftar Lembur</h4><p style="font-size:11px; color:#777; margin:0 0 12px;">Tidak ada data lembur pada periode ini.</p>`;
         }
     } else {
         lemburEl.innerHTML = '';
