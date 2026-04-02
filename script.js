@@ -2502,22 +2502,26 @@ function renderPengumumanPreview() {
         return `${dayNames[dt.getDay()]}, ${dt.getDate()}/${dt.getMonth() + 1}`;
     }
 
-    // Hadir = tanggal yang punya IN dan OUT (pasangan)
-    function getHadirDates(empId, empWorkDates) {
+    // Hadir = tanggal yang punya IN dan OUT (pasangan), hitung jumlah pair per hari
+    function getHadirMap(empId, empWorkDates) {
         const empLogs = filteredLogs.filter(l => String(l.empId) === String(empId));
-        const inDates = new Set(empLogs.filter(l => l.type === 'IN').map(l => l.date));
-        const outDates = new Set(empLogs.filter(l => l.type === 'OUT').map(l => l.date));
-        const hadirSet = new Set();
+        const hadirMap = new Map(); // date -> count
         empWorkDates.forEach(wd => {
-            if (inDates.has(wd)) {
-                const nextDay = new Date(new Date(wd + 'T00:00:00').getTime() + 86400000);
-                const nextDayStr = getLocalDateStr(nextDay);
-                if (outDates.has(wd) || outDates.has(nextDayStr)) {
-                    hadirSet.add(wd);
-                }
-            }
+            const inCount = empLogs.filter(l => l.type === 'IN' && l.date === wd).length;
+            if (inCount === 0) return;
+            const nextDay = new Date(new Date(wd + 'T00:00:00').getTime() + 86400000);
+            const nextDayStr = getLocalDateStr(nextDay);
+            const outCount = empLogs.filter(l => l.type === 'OUT' && (l.date === wd || l.date === nextDayStr)).length;
+            const pairs = Math.min(inCount, outCount);
+            if (pairs > 0) hadirMap.set(wd, pairs);
         });
-        return hadirSet;
+        return hadirMap;
+    }
+
+    function formatDateWithCount(ds, count) {
+        const dt = new Date(ds + 'T00:00:00');
+        const label = `${dayNames[dt.getDay()]}, ${dt.getDate()}/${dt.getMonth() + 1}`;
+        return count > 1 ? `${label} <b>x${count}</b>` : label;
     }
 
     // Section label counter
@@ -2531,9 +2535,10 @@ function renderPengumumanPreview() {
         const label = nextSection();
         const empHadirData = employees.map(e => {
             const empWorkDates = getWorkDatesForDiv(e.division);
-            const hadirSet = getHadirDates(e.id, empWorkDates);
-            const hadirDates = empWorkDates.filter(d => hadirSet.has(d));
-            return { name: e.name, division: e.division, hadirCount: hadirDates.length, total: empWorkDates.length, hadirDates };
+            const hadirMap = getHadirMap(e.id, empWorkDates);
+            const hadirDates = empWorkDates.filter(d => hadirMap.has(d));
+            const hadirCount = hadirDates.reduce((sum, d) => sum + hadirMap.get(d), 0);
+            return { name: e.name, division: e.division, hadirCount, total: empWorkDates.length, hadirDates, hadirMap };
         }).filter(e => e.hadirCount > 0);
 
         if (empHadirData.length > 0) {
@@ -2557,7 +2562,7 @@ function renderPengumumanPreview() {
                             <td style="border:1px solid #cbd5e1; padding:5px;">${e.division}</td>
                             <td style="border:1px solid #cbd5e1; padding:5px; text-align:center; color:#059669; font-weight:700;">${e.hadirCount}</td>
                             <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${e.total}</td>
-                            <td style="border:1px solid #cbd5e1; padding:5px; font-size:9px;">${e.hadirDates.map(formatDateShort).join(', ')}</td>
+                            <td style="border:1px solid #cbd5e1; padding:5px; font-size:9px;">${e.hadirDates.map(d => formatDateWithCount(d, e.hadirMap.get(d))).join(', ')}</td>
                         </tr>`).join('')}
                     </tbody>
                 </table>`;
@@ -2574,8 +2579,8 @@ function renderPengumumanPreview() {
         const label = nextSection();
         const empTidakData = employees.map(e => {
             const empWorkDates = getWorkDatesForDiv(e.division);
-            const hadirSet = getHadirDates(e.id, empWorkDates);
-            const tidakHadirDates = empWorkDates.filter(d => !hadirSet.has(d));
+            const hadirMap = getHadirMap(e.id, empWorkDates);
+            const tidakHadirDates = empWorkDates.filter(d => !hadirMap.has(d));
             return { name: e.name, division: e.division, tidakCount: tidakHadirDates.length, total: empWorkDates.length, tidakHadirDates };
         }).filter(e => e.tidakCount > 0);
 
