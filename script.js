@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxxxc1GDSOoHb3Qr5_UY3veOJlsTtMR0hSNcDmjGptef_A52QQnaAVitb7IsDJ4ggck/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzZD673UwwoZMhCA1VG-wDlH5UrZ7tLacoWyX9cpSZ8rOXJvZfHfpGyRVpyK0PvThWE/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -2273,16 +2273,17 @@ function toggleSidebar() {
 function previewImage(url) { document.getElementById('imgModalSrc').src = url; document.getElementById('imgDownloadLink').href = url; document.getElementById('imgModal').classList.remove('hidden'); setTimeout(() => document.getElementById('imgModal').classList.remove('opacity-0'), 10); }
 function closePreview() { document.getElementById('imgModal').classList.add('opacity-0'); setTimeout(() => document.getElementById('imgModal').classList.add('hidden'), 300); }
 function switchTab(id) {
-    ['dashboard','employees','salaries','manual_attendance','violations','settings'].forEach(t => document.getElementById('tab-'+t)?.classList.add('hidden'));
+    ['dashboard','employees','salaries','manual_attendance','violations','settings','pengumuman'].forEach(t => document.getElementById('tab-'+t)?.classList.add('hidden'));
     document.getElementById('tab-'+id)?.classList.remove('hidden');
     if(window.innerWidth < 768) { document.getElementById('sidebar').classList.add('-translate-x-full'); document.getElementById('sidebarOverlay').classList.add('hidden'); }
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     Array.from(document.querySelectorAll('.nav-item')).find(b => b.getAttribute('onclick').includes(id))?.classList.add('active');
-    const titles = { 'dashboard': 'Dashboard', 'employees': 'Data Relawan', 'salaries': 'Laporan Gaji', 'manual_attendance': 'Absen Manual', 'violations': 'Pelanggaran', 'settings': 'Pengaturan' };
+    const titles = { 'dashboard': 'Dashboard', 'employees': 'Data Relawan', 'salaries': 'Laporan Gaji', 'manual_attendance': 'Absen Manual', 'violations': 'Pelanggaran', 'settings': 'Pengaturan', 'pengumuman': 'Pengumuman' };
     document.getElementById('pageTitle').innerText = titles[id] || id;
     if (id === 'manual_attendance') maInit();
     if (id === 'violations') renderViolationsTab();
     if (id === 'settings') loadSettingsUI();
+    if (id === 'pengumuman') initPengumumanTab();
 }
 
 // =============================================
@@ -2396,6 +2397,261 @@ function toggleDarkMode(on) {
         document.documentElement.classList.add('dark');
     }
 })();
+
+// =============================================
+// PENGUMUMAN (Surat Pengumuman) System
+// =============================================
+
+function initPengumumanTab() {
+    const today = new Date();
+    const twoWeeksAgo = new Date(today);
+    twoWeeksAgo.setDate(today.getDate() - 13);
+    const mulaiEl = document.getElementById('pengTglMulai');
+    const selesaiEl = document.getElementById('pengTglSelesai');
+    if (mulaiEl && !mulaiEl.value) mulaiEl.value = getLocalDateStr(twoWeeksAgo);
+    if (selesaiEl && !selesaiEl.value) selesaiEl.value = getLocalDateStr(today);
+}
+
+function renderPengumumanPreview() {
+    const tglMulai = document.getElementById('pengTglMulai')?.value;
+    const tglSelesai = document.getElementById('pengTglSelesai')?.value;
+    if (!tglMulai || !tglSelesai) return showToast('Pilih periode tanggal terlebih dahulu.', 'error');
+
+    const noSurat = document.getElementById('pengNoSurat')?.value || '-';
+    const perihal = document.getElementById('pengPerihal')?.value || 'Laporan Kehadiran Relawan';
+    const showHadir = document.getElementById('pengChkHadir')?.checked;
+    const showTelat = document.getElementById('pengChkTelat')?.checked;
+    const showTelat30 = document.getElementById('pengChkTelat30')?.checked;
+    const showLembur = document.getElementById('pengChkLembur')?.checked;
+
+    const bulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const now = new Date();
+    const dM = new Date(tglMulai + 'T00:00:00');
+    const dS = new Date(tglSelesai + 'T00:00:00');
+    const periodeText = `${dM.getDate()} ${bulan[dM.getMonth()]} ${dM.getFullYear()} — ${dS.getDate()} ${bulan[dS.getMonth()]} ${dS.getFullYear()}`;
+    const tanggalSurat = `Jakarta, ${now.getDate()} ${bulan[now.getMonth()]} ${now.getFullYear()}`;
+
+    // Set header surat
+    document.getElementById('pengPrintJudul').textContent = perihal;
+    document.getElementById('pengPrintNoSurat').textContent = `No: ${noSurat}`;
+    document.getElementById('pengPrintTanggal').textContent = tanggalSurat;
+    document.getElementById('pengPrintPerihal').textContent = perihal;
+    document.getElementById('pengPrintPeriode').textContent = periodeText;
+    document.getElementById('pengPrintTtdTanggal').textContent = tanggalSurat;
+
+    // Filter logs by period
+    const filteredLogs = logs.filter(l => l.date >= tglMulai && l.date <= tglSelesai);
+
+    // Collect all working dates in period (exclude Sundays & holidays)
+    const workDates = [];
+    for (let d = new Date(dM); d <= dS; d.setDate(d.getDate() + 1)) {
+        const ds = getLocalDateStr(d);
+        if (d.getDay() !== 0 && !getHoliday(ds)) workDates.push(ds);
+    }
+
+    // --- DATA KEHADIRAN ---
+    const hadirEl = document.getElementById('pengDataHadir');
+    if (showHadir) {
+        const empAttendance = employees.map(e => {
+            const inDates = new Set(filteredLogs.filter(l => String(l.empId) === String(e.id) && l.type === 'IN').map(l => l.date));
+            const hadirCount = workDates.filter(d => inDates.has(d)).length;
+            const tidakHadir = workDates.length - hadirCount;
+            return { name: e.name, division: e.division, hadir: hadirCount, tidakHadir, total: workDates.length };
+        });
+        const totalHadir = empAttendance.reduce((s, e) => s + e.hadir, 0);
+        const totalTidak = empAttendance.reduce((s, e) => s + e.tidakHadir, 0);
+
+        hadirEl.innerHTML = `
+            <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">A. Rekapitulasi Kehadiran</h4>
+            <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:12px;">
+                <thead>
+                    <tr style="background:#f1f5f9;">
+                        <th style="border:1px solid #cbd5e1; padding:6px; text-align:center; width:35px;">No</th>
+                        <th style="border:1px solid #cbd5e1; padding:6px;">Nama</th>
+                        <th style="border:1px solid #cbd5e1; padding:6px;">Divisi</th>
+                        <th style="border:1px solid #cbd5e1; padding:6px; text-align:center;">Hadir</th>
+                        <th style="border:1px solid #cbd5e1; padding:6px; text-align:center;">Tidak Hadir</th>
+                        <th style="border:1px solid #cbd5e1; padding:6px; text-align:center;">Total Hari Kerja</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${empAttendance.map((e, i) => `<tr>
+                        <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${i + 1}</td>
+                        <td style="border:1px solid #cbd5e1; padding:5px;">${e.name}</td>
+                        <td style="border:1px solid #cbd5e1; padding:5px;">${e.division}</td>
+                        <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${e.hadir}</td>
+                        <td style="border:1px solid #cbd5e1; padding:5px; text-align:center; ${e.tidakHadir > 0 ? 'color:#dc2626; font-weight:700;' : ''}">${e.tidakHadir}</td>
+                        <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${e.total}</td>
+                    </tr>`).join('')}
+                    <tr style="background:#f1f5f9; font-weight:700;">
+                        <td colspan="3" style="border:1px solid #cbd5e1; padding:5px; text-align:right;">Total</td>
+                        <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${totalHadir}</td>
+                        <td style="border:1px solid #cbd5e1; padding:5px; text-align:center; color:#dc2626;">${totalTidak}</td>
+                        <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${empAttendance.length * workDates.length}</td>
+                    </tr>
+                </tbody>
+            </table>`;
+    } else {
+        hadirEl.innerHTML = '';
+    }
+
+    // --- DATA KETERLAMBATAN (5-30 menit) ---
+    const telatEl = document.getElementById('pengDataTelat');
+    if (showTelat) {
+        const lateLogs = filteredLogs.filter(l => l.type === 'IN' && l.lateMinutes >= 5 && l.lateMinutes <= 30);
+        if (lateLogs.length > 0) {
+            telatEl.innerHTML = `
+                <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">B. Daftar Keterlambatan (5–30 Menit)</h4>
+                <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:12px;">
+                    <thead>
+                        <tr style="background:#fef2f2;">
+                            <th style="border:1px solid #cbd5e1; padding:6px; text-align:center; width:35px;">No</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px;">Nama</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px;">Divisi</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px; text-align:center;">Tanggal</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px; text-align:center;">Telat (Menit)</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px;">Keterangan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${lateLogs.map((l, i) => {
+                            const emp = employees.find(e => String(e.id) === String(l.empId));
+                            return `<tr>
+                                <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${i + 1}</td>
+                                <td style="border:1px solid #cbd5e1; padding:5px;">${l.name}</td>
+                                <td style="border:1px solid #cbd5e1; padding:5px;">${emp ? emp.division : '-'}</td>
+                                <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${l.date}</td>
+                                <td style="border:1px solid #cbd5e1; padding:5px; text-align:center; color:#dc2626; font-weight:700;">${l.lateMinutes}</td>
+                                <td style="border:1px solid #cbd5e1; padding:5px; font-size:10px;">${(l.note || '-').replace(/\[.*?\]\s*/g, '')}</td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>`;
+        } else {
+            telatEl.innerHTML = `<h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">B. Daftar Keterlambatan (5–30 Menit)</h4><p style="font-size:11px; color:#777; margin:0 0 12px;">Tidak ada data keterlambatan pada periode ini.</p>`;
+        }
+    } else {
+        telatEl.innerHTML = '';
+    }
+
+    // --- DATA TELAT > 30 MENIT ---
+    const telat30El = document.getElementById('pengDataTelat30');
+    if (showTelat30) {
+        const lateLogs30 = filteredLogs.filter(l => l.type === 'IN' && l.lateMinutes > 30);
+        const sectionLabel = showTelat ? 'C' : 'B';
+        if (lateLogs30.length > 0) {
+            telat30El.innerHTML = `
+                <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${sectionLabel}. Daftar Keterlambatan Lebih dari 30 Menit</h4>
+                <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:12px;">
+                    <thead>
+                        <tr style="background:#fef2f2;">
+                            <th style="border:1px solid #cbd5e1; padding:6px; text-align:center; width:35px;">No</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px;">Nama</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px;">Divisi</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px; text-align:center;">Tanggal</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px; text-align:center;">Telat (Menit)</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px;">Keterangan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${lateLogs30.map((l, i) => {
+                            const emp = employees.find(e => String(e.id) === String(l.empId));
+                            return `<tr>
+                                <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${i + 1}</td>
+                                <td style="border:1px solid #cbd5e1; padding:5px;">${l.name}</td>
+                                <td style="border:1px solid #cbd5e1; padding:5px;">${emp ? emp.division : '-'}</td>
+                                <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${l.date}</td>
+                                <td style="border:1px solid #cbd5e1; padding:5px; text-align:center; color:#dc2626; font-weight:700;">${l.lateMinutes}</td>
+                                <td style="border:1px solid #cbd5e1; padding:5px; font-size:10px;">${(l.note || '-').replace(/\[.*?\]\s*/g, '')}</td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>`;
+        } else {
+            telat30El.innerHTML = `<h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${sectionLabel}. Daftar Keterlambatan Lebih dari 30 Menit</h4><p style="font-size:11px; color:#777; margin:0 0 12px;">Tidak ada data pada periode ini.</p>`;
+        }
+    } else {
+        telat30El.innerHTML = '';
+    }
+
+    // --- DATA LEMBUR ---
+    const lemburEl = document.getElementById('pengDataLembur');
+    if (showLembur) {
+        const otLogs = filteredLogs.filter(l => l.type === 'OUT' && l.overtime > 0);
+        let sectionLabel = 'B';
+        if (showTelat && showTelat30) sectionLabel = 'D';
+        else if (showTelat || showTelat30) sectionLabel = 'C';
+
+        if (otLogs.length > 0) {
+            lemburEl.innerHTML = `
+                <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${sectionLabel}. Daftar Lembur</h4>
+                <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:12px;">
+                    <thead>
+                        <tr style="background:#fefce8;">
+                            <th style="border:1px solid #cbd5e1; padding:6px; text-align:center; width:35px;">No</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px;">Nama</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px;">Divisi</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px; text-align:center;">Tanggal</th>
+                            <th style="border:1px solid #cbd5e1; padding:6px; text-align:center;">Jam Lembur</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${otLogs.map((l, i) => {
+                            const emp = employees.find(e => String(e.id) === String(l.empId));
+                            return `<tr>
+                                <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${i + 1}</td>
+                                <td style="border:1px solid #cbd5e1; padding:5px;">${l.name}</td>
+                                <td style="border:1px solid #cbd5e1; padding:5px;">${emp ? emp.division : '-'}</td>
+                                <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${l.date}</td>
+                                <td style="border:1px solid #cbd5e1; padding:5px; text-align:center; color:#d97706; font-weight:700;">${l.overtime} Jam</td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>`;
+        } else {
+            lemburEl.innerHTML = `<h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${sectionLabel}. Daftar Lembur</h4><p style="font-size:11px; color:#777; margin:0 0 12px;">Tidak ada data lembur pada periode ini.</p>`;
+        }
+    } else {
+        lemburEl.innerHTML = '';
+    }
+
+    // Show content, hide empty state
+    document.getElementById('pengumumanContent').classList.remove('hidden');
+    document.getElementById('pengumumanEmpty').classList.add('hidden');
+}
+
+function cetakPengumuman() {
+    // Ensure preview is rendered
+    const content = document.getElementById('pengumumanContent');
+    if (content.classList.contains('hidden')) {
+        renderPengumumanPreview();
+        if (content.classList.contains('hidden')) return;
+    }
+
+    // Show kop & content for print
+    const kopEl = document.getElementById('kopSuratPengumuman');
+    kopEl.classList.remove('hidden');
+    content.classList.remove('hidden');
+
+    // Hide other tabs' printables
+    const salaryPrint = document.getElementById('printAreaSalary');
+    const origSalaryDisplay = salaryPrint ? salaryPrint.style.display : '';
+    if (salaryPrint) salaryPrint.style.display = 'none';
+
+    // Set document title for PDF filename
+    const origTitle = document.title;
+    const perihal = document.getElementById('pengPerihal')?.value || 'Pengumuman';
+    document.title = `Surat_${perihal.replace(/\s+/g, '_')}.pdf`;
+
+    window.print();
+
+    // Restore
+    setTimeout(() => {
+        document.title = origTitle;
+        kopEl.classList.add('hidden');
+        if (salaryPrint) salaryPrint.style.display = origSalaryDisplay;
+    }, 500);
+}
 
 // =============================================
 // MANUAL ATTENDANCE (Absen Manual) System

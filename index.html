@@ -582,6 +582,9 @@
                     <button onclick="switchTab('salaries')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
                         <i class="fas fa-file-invoice-dollar w-5 text-center group-hover:scale-110 transition-transform"></i> Rekap Gaji & Lembur
                     </button>
+                    <button onclick="switchTab('pengumuman')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
+                        <i class="fas fa-bullhorn w-5 text-center group-hover:scale-110 transition-transform"></i> Pengumuman
+                    </button>
                     <button onclick="switchTab('settings')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
                         <i class="fas fa-cog w-5 text-center group-hover:scale-110 transition-transform"></i> Pengaturan
                     </button>
@@ -1218,6 +1221,191 @@
                             <!-- SLIP GAJI INDIVIDUAL PER KARYAWAN (Print Only) -->
                             <div class="hidden print-only" id="slipGajiIndividual">
                                 <!-- Diisi oleh JS saat cetak -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB PENGUMUMAN -->
+                    <div id="tab-pengumuman" class="hidden animate-fade-in space-y-6">
+                        <!-- Header -->
+                        <div class="flex flex-col md:flex-row justify-between items-center bg-indigo-700 p-6 rounded-[2rem] shadow-lg shadow-indigo-600/20 text-white no-print">
+                            <div class="mb-4 md:mb-0">
+                                <h2 class="text-xl font-bold flex items-center gap-2"><i class="fas fa-bullhorn"></i> Surat Pengumuman</h2>
+                                <p class="text-indigo-200 text-xs mt-1">Cetak laporan kehadiran resmi dengan kop surat</p>
+                            </div>
+                            <button onclick="cetakPengumuman()" class="bg-white text-indigo-700 px-6 py-3 rounded-xl text-xs font-bold hover:bg-indigo-50 transition flex items-center gap-2 shadow-lg">
+                                <i class="fas fa-print"></i> Cetak PDF
+                            </button>
+                        </div>
+
+                        <!-- FORM PENGATURAN SURAT -->
+                        <div class="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm no-print">
+                            <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><i class="fas fa-sliders-h text-indigo-500"></i> Pengaturan Surat</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <!-- Periode -->
+                                <div>
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Tanggal Mulai</label>
+                                    <input type="date" id="pengTglMulai" class="input-field mt-1 w-full">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Tanggal Selesai</label>
+                                    <input type="date" id="pengTglSelesai" class="input-field mt-1 w-full">
+                                </div>
+                                <!-- No Surat & Perihal -->
+                                <div>
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Nomor Surat</label>
+                                    <input type="text" id="pengNoSurat" class="input-field mt-1 w-full" placeholder="001/SPPG-RB1/IV/2026">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Perihal / Judul Surat</label>
+                                    <input type="text" id="pengPerihal" class="input-field mt-1 w-full" placeholder="Laporan Kehadiran Relawan" value="Laporan Kehadiran Relawan">
+                                </div>
+                            </div>
+
+                            <!-- Opsi Konten -->
+                            <h4 class="font-bold text-slate-700 text-sm mt-6 mb-3">Tampilkan Data</h4>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition">
+                                    <input type="checkbox" id="pengChkHadir" checked class="w-5 h-5 rounded accent-indigo-600">
+                                    <div>
+                                        <div class="font-bold text-sm text-slate-700">Kehadiran</div>
+                                        <div class="text-[10px] text-slate-400">Daftar relawan hadir & tidak hadir</div>
+                                    </div>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition">
+                                    <input type="checkbox" id="pengChkTelat" checked class="w-5 h-5 rounded accent-indigo-600">
+                                    <div>
+                                        <div class="font-bold text-sm text-slate-700">Keterlambatan</div>
+                                        <div class="text-[10px] text-slate-400">Relawan telat 5–30 menit</div>
+                                    </div>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition">
+                                    <input type="checkbox" id="pengChkTelat30" checked class="w-5 h-5 rounded accent-indigo-600">
+                                    <div>
+                                        <div class="font-bold text-sm text-slate-700">Telat &gt; 30 Menit</div>
+                                        <div class="text-[10px] text-slate-400">Relawan telat lebih dari 30 menit</div>
+                                    </div>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition">
+                                    <input type="checkbox" id="pengChkLembur" checked class="w-5 h-5 rounded accent-indigo-600">
+                                    <div>
+                                        <div class="font-bold text-sm text-slate-700">Lembur</div>
+                                        <div class="text-[10px] text-slate-400">Relawan yang lembur</div>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <!-- Kop & TTD (wajib, disabled) -->
+                            <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <label class="flex items-center gap-3 p-3 rounded-xl bg-indigo-50 border border-indigo-200 cursor-not-allowed opacity-80">
+                                    <input type="checkbox" checked disabled class="w-5 h-5 rounded accent-indigo-600">
+                                    <div>
+                                        <div class="font-bold text-sm text-indigo-700">Kop Surat Resmi</div>
+                                        <div class="text-[10px] text-indigo-400">Wajib — tidak dapat dinonaktifkan</div>
+                                    </div>
+                                </label>
+                                <label class="flex items-center gap-3 p-3 rounded-xl bg-indigo-50 border border-indigo-200 cursor-not-allowed opacity-80">
+                                    <input type="checkbox" checked disabled class="w-5 h-5 rounded accent-indigo-600">
+                                    <div>
+                                        <div class="font-bold text-sm text-indigo-700">Tanda Tangan</div>
+                                        <div class="text-[10px] text-indigo-400">Wajib — tidak dapat dinonaktifkan</div>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <!-- Preview Button -->
+                            <button onclick="renderPengumumanPreview()" class="mt-6 w-full py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2">
+                                <i class="fas fa-eye"></i> Preview Surat
+                            </button>
+                        </div>
+
+                        <!-- PRINT AREA PENGUMUMAN -->
+                        <div class="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden" id="printAreaPengumuman">
+                            <!-- KOP SURAT -->
+                            <div class="hidden print-only" id="kopSuratPengumuman">
+                                <table style="width:100%; border-collapse:collapse; margin-bottom:0;">
+                                    <tr>
+                                        <td style="width:80px; vertical-align:middle; padding:0;">
+                                            <img src="/yayasankaryarasanusantara.png" alt="Yayasan" style="width:70px; height:70px; object-fit:contain;">
+                                        </td>
+                                        <td style="text-align:center; vertical-align:middle; padding:0 10px;">
+                                            <p style="font-size:11px; margin:0; letter-spacing:1px; color:#555;">YAYASAN KARYA RASA NUSANTARA</p>
+                                            <h2 style="font-size:18px; font-weight:800; margin:2px 0; letter-spacing:2px; color:#111;">SATUAN PELAYANAN PENYEDIAAN GIZI NASIONAL</h2>
+                                            <p style="font-size:13px; font-weight:600; margin:0; color:#333;">SPPG RAWA BUNGA 1</p>
+                                            <p style="font-size:10px; margin:4px 0 0; color:#777;">Jl. Masjid Jatinegara No.25, RT.10/RW.7, Rw. Bunga, Kec. Jatinegara, DKI Jakarta 13350</p>
+                                            <p style="font-size:10px; margin:2px 0 0; color:#777;">Telp: 085883595850 | Email: nusantarakaryarasa@gmail.com</p>
+                                        </td>
+                                        <td style="width:80px; vertical-align:middle; padding:0; text-align:right;">
+                                            <img src="https://sipgn-sipsmo-web.bgn.go.id/main/media/logos/BGN_logo_dark.png" alt="BGN" style="width:70px; height:70px; object-fit:contain;">
+                                        </td>
+                                    </tr>
+                                </table>
+                                <hr style="border:none; border-top:3px double #333; margin:8px 0 4px;">
+                                <hr style="border:none; border-top:1px solid #333; margin:0 0 16px;">
+                            </div>
+
+                            <!-- SURAT CONTENT (Preview + Print) -->
+                            <div id="pengumumanContent" class="hidden">
+                                <!-- Header surat -->
+                                <div style="text-align:center; margin-bottom:20px;">
+                                    <h3 id="pengPrintJudul" style="font-size:15px; font-weight:700; text-decoration:underline; margin:0 0 4px; letter-spacing:1px; text-transform:uppercase;"></h3>
+                                    <p id="pengPrintNoSurat" style="font-size:11px; color:#555; margin:0;"></p>
+                                </div>
+
+                                <!-- Meta surat -->
+                                <table style="font-size:12px; margin-bottom:16px; border-collapse:collapse;">
+                                    <tr><td style="padding:2px 12px 2px 0; color:#555; white-space:nowrap;">Tanggal</td><td style="padding:2px 8px;">:</td><td id="pengPrintTanggal" style="padding:2px 0;"></td></tr>
+                                    <tr><td style="padding:2px 12px 2px 0; color:#555;">Perihal</td><td style="padding:2px 8px;">:</td><td id="pengPrintPerihal" style="padding:2px 0; font-weight:600;"></td></tr>
+                                    <tr><td style="padding:2px 12px 2px 0; color:#555;">Periode</td><td style="padding:2px 8px;">:</td><td id="pengPrintPeriode" style="padding:2px 0;"></td></tr>
+                                </table>
+
+                                <!-- Salam pembuka -->
+                                <p style="font-size:12px; margin:0 0 8px; line-height:1.8;">
+                                    <i>Assalamualaikum Warahmatullahi Wabarakatuh,</i>
+                                </p>
+                                <p style="font-size:12px; margin:0 0 16px; line-height:1.8; text-align:justify;">
+                                    Dengan hormat, bersama surat ini kami sampaikan laporan rekapitulasi kehadiran relawan SPPG Rawa Bunga 1 pada periode yang tercantum di atas. Adapun rincian data kehadiran, keterlambatan, dan lembur relawan adalah sebagai berikut:
+                                </p>
+
+                                <!-- Data tables injected by JS -->
+                                <div id="pengDataHadir"></div>
+                                <div id="pengDataTelat"></div>
+                                <div id="pengDataTelat30"></div>
+                                <div id="pengDataLembur"></div>
+
+                                <!-- Penutup -->
+                                <p style="font-size:12px; margin:16px 0 0; line-height:1.8; text-align:justify;">
+                                    Demikian laporan ini kami sampaikan. Atas perhatian dan kerjasamanya kami ucapkan terima kasih.
+                                </p>
+                                <p style="font-size:12px; margin:8px 0 0;">
+                                    <i>Wassalamualaikum Warahmatullahi Wabarakatuh.</i>
+                                </p>
+
+                                <!-- TTD -->
+                                <div id="pengTtdFooter" style="margin-top:32px; padding-top:20px; border-top:1px solid #ccc;">
+                                    <p style="text-align:right; font-size:11px; color:#555; margin-bottom:24px;" id="pengPrintTtdTanggal"></p>
+                                    <table style="width:100%; border-collapse:collapse;">
+                                        <tr>
+                                            <td style="width:50%; text-align:center; vertical-align:top; padding:0 12px;">
+                                                <p style="font-size:11px; color:#555; margin:0 0 60px;">Dibuat Oleh,</p>
+                                                <p style="font-size:12px; font-weight:700; margin:0; border-bottom:1px solid #333; display:inline-block; padding-bottom:2px;">Muhammad Fikri, S. Ak.</p>
+                                                <p style="font-size:10px; color:#777; margin:4px 0 0;">Akuntan</p>
+                                            </td>
+                                            <td style="width:50%; text-align:center; vertical-align:top; padding:0 12px;">
+                                                <p style="font-size:11px; color:#555; margin:0 0 60px;">Mengetahui,</p>
+                                                <p style="font-size:12px; font-weight:700; margin:0; border-bottom:1px solid #333; display:inline-block; padding-bottom:2px;">Asrulloh, S. Kom.</p>
+                                                <p style="font-size:10px; color:#777; margin:4px 0 0;">Kepala SPPG Rawa Bunga 1</p>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Empty state -->
+                            <div id="pengumumanEmpty" class="text-center py-12 text-slate-400">
+                                <i class="fas fa-file-alt text-4xl mb-3 opacity-30"></i>
+                                <p class="font-bold text-sm">Belum ada preview surat</p>
+                                <p class="text-xs mt-1">Atur periode & opsi di atas, lalu klik "Preview Surat"</p>
                             </div>
                         </div>
                     </div>
