@@ -2401,34 +2401,81 @@ function toggleDarkMode(on) {
 // =============================================
 // PENGUMUMAN (Surat Pengumuman) System
 // =============================================
-const pengExcludedDates = new Set();
+const pengExcludedDates = []; // [{date: 'YYYY-MM-DD', divisions: Set<string>}]
+
+function renderExcludeDivCheckboxes() {
+    const container = document.getElementById('pengExcludeDivChecks');
+    if (!container) return;
+    const divs = [...new Set(employees.map(e => e.division).filter(Boolean))].sort();
+    container.innerHTML = divs.map(d =>
+        `<label class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 text-slate-700 text-[11px] cursor-pointer hover:bg-slate-200 transition select-none">
+            <input type="checkbox" class="pengExcDivChk accent-red-500 w-3.5 h-3.5" value="${d}" checked> ${d}
+        </label>`
+    ).join('');
+}
+
+function toggleAllExcludeDivs(state) {
+    document.querySelectorAll('.pengExcDivChk').forEach(c => c.checked = state);
+}
 
 function addExcludedDate() {
     const input = document.getElementById('pengExcludeDate');
     const val = input?.value;
     if (!val) return;
-    pengExcludedDates.add(val);
+    const checkedDivs = [...document.querySelectorAll('.pengExcDivChk:checked')].map(c => c.value);
+    if (checkedDivs.length === 0) return showToast('Pilih minimal 1 divisi untuk dikecualikan.', 'error');
+    // Check if date already exists, merge divisions
+    const existing = pengExcludedDates.find(e => e.date === val);
+    if (existing) {
+        checkedDivs.forEach(d => existing.divisions.add(d));
+    } else {
+        pengExcludedDates.push({ date: val, divisions: new Set(checkedDivs) });
+    }
     input.value = '';
     renderExcludedList();
 }
 
 function removeExcludedDate(date) {
-    pengExcludedDates.delete(date);
+    const idx = pengExcludedDates.findIndex(e => e.date === date);
+    if (idx !== -1) pengExcludedDates.splice(idx, 1);
     renderExcludedList();
+}
+
+function removeExcludedDiv(date, div) {
+    const entry = pengExcludedDates.find(e => e.date === date);
+    if (!entry) return;
+    entry.divisions.delete(div);
+    if (entry.divisions.size === 0) {
+        pengExcludedDates.splice(pengExcludedDates.indexOf(entry), 1);
+    }
+    renderExcludedList();
+}
+
+function isDateExcludedForDiv(date, division) {
+    const entry = pengExcludedDates.find(e => e.date === date);
+    if (!entry) return false;
+    return entry.divisions.has(division);
 }
 
 function renderExcludedList() {
     const container = document.getElementById('pengExcludedList');
     if (!container) return;
     const dayNames = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-    const sorted = [...pengExcludedDates].sort();
-    container.innerHTML = sorted.map(d => {
-        const dt = new Date(d + 'T00:00:00');
-        const label = `${dayNames[dt.getDay()]}, ${dt.getDate()}/${dt.getMonth() + 1}/${dt.getFullYear()}`;
-        return `<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
-            ${label}
-            <button onclick="removeExcludedDate('${d}')" class="ml-1 text-red-400 hover:text-red-700">&times;</button>
-        </span>`;
+    const sorted = [...pengExcludedDates].sort((a, b) => a.date.localeCompare(b.date));
+    container.innerHTML = sorted.map(entry => {
+        const dt = new Date(entry.date + 'T00:00:00');
+        const dateLabel = `${dayNames[dt.getDay()]}, ${dt.getDate()}/${dt.getMonth() + 1}/${dt.getFullYear()}`;
+        const divTags = [...entry.divisions].sort().map(d =>
+            `<span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded bg-red-50 text-red-600 text-[10px] font-medium">
+                ${d} <button onclick="removeExcludedDiv('${entry.date}','${d}')" class="text-red-300 hover:text-red-600 ml-0.5">&times;</button>
+            </span>`
+        ).join('');
+        return `<div class="flex flex-wrap items-center gap-2 p-2 rounded-xl bg-red-50 border border-red-200">
+            <span class="font-bold text-red-700 text-xs">${dateLabel}</span>
+            <span class="text-slate-400 text-[10px]">—</span>
+            ${divTags}
+            <button onclick="removeExcludedDate('${entry.date}')" class="ml-auto text-red-400 hover:text-red-700 text-xs font-bold" title="Hapus semua"><i class="fas fa-trash-alt"></i></button>
+        </div>`;
     }).join('');
 }
 
@@ -2440,6 +2487,7 @@ function initPengumumanTab() {
     const selesaiEl = document.getElementById('pengTglSelesai');
     if (mulaiEl && !mulaiEl.value) mulaiEl.value = getLocalDateStr(twoWeeksAgo);
     if (selesaiEl && !selesaiEl.value) selesaiEl.value = getLocalDateStr(today);
+    renderExcludeDivCheckboxes();
 }
 
 function renderPengumumanPreview() {
@@ -2493,7 +2541,7 @@ function renderPengumumanPreview() {
     function getWorkDatesForDiv(division) {
         const days = getWorkDaysForDiv(division);
         return allDatesInPeriod
-            .filter(d => days.includes(d.day) && !getHoliday(d.date) && !pengExcludedDates.has(d.date))
+            .filter(d => days.includes(d.day) && !getHoliday(d.date) && !isDateExcludedForDiv(d.date, division))
             .map(d => d.date);
     }
 

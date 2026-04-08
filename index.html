@@ -1303,15 +1303,22 @@
                             </div>
 
                             <!-- Tanggal Dikecualikan -->
-                            <h4 class="font-bold text-slate-700 text-sm mt-6 mb-2">Tanggal Dikecualikan</h4>
-                            <p class="text-[10px] text-slate-400 mb-3">Tanggal yang tidak dihitung sebagai hari kerja (selain Jumat-Sabtu untuk Cook/Helper/Chef, Minggu untuk divisi lain, dan libur nasional).</p>
-                            <div class="flex gap-2 mb-3">
-                                <input type="date" id="pengExcludeDate" class="input-field flex-1">
-                                <button onclick="addExcludedDate()" class="px-4 py-2 rounded-xl bg-red-500 text-white text-xs font-bold hover:bg-red-600 transition flex items-center gap-1">
-                                    <i class="fas fa-plus"></i> Tambah
-                                </button>
+                            <h4 class="font-bold text-slate-700 text-sm mt-6 mb-2">Tanggal &amp; Divisi Dikecualikan</h4>
+                            <p class="text-[10px] text-slate-400 mb-3">Pilih tanggal dan centang divisi yang dikecualikan pada hari tersebut. Divisi yang dicentang tidak dihitung hadir/tidak hadir di tanggal itu.</p>
+                            <div class="flex flex-col gap-2 mb-3">
+                                <div class="flex gap-2">
+                                    <input type="date" id="pengExcludeDate" class="input-field flex-1">
+                                    <button onclick="addExcludedDate()" class="px-4 py-2 rounded-xl bg-red-500 text-white text-xs font-bold hover:bg-red-600 transition flex items-center gap-1">
+                                        <i class="fas fa-plus"></i> Tambah
+                                    </button>
+                                </div>
+                                <div id="pengExcludeDivChecks" class="flex flex-wrap gap-2 mt-1"></div>
+                                <div class="flex gap-2">
+                                    <button onclick="toggleAllExcludeDivs(true)" class="text-[10px] text-blue-600 hover:underline cursor-pointer">Pilih Semua</button>
+                                    <button onclick="toggleAllExcludeDivs(false)" class="text-[10px] text-slate-400 hover:underline cursor-pointer">Hapus Semua</button>
+                                </div>
                             </div>
-                            <div id="pengExcludedList" class="flex flex-wrap gap-2"></div>
+                            <div id="pengExcludedList" class="flex flex-col gap-2"></div>
 
                             <!-- Kop & TTD (wajib, disabled) -->
                             <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
