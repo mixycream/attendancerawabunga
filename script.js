@@ -2197,10 +2197,9 @@ function openModalList(title, mode, filterParam = null) {
         } else if (mode === 'present') {
             document.getElementById('activeModalSubtitle').innerText = `Kehadiran ${today}`;
             const todayInLogs = logs.filter(l => l.date === today && l.type === 'IN');
-            const todayOutIds = new Set(logs.filter(l => l.date === today && l.type === 'OUT').map(l => l.empId));
             filtered = todayInLogs.map(log => {
                 const emp = employees.find(e => e.id === log.empId);
-                return emp ? { ...emp, inTime: log.time, status: 'present', hasOut: todayOutIds.has(log.empId) } : null;
+                return emp ? { ...emp, inTime: log.time, status: 'present' } : null;
             }).filter(e => e);
         } else if (mode === 'overtime') {
             document.getElementById('activeModalSubtitle').innerText = `Lembur ${today}`;
@@ -2233,9 +2232,7 @@ function openModalList(title, mode, filterParam = null) {
                 statusBadge = '<span class="bg-emerald-100 text-emerald-600 text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse">Sedang Bekerja</span>';
                 timeInfo = `<div class="font-mono font-bold text-emerald-600 text-sm">${hrs}j ${mins}m ${secs}d</div>`; 
             } else if (mode === 'present') {
-                statusBadge = w.hasOut
-                    ? '<span class="bg-emerald-100 text-emerald-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Sudah Out</span>'
-                    : '<span class="bg-blue-100 text-blue-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Hadir</span>';
+                statusBadge = '<span class="bg-blue-100 text-blue-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Hadir</span>';
                 timeInfo = `<div class="text-[10px] text-slate-400">Masuk: <span class="font-bold text-slate-700">${w.inTime}</span></div>`;
             } else if (mode === 'overtime') {
                 statusBadge = '<span class="bg-amber-100 text-amber-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Lembur</span>';
@@ -2246,16 +2243,21 @@ function openModalList(title, mode, filterParam = null) {
             } else {
                 statusBadge = `<span class="bg-slate-100 text-slate-500 text-[10px] px-2 py-0.5 rounded-full font-bold">ID: ${w.id}</span>`;
             }
-            const adminBtns = (mode === 'present') ? `
-                <div class="flex gap-1 mt-2">
-                    ${!w.hasOut ? `<button onclick="adminClockOut(${w.id}, '${w.name.replace(/'/g, "\\'")}''); event.stopPropagation();" class="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold transition active:scale-95"><i class="fas fa-sign-out-alt"></i> Out</button>` : ''}
-                    <button onclick="adminDeleteTodayAttendance(${w.id}, '${w.name.replace(/'/g, "\\'")}''); event.stopPropagation();" class="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold transition active:scale-95"><i class="fas fa-trash-alt"></i> Hapus</button>
-                </div>` : '';
+            let actionBtns = '';
+            if (mode === 'active') {
+                actionBtns = `<div class="flex gap-1.5 mt-2">
+                    <button onclick="adminClockOut('${w.id}','${w.name}')" class="px-2.5 py-1 rounded-lg bg-blue-500 text-white text-[10px] font-bold hover:bg-blue-600 transition"><i class="fas fa-sign-out-alt mr-1"></i>Absen Out</button>
+                    <button onclick="adminDeleteAbsen('${w.id}','${w.name}')" class="px-2.5 py-1 rounded-lg bg-red-500 text-white text-[10px] font-bold hover:bg-red-600 transition"><i class="fas fa-trash-alt mr-1"></i>Hapus Absen</button>
+                </div>`;
+            }
             return `
-            <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                <div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-400"><i class="fas fa-user"></i></div>
-                <div class="flex-1"><div class="font-bold text-sm text-slate-800">${w.name}</div><div class="flex items-center gap-2 mt-0.5">${statusBadge}</div>${adminBtns}</div>
-                <div class="text-right">${timeInfo}</div>
+            <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-400"><i class="fas fa-user"></i></div>
+                    <div class="flex-1"><div class="font-bold text-sm text-slate-800">${w.name}</div><div class="flex items-center gap-2 mt-0.5">${statusBadge}</div></div>
+                    <div class="text-right">${timeInfo}</div>
+                </div>
+                ${actionBtns}
             </div>`;
         }).join('') : '<div class="text-center text-slate-400 py-10">Tidak ada data.</div>';
     };
@@ -2265,60 +2267,60 @@ function openModalList(title, mode, filterParam = null) {
     if(activeWorkerTimer) clearInterval(activeWorkerTimer);
     if(mode === 'active') activeWorkerTimer = setInterval(render, 1000); 
 }
+async function adminClockOut(empId, empName) {
+    if (!confirm(`Absen OUT untuk ${empName}? Waktu OUT akan dicatat sekarang oleh Admin.`)) return;
+    const now = new Date();
+    const date = getLocalDateStr(now);
+    const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const emp = employees.find(e => String(e.id) === String(empId));
+    const shift = emp ? (appConfig.shifts?.[emp.division] || null) : null;
+    let overtime = 0;
+    if (shift) {
+        const endParts = shift.end.split(':').map(Number);
+        let endMin = endParts[0] * 60 + endParts[1];
+        const nowMin = now.getHours() * 60 + now.getMinutes();
+        // overnight shift
+        if (shift.start > shift.end) endMin += 1440;
+        const diff = nowMin - (shift.start > shift.end && nowMin < endMin - 1440 ? endMin - 1440 : endMin);
+        if (diff >= 60) overtime = Math.floor(diff / 60);
+    }
+    try {
+        await postData('attendance', {
+            empId, name: empName, type: 'OUT', date, forcedTime: time,
+            overtime, note: '[Admin OUT]', absentBy: 'Admin'
+        });
+        // Update local logs
+        logs.push({ empId, name: empName, type: 'OUT', date, time: time + ':00', overtime, lateMinutes: 0, note: '[Admin OUT]', absentBy: 'Admin' });
+        refreshUI();
+        showToast(`${empName} berhasil Absen OUT oleh Admin`, 'success');
+    } catch (err) {
+        showToast('Gagal absen OUT: ' + err.message, 'error');
+    }
+}
+
+async function adminDeleteAbsen(empId, empName) {
+    if (!confirm(`HAPUS semua absen hari ini untuk ${empName}?\nData IN & OUT hari ini akan dihapus dari database.`)) return;
+    const today = getLocalDateStr();
+    try {
+        await postData('deleteAttendanceByEmpDate', { empId, date: today });
+        // Remove from local logs
+        const before = logs.length;
+        for (let i = logs.length - 1; i >= 0; i--) {
+            if (String(logs[i].empId) === String(empId) && logs[i].date === today) logs.splice(i, 1);
+        }
+        refreshUI();
+        showToast(`Absen ${empName} hari ini dihapus (${before - logs.length} record)`, 'success');
+    } catch (err) {
+        showToast('Gagal hapus absen: ' + err.message, 'error');
+    }
+}
+
 function closeActiveWorkers() {
     const modal = document.getElementById('activeWorkersModal');
     modal.classList.add('opacity-0');
     setTimeout(() => modal.classList.add('hidden'), 300);
     if(activeWorkerTimer) clearInterval(activeWorkerTimer);
 }
-
-async function adminClockOut(empId, empName) {
-    if (!confirm(`Absen OUT untuk ${empName} hari ini?`)) return;
-    const today = getLocalDateStr();
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
-    const emp = employees.find(e => e.id === empId);
-    const shift = emp ? appConfig.shifts[emp.division] : null;
-    let overtime = 0;
-    if (shift && shift.end) {
-        const [sh, sm] = shift.end.split(':').map(Number);
-        const shiftEndMin = sh * 60 + sm;
-        const nowMin = now.getHours() * 60 + now.getMinutes();
-        const diffMin = nowMin - shiftEndMin;
-        if (diffMin >= 60) overtime = Math.floor(diffMin / 60);
-    }
-    try {
-        const res = await postData('attendance', {
-            date: today, time: timeStr, empId: empId, name: empName,
-            type: 'OUT', image: '', overtime: overtime, location: 'Admin',
-            lateMinutes: 0, note: '[Admin OUT]', absentBy: 'Admin'
-        });
-        if (res && res.status === 'success') {
-            logs.push({ date: today, time: timeStr, empId, name: empName, type: 'OUT', photo: '', overtime, location: 'Admin', lateMinutes: 0, note: '[Admin OUT]' });
-            refreshUI();
-            showPresentVolunteers();
-            showToast(`${empName} berhasil di-OUT oleh Admin.`, 'success');
-        }
-    } catch (e) { showToast('Gagal absen OUT: ' + e.message, 'error'); }
-}
-
-async function adminDeleteTodayAttendance(empId, empName) {
-    if (!confirm(`Hapus SEMUA absensi ${empName} hari ini? (IN & OUT)\nData akan dihapus dari database.`)) return;
-    const today = getLocalDateStr();
-    try {
-        const res = await postData('deleteAttendanceByEmpDate', { empId, date: today });
-        if (res && res.status === 'success') {
-            // Remove from local logs
-            for (let i = logs.length - 1; i >= 0; i--) {
-                if (String(logs[i].empId) === String(empId) && logs[i].date === today) logs.splice(i, 1);
-            }
-            refreshUI();
-            showPresentVolunteers();
-            showToast(`Absensi ${empName} hari ini berhasil dihapus.`, 'success');
-        }
-    } catch (e) { showToast('Gagal hapus absensi: ' + e.message, 'error'); }
-}
-
 // UI Helpers
 function toggleSidebar() {
     const sb = document.getElementById('sidebar');
