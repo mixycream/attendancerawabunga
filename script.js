@@ -476,6 +476,7 @@ async function fetchData(force = false) {
                 }
 
                 refreshUI();
+                autoClockOutForgotten(); // Auto OUT relawan yang lupa
                 if (force && triggerBtn) {
                     setSyncButtonLoading(triggerBtn, false);
                     showSyncSuccess(triggerBtn);
@@ -999,22 +1000,9 @@ function renderSalary(filteredLogsOverride) {
     
     let salaryData = employees.map(e => {
         const empLogs = useLogs.filter(l => l.empId === e.id);
-        // Count days only where employee has BOTH IN and OUT (completed shift)
+        // Count days where employee has IN (each unique IN date = 1 work day)
         const inDates = new Set(empLogs.filter(l => l.type === 'IN').map(l => l.date));
-        const outDates = new Set(empLogs.filter(l => l.type === 'OUT').map(l => l.date));
-        // For overnight shifts, OUT date is next day — also check if previous day had IN
-        const allOutDates = empLogs.filter(l => l.type === 'OUT').map(l => l.date);
-        let days = 0;
-        inDates.forEach(d => {
-            if (outDates.has(d)) { days++; return; }
-            // Check if next day has OUT (overnight shift)
-            const next = new Date(d + 'T00:00:00');
-            next.setDate(next.getDate() + 1);
-            const yyyy = next.getFullYear();
-            const mm = String(next.getMonth() + 1).padStart(2, '0');
-            const dd = String(next.getDate()).padStart(2, '0');
-            if (allOutDates.includes(`${yyyy}-${mm}-${dd}`)) days++;
-        });
+        let days = inDates.size;
         
         let totalOvertimeHours = 0;
         let totalLateCount = 0; 
@@ -2313,6 +2301,72 @@ async function adminDeleteAbsen(empId, empName) {
     } catch (err) {
         showToast('Gagal hapus absen: ' + err.message, 'error');
     }
+}
+
+// Auto Clock-Out: relawan yang lupa absen OUT
+// Cook: >13 jam, Lainnya (non-Security): >12 jam
+// Waktu OUT = jam shift end, Lokasi = sama dengan IN
+async function autoClockOutForgotten() {
+    const now = new Date();
+    const stuckWorkers = employees.map(emp => {
+        const role = emp.role || inferRoleFromDivision(emp.division);
+        // Skip security
+        if (role === 'security') return null;
+
+        const sortedLogs = logs
+            .filter(l => String(l.empId) === String(emp.id))
+            .sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+        if (sortedLogs.length === 0 || sortedLogs[0].type !== 'IN') return null;
+
+        const lastIN = sortedLogs[0];
+        const inTime = new Date(`${lastIN.date}T${lastIN.time}`);
+        const diffHours = (now - inTime) / 3600000;
+
+        const div = (emp.division || '').toLowerCase();
+        const isCook = div === 'cook';
+        const maxHours = isCook ? 13 : 12;
+
+        if (diffHours < maxHours) return null;
+
+        return { emp, lastIN, diffHours };
+    }).filter(Boolean);
+
+    if (stuckWorkers.length === 0) return;
+
+    console.log(`[AutoClockOut] ${stuckWorkers.length} relawan lupa OUT:`, stuckWorkers.map(w => w.emp.name));
+
+    for (const { emp, lastIN } of stuckWorkers) {
+        const shift = appConfig.shifts?.[emp.division];
+        let outTime = shift ? shift.end : '17:00';
+        const outDate = lastIN.date;
+        const location = lastIN.location || '';
+
+        try {
+            await postData('attendance', {
+                empId: emp.id,
+                name: emp.name,
+                type: 'OUT',
+                date: outDate,
+                forcedTime: outTime,
+                overtime: 0,
+                location,
+                note: '[Auto OUT - Lupa Absen]',
+                absentBy: 'Admin'
+            });
+            logs.push({
+                empId: emp.id, name: emp.name, type: 'OUT',
+                date: outDate, time: outTime + ':00',
+                overtime: 0, lateMinutes: 0,
+                location, note: '[Auto OUT - Lupa Absen]', absentBy: 'Admin'
+            });
+            console.log(`[AutoClockOut] ${emp.name} auto OUT at ${outTime} on ${outDate}`);
+        } catch (err) {
+            console.error(`[AutoClockOut] Failed for ${emp.name}:`, err);
+        }
+    }
+
+    refreshUI();
+    showToast(`${stuckWorkers.length} relawan di-auto OUT (lupa absen)`, 'info');
 }
 
 function closeActiveWorkers() {
