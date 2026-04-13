@@ -248,8 +248,8 @@ window.onload = () => {
             document.getElementById('loginView').classList.add('hidden');
             fetchData(true);
             if (currentUser.role === 'nutritionist') initNutritionist();
-            else if (['accountant', 'warehouse', 'admin_warehouse', 'head_sppg', 'foundation'].includes(currentUser.role)) initSpecialRoleDashboard();
-            else if (currentUser.role === 'employee') initVolunteer();
+            else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(currentUser.role)) initSpecialRoleDashboard();
+            else if (currentUser.role === 'employee' || currentUser.role === 'admin_warehouse') initVolunteer();
             else initAdmin();
             startSessionTimer();
         }
@@ -320,8 +320,8 @@ async function handleLogin(e) {
         await fetchData(true);
         if (user.role === 'security') initSecurity();
         else if (user.role === 'nutritionist') initNutritionist();
-        else if (['accountant', 'warehouse', 'admin_warehouse', 'head_sppg', 'foundation'].includes(user.role)) initSpecialRoleDashboard();
-        else if (user.role === 'employee') initVolunteer();
+        else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(user.role)) initSpecialRoleDashboard();
+        else if (user.role === 'employee' || user.role === 'admin_warehouse') initVolunteer();
         else initAdmin();
         startSessionTimer();
 
@@ -605,7 +605,7 @@ function refreshUI() {
         return;
     }
 
-    if (['accountant', 'warehouse', 'admin_warehouse', 'head_sppg', 'foundation'].includes(currentUser.role)) {
+    if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(currentUser.role)) {
         renderSpecialRoleDashboard();
         return;
     }
@@ -2044,7 +2044,7 @@ function toggleCamera() { const newMode = currentFacingMode === 'user' ? 'enviro
 function openConfigModal() {
     const list = document.getElementById('configList');
     list.innerHTML = '';
-    const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2", "Cuci Ompreng", "Leader Ompreng", "Leader Packing", "Leader Helper Cook", "Admin Yayasan"];
+    const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Admin Gudang", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2", "Cuci Ompreng", "Leader Ompreng", "Leader Packing", "Leader Helper Cook", "Admin Yayasan"];
     orderedKeys.forEach(key => {
         const shiftData = appConfig.shifts[key] || { start: "00:00", end: "08:00" };
         const startVal = typeof shiftData === 'string' ? shiftData : shiftData.start; 
