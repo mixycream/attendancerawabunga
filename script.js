@@ -1,11 +1,12 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxxxc1GDSOoHb3Qr5_UY3veOJlsTtMR0hSNcDmjGptef_A52QQnaAVitb7IsDJ4ggck/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwbrLbxUk1RfI-5yXwXwjGft_gYnSU0nJm5VuuvoTzDJoV5XCzmaYX8C3SvEqJgRxhz/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
     'Ahli Gizi': 'nutritionist',
     'Akuntan': 'accountant',
+    'Admin Gudang': 'admin_warehouse',
     'Gudang': 'warehouse',
     'Ka SPPG': 'head_sppg',
     'Yayasan': 'foundation',
@@ -18,6 +19,7 @@ const ROLE_LABELS = {
     security: 'Security',
     nutritionist: 'Ahli Gizi',
     accountant: 'Akuntan',
+    admin_warehouse: 'Admin Gudang',
     warehouse: 'Gudang',
     head_sppg: 'Ka SPPG',
     foundation: 'Yayasan'
@@ -28,6 +30,7 @@ function inferRoleFromDivision(division) {
     if (normalized.includes('keamanan')) return 'security';
     if (normalized.includes('ahli gizi') || normalized.includes('ahligizi')) return 'nutritionist';
     if (normalized.includes('akuntan')) return 'accountant';
+    if (normalized.includes('admin gudang')) return 'admin_warehouse';
     if (normalized.includes('gudang')) return 'warehouse';
     if (normalized.includes('ka sppg') || normalized.includes('kasppg')) return 'head_sppg';
     if (normalized.includes('admin yayasan')) return 'foundation';
@@ -245,7 +248,7 @@ window.onload = () => {
             document.getElementById('loginView').classList.add('hidden');
             fetchData(true);
             if (currentUser.role === 'nutritionist') initNutritionist();
-            else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(currentUser.role)) initSpecialRoleDashboard();
+            else if (['accountant', 'warehouse', 'admin_warehouse', 'head_sppg', 'foundation'].includes(currentUser.role)) initSpecialRoleDashboard();
             else if (currentUser.role === 'employee') initVolunteer();
             else initAdmin();
             startSessionTimer();
@@ -317,7 +320,7 @@ async function handleLogin(e) {
         await fetchData(true);
         if (user.role === 'security') initSecurity();
         else if (user.role === 'nutritionist') initNutritionist();
-        else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(user.role)) initSpecialRoleDashboard();
+        else if (['accountant', 'warehouse', 'admin_warehouse', 'head_sppg', 'foundation'].includes(user.role)) initSpecialRoleDashboard();
         else if (user.role === 'employee') initVolunteer();
         else initAdmin();
         startSessionTimer();
@@ -602,7 +605,7 @@ function refreshUI() {
         return;
     }
 
-    if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(currentUser.role)) {
+    if (['accountant', 'warehouse', 'admin_warehouse', 'head_sppg', 'foundation'].includes(currentUser.role)) {
         renderSpecialRoleDashboard();
         return;
     }
