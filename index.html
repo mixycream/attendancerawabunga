@@ -38,10 +38,10 @@
         }
     </script>
 </head>
-<body class="text-slate-800 h-screen overflow-hidden flex flex-col bg-slate-50 font-sans antialiased selection:bg-blue-600 selection:text-white">
+<body class="text-slate-800 h-screen overflow-hidden flex flex-col clay-bg font-sans antialiased selection:bg-blue-600 selection:text-white">
 
     <!-- GLOBAL LOADER -->
-    <div id="globalLoader" class="fixed inset-0 z-[300] bg-white/90 backdrop-blur-md flex flex-col items-center justify-center hidden transition-opacity duration-300">
+    <div id="globalLoader" class="fixed inset-0 z-[300] clay-bg flex flex-col items-center justify-center hidden transition-opacity duration-300">
         <div class="relative">
             <div class="w-16 h-16 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
             <div class="absolute inset-0 flex items-center justify-center text-blue-600"><i class="fas fa-cloud"></i></div>
@@ -50,16 +50,16 @@
     </div>
 
     <!-- CETAK PDF OPTIONS MODAL -->
-    <div id="cetakModal" class="fixed inset-0 z-[280] bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
-        <div class="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden animate-zoom-in">
-            <div class="p-6 border-b border-slate-100 bg-gradient-to-r from-blue-600 to-blue-800 text-white">
+    <div id="cetakModal" class="fixed inset-0 z-[280] bg-slate-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+        <div class="clay-modal w-full max-w-md overflow-hidden animate-zoom-in p-0">
+            <div class="p-6 border-b border-slate-100/50 bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-t-[36px]">
                 <h3 class="font-bold text-lg"><i class="fas fa-print mr-2"></i>Opsi Cetak Rekap Gaji</h3>
                 <p class="text-xs text-blue-100 mt-1">Pilih komponen yang ingin ditampilkan di PDF</p>
             </div>
             <div class="p-6 space-y-3">
                 <!-- PERIODE TANGGAL -->
-                <div class="p-3 rounded-xl bg-blue-50 border border-blue-200">
-                    <div class="font-bold text-sm text-blue-800 mb-2"><i class="fas fa-calendar-alt mr-1"></i>Periode Gaji</div>
+                <div class="p-4 rounded-2xl clay-inset">
+                    <div class="font-bold text-sm text-blue-600 mb-3"><i class="fas fa-calendar-alt mr-2"></i>Periode Gaji</div>
                     <div class="flex gap-2 items-center">
                         <div class="flex-1">
                             <label class="text-[10px] text-slate-500 font-bold">Dari Tanggal</label>
@@ -72,49 +72,49 @@
                         </div>
                     </div>
                 </div>
-                <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition group">
-                    <input type="checkbox" id="chkTabelRekap" checked disabled class="w-5 h-5 rounded accent-blue-600">
+                <label class="flex items-center gap-3 p-4 rounded-2xl clay-inset cursor-pointer hover:shadow-md transition group">
+                    <input type="checkbox" id="chkTabelRekap" checked disabled class="clay-checkbox">
                     <div>
                         <div class="font-bold text-sm text-slate-700">Tabel Rekap Keseluruhan</div>
                         <div class="text-[10px] text-slate-400">Tabel utama gaji semua relawan (wajib)</div>
                     </div>
                 </label>
-                <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition group">
-                    <input type="checkbox" id="chkRincianLembur" checked class="w-5 h-5 rounded accent-blue-600">
+                <label class="flex items-center gap-3 p-4 rounded-2xl clay-inset cursor-pointer hover:shadow-md transition group">
+                    <input type="checkbox" id="chkRincianLembur" checked class="clay-checkbox">
                     <div>
                         <div class="font-bold text-sm text-slate-700">Rincian Perhitungan Lembur</div>
                         <div class="text-[10px] text-slate-400">Detail lembur per relawan per tanggal</div>
                     </div>
                 </label>
-                <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition group">
-                    <input type="checkbox" id="chkRincianTelat" checked class="w-5 h-5 rounded accent-blue-600">
+                <label class="flex items-center gap-3 p-4 rounded-2xl clay-inset cursor-pointer hover:shadow-md transition group">
+                    <input type="checkbox" id="chkRincianTelat" checked class="clay-checkbox">
                     <div>
                         <div class="font-bold text-sm text-slate-700">Rincian Keterlambatan</div>
                         <div class="text-[10px] text-slate-400">Detail keterlambatan per relawan per tanggal</div>
                     </div>
                 </label>
-                <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition group">
-                    <input type="checkbox" id="chkSlipIndividual" checked class="w-5 h-5 rounded accent-blue-600">
+                <label class="flex items-center gap-3 p-4 rounded-2xl clay-inset cursor-pointer hover:shadow-md transition group">
+                    <input type="checkbox" id="chkSlipIndividual" checked class="clay-checkbox">
                     <div>
                         <div class="font-bold text-sm text-slate-700">Slip Gaji Individual</div>
                         <div class="text-[10px] text-slate-400">1 halaman per relawan (slip terpisah)</div>
                     </div>
                 </label>
-                <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition group">
-                    <input type="checkbox" id="chkKopSurat" checked class="w-5 h-5 rounded accent-blue-600">
+                <label class="flex items-center gap-3 p-4 rounded-2xl clay-inset cursor-pointer hover:shadow-md transition group">
+                    <input type="checkbox" id="chkKopSurat" checked class="clay-checkbox">
                     <div>
                         <div class="font-bold text-sm text-slate-700">Kop Surat & Tanda Tangan</div>
                         <div class="text-[10px] text-slate-400">Header resmi + TTD Akuntan, Ka SPPG, Yayasan</div>
                     </div>
                 </label>
             </div>
-            <div class="p-4 border-t border-slate-100 bg-slate-50 space-y-2">
-                <button onclick="downloadRekapData()" id="btnDownloadRekap" class="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2">
+            <div class="p-6 border-t border-slate-100/50 clay-bg space-y-3">
+                <button onclick="downloadRekapData()" id="btnDownloadRekap" class="w-full py-4 rounded-2xl clay-btn-success text-white font-bold text-sm flex items-center justify-center gap-2">
                     <i class="fas fa-file-archive"></i> Download Data Rekap (.zip)
                 </button>
                 <div class="flex gap-3">
-                    <button onclick="closeCetakModal()" class="flex-1 py-3 rounded-xl bg-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-300 transition">Batal</button>
-                    <button onclick="confirmCetakGaji()" class="flex-1 py-3 rounded-xl bg-blue-700 text-white font-bold text-sm hover:bg-blue-800 transition shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2">
+                    <button onclick="closeCetakModal()" class="flex-1 py-4 rounded-2xl clay-btn text-slate-600 font-bold text-sm">Batal</button>
+                    <button onclick="confirmCetakGaji()" class="flex-1 py-4 rounded-2xl clay-btn-primary text-white font-bold text-sm flex items-center justify-center gap-2">
                         <i class="fas fa-print"></i> Cetak Sekarang
                     </button>
                 </div>
@@ -153,9 +153,9 @@
     </div>
 
     <!-- LATE ALERT MODAL -->
-    <div id="lateAlertModal" class="fixed inset-0 z-[290] bg-red-900/80 backdrop-blur-sm hidden flex items-center justify-center p-6 transition-opacity duration-300 opacity-0">
-        <div class="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-6 text-center animate-zoom-in">
-            <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+    <div id="lateAlertModal" class="fixed inset-0 z-[290] bg-red-900/60 backdrop-blur-sm hidden flex items-center justify-center p-6 transition-opacity duration-300 opacity-0">
+        <div class="clay-modal w-full max-w-sm p-8 text-center animate-zoom-in">
+            <div class="w-16 h-16 clay-icon-box text-red-500 mx-auto mb-5">
                 <i class="fas fa-exclamation-triangle"></i>
             </div>
             <h3 class="text-xl font-extrabold text-slate-800">Relawan Terlambat!</h3>
@@ -167,16 +167,16 @@
                 <textarea id="lateNoteInput" rows="2" class="input-field mt-1 resize-none" placeholder="Contoh: Ban bocor, Macet parah..." oninput="document.getElementById('lateNoteWarn').classList.add('hidden')"></textarea>
                 <p id="lateNoteWarn" class="hidden text-[11px] text-red-500 font-semibold mt-1 ml-1"><i class="fas fa-exclamation-circle mr-1"></i>Wajib diisi alasan keterlambatan.</p>
             </div>
-            <button onclick="submitLateReason()" class="w-full py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition shadow-lg shadow-red-500/30">
+            <button onclick="submitLateReason()" class="w-full py-4 rounded-2xl clay-btn-danger text-white font-bold">
                 Kirim Laporan & Lanjutkan
             </button>
         </div>
     </div>
 
     <!-- EARLY OUT ALERT MODAL -->
-    <div id="earlyOutModal" class="fixed inset-0 z-[290] bg-purple-900/80 backdrop-blur-sm hidden flex items-center justify-center p-6 transition-opacity duration-300 opacity-0">
-        <div class="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-6 text-center animate-zoom-in">
-            <div class="w-16 h-16 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+    <div id="earlyOutModal" class="fixed inset-0 z-[290] bg-purple-900/60 backdrop-blur-sm hidden flex items-center justify-center p-6 transition-opacity duration-300 opacity-0">
+        <div class="clay-modal w-full max-w-sm p-8 text-center animate-zoom-in">
+            <div class="w-16 h-16 clay-icon-box text-purple-500 mx-auto mb-5">
                 <i class="fas fa-door-open"></i>
             </div>
             <h3 class="text-xl font-extrabold text-slate-800">Pulang Lebih Awal</h3>
@@ -188,7 +188,7 @@
                 <textarea id="earlyNoteInput" rows="2" class="input-field mt-1 resize-none" placeholder="Contoh: Urusan keluarga, Sakit..." oninput="document.getElementById('earlyNoteWarn').classList.add('hidden')"></textarea>
                 <p id="earlyNoteWarn" class="hidden text-[11px] text-purple-500 font-semibold mt-1 ml-1"><i class="fas fa-exclamation-circle mr-1"></i>Wajib diisi alasan pulang awal.</p>
             </div>
-            <button onclick="submitEarlyReason()" class="w-full py-3 rounded-xl bg-purple-600 text-white font-bold hover:bg-purple-700 transition shadow-lg shadow-purple-500/30">
+            <button onclick="submitEarlyReason()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-500 to-violet-600 text-white font-bold shadow-lg shadow-purple-500/30">
                 Kirim Alasan & Lanjutkan
             </button>
         </div>
@@ -224,16 +224,16 @@
     </div>
 
     <!-- CONFIG MODAL -->
-    <div id="configModal" class="fixed inset-0 z-[280] bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
-        <div class="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden animate-zoom-in flex flex-col max-h-[90vh]">
-            <div class="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center sticky top-0">
+    <div id="configModal" class="fixed inset-0 z-[280] bg-slate-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+        <div class="clay-modal w-full max-w-2xl overflow-hidden animate-zoom-in flex flex-col max-h-[90vh]">
+            <div class="p-6 border-b border-slate-100/50 clay-bg flex justify-between items-center sticky top-0">
                 <div>
                     <h3 class="font-bold text-lg text-slate-800">Pengaturan Jam Kerja</h3>
                     <p class="text-xs text-slate-500">Setel jam masuk & pulang (Format 24 Jam)</p>
                 </div>
                 <button onclick="closeConfigModal()" class="w-8 h-8 rounded-full bg-white text-slate-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition shadow-sm"><i class="fas fa-times"></i></button>
             </div>
-            <div class="px-6 py-2 bg-slate-100 grid grid-cols-12 gap-2 text-[10px] font-bold uppercase text-slate-500">
+            <div class="px-6 py-3 clay-inset grid grid-cols-12 gap-2 text-[10px] font-bold uppercase text-slate-500 mx-6 rounded-xl">
                 <div class="col-span-4">Divisi</div>
                 <div class="col-span-4 text-center">Jam Masuk (24H)</div>
                 <div class="col-span-4 text-center">Jam Pulang (24H)</div>
@@ -241,14 +241,14 @@
             <div class="p-6 overflow-y-auto space-y-3" id="configList">
                 <!-- Diisi oleh JS -->
             </div>
-            <div class="p-4 border-t border-slate-100 bg-slate-50">
-                <button onclick="saveShiftConfig()" class="w-full py-3 rounded-xl bg-blue-700 text-white font-bold text-sm hover:bg-blue-800 shadow-lg shadow-blue-600/20">Simpan Perubahan</button>
+            <div class="p-6 border-t border-slate-100/50 clay-bg">
+                <button onclick="saveShiftConfig()" class="w-full py-4 rounded-2xl clay-btn-primary text-white font-bold text-sm">Simpan Perubahan</button>
             </div>
         </div>
     </div>
 
     <!-- IMAGE PREVIEW MODAL -->
-    <div id="imgModal" class="fixed inset-0 z-[250] bg-black/90 backdrop-blur-sm hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0" onclick="closePreview()">
+    <div id="imgModal" class="fixed inset-0 z-[250] bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0" onclick="closePreview()">
         <img id="imgModalSrc" src="" class="max-w-full max-h-[80vh] rounded-xl shadow-2xl border border-white/10 transform scale-95 transition-transform duration-300">
         <button class="absolute top-6 right-6 w-10 h-10 bg-white/10 text-white rounded-full flex items-center justify-center hover:bg-red-500 transition"><i class="fas fa-times"></i></button>
         <div class="absolute bottom-6 left-0 right-0 text-center">
@@ -259,16 +259,16 @@
     </div>
 
     <!-- EDIT EMPLOYEE MODAL -->
-    <div id="editEmployeeModal" class="fixed inset-0 z-[260] bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
-        <div class="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden animate-zoom-in relative">
-            <div class="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+    <div id="editEmployeeModal" class="fixed inset-0 z-[260] bg-slate-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+        <div class="clay-modal w-full max-w-md overflow-hidden animate-zoom-in relative">
+            <div class="p-6 border-b border-slate-100/50 clay-bg flex justify-between items-center">
                 <h3 class="font-bold text-lg text-slate-800">Edit Data Relawan</h3>
                 <button onclick="closeEditEmployee()" class="w-8 h-8 rounded-full bg-white text-slate-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition shadow-sm"><i class="fas fa-times"></i></button>
             </div>
             <form onsubmit="submitEditEmployee(event)" class="p-6 space-y-4">
                 <input type="hidden" id="editEmpId">
-                <div class="flex items-center gap-4 mb-2">
-                    <div id="editPreviewContainer" class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200">
+                <div class="flex items-center gap-4 mb-4">
+                    <div id="editPreviewContainer" class="w-16 h-16 rounded-2xl clay-inset flex items-center justify-center overflow-hidden">
                         <i class="fas fa-user text-slate-300 text-2xl"></i>
                     </div>
                     <div class="flex-1">
@@ -329,31 +329,31 @@
                         <input type="password" id="editEmpPassword" placeholder="Password login" class="input-field">
                     </div>
                 </div>
-                <div class="pt-4 flex gap-3">
-                    <button type="button" onclick="deleteEmployee()" class="px-4 py-3 rounded-xl border border-red-200 text-red-500 font-bold text-sm hover:bg-red-50 transition flex items-center justify-center gap-2">
+                <div class="pt-6 flex gap-3">
+                    <button type="button" onclick="deleteEmployee()" class="px-5 py-3 rounded-2xl border border-red-200 text-red-500 font-bold text-sm hover:bg-red-50 transition flex items-center justify-center gap-2">
                         <i class="fas fa-trash-alt"></i>
                     </button>
-                    <button type="button" onclick="closeEditEmployee()" class="flex-1 py-3 rounded-xl border border-slate-200 text-slate-500 font-bold text-sm hover:bg-slate-50">Batal</button>
-                    <button type="submit" class="flex-1 py-3 rounded-xl bg-blue-700 text-white font-bold text-sm hover:bg-blue-800 shadow-lg shadow-blue-600/20">Simpan</button>
+                    <button type="button" onclick="closeEditEmployee()" class="flex-1 py-3 rounded-2xl clay-btn text-slate-500 font-bold text-sm">Batal</button>
+                    <button type="submit" class="flex-1 py-3 rounded-2xl clay-btn-primary text-white font-bold text-sm">Simpan</button>
                 </div>
             </form>
         </div>
     </div>
 
     <!-- ACTIVE WORKERS MODAL -->
-    <div id="activeWorkersModal" class="fixed inset-0 z-[240] bg-slate-900/50 backdrop-blur-sm hidden flex items-end md:items-center justify-center transition-opacity duration-300 opacity-0">
-        <div class="bg-white w-full md:max-w-lg md:rounded-[2rem] rounded-t-[2rem] shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-slide-up">
-            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+    <div id="activeWorkersModal" class="fixed inset-0 z-[240] bg-slate-900/40 backdrop-blur-sm hidden flex items-end md:items-center justify-center transition-opacity duration-300 opacity-0">
+        <div class="clay-modal w-full md:max-w-lg md:rounded-[2rem] rounded-t-[2rem] max-h-[85vh] flex flex-col overflow-hidden animate-slide-up">
+            <div class="p-6 border-b border-slate-100/50 clay-bg sticky top-0 z-10 flex justify-between items-start">
                 <div>
                     <h3 class="font-bold text-lg text-slate-800" id="activeModalTitle">Relawan Bekerja</h3>
                     <p class="text-xs text-slate-500" id="activeModalSubtitle">Realtime tracking kehadiran hari ini</p>
                 </div>
-                <button onclick="closeActiveWorkers()" class="w-8 h-8 rounded-full bg-slate-50 text-slate-500 hover:bg-slate-100 flex items-center justify-center transition"><i class="fas fa-times"></i></button>
+                <button onclick="closeActiveWorkers()" class="w-8 h-8 rounded-full bg-slate-50 text-slate-500 hover:bg-slate-100 flex items-center justify-center transition flex-shrink-0 ml-4"><i class="fas fa-times"></i></button>
             </div>
             <div class="flex-1 overflow-y-auto p-4 space-y-3" id="activeWorkersList">
                 <!-- List populated by JS -->
             </div>
-            <div class="p-4 border-t border-slate-100 bg-slate-50 text-center text-xs text-slate-400">
+            <div class="p-4 border-t border-slate-100/50 clay-bg text-center text-xs text-slate-400">
                 Data diperbarui secara realtime
             </div>
         </div>
@@ -372,7 +372,7 @@
     <div id="app" class="flex-1 flex flex-col h-full relative">
         
         <!-- 1. LOGIN SCREEN (Cosmic Atmosphere) -->
-        <div id="loginView" class="absolute inset-0 z-50 flex items-center justify-center p-6 transition-all duration-500 login-container">
+        <div id="loginView" class="absolute inset-0 z-50 flex items-center justify-center p-4 md:p-6 transition-all duration-500 login-container min-h-screen">
             <!-- Cosmic Background -->
             <div class="cosmic-bg"></div>
             
@@ -420,9 +420,9 @@
             </div>
 
             <!-- Login Card -->
-            <div class="w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl relative animate-slide-up grid md:grid-cols-2 bg-transparent login-card" id="loginCard">
+            <div class="w-full max-w-4xl rounded-3xl overflow-hidden relative animate-slide-up grid md:grid-cols-2 login-card" id="loginCard">
                 <!-- LEFT: Brand / Branding -->
-                <div class="hidden md:flex flex-col items-center justify-center gap-6 bg-gradient-to-b from-[#04172e] via-[#05264b] to-[#0a1f3a] text-white p-10 relative overflow-hidden">
+                <div class="hidden md:flex flex-col items-center justify-center gap-6 bg-gradient-to-b from-indigo-900 via-indigo-800 to-slate-900 text-white p-10 relative overflow-hidden login-branding-bg">
                     <!-- Gradient Overlay -->
                     <div class="absolute inset-0 bg-gradient-to-tr from-blue-900/20 to-transparent pointer-events-none"></div>
                     
@@ -479,8 +479,7 @@
                 </div>
 
                 <!-- RIGHT: Login Form -->
-                <div class="flex items-center justify-center p-8 bg-white/95 backdrop-blur-xl relative">
-                    <div class="absolute inset-0 bg-gradient-to-br from-slate-50/80 to-white pointer-events-none"></div>
+                <div class="flex items-center justify-center p-8 clay-bg relative login-form-bg">
                     
                     <div class="w-full max-w-md relative z-10">
                         <div class="flex items-center justify-between mb-8">
@@ -488,35 +487,36 @@
                             <span class="text-xs font-semibold text-blue-600">v1.0</span>
                         </div>
 
-                        <h1 class="text-3xl font-bold bg-gradient-to-r from-slate-900 to-blue-900 bg-clip-text text-transparent">Selamat Datang</h1>
+                        <h1 class="text-3xl font-bold text-slate-800">Selamat Datang</h1>
                         <p class="text-sm text-slate-500 mt-2">Masuk untuk mengakses sistem manajemen operasional</p>
 
                         <form onsubmit="handleLogin(event)" class="mt-8 space-y-5">
                             <div class="group">
-                                <label class="block text-xs font-bold text-slate-600 mb-2">Nama Akun</label>
+                                <label class="block text-xs font-bold text-slate-500 mb-2">Nama Akun</label>
                                 <div class="relative">
-                                    <input type="text" id="usernameInput" class="input-field w-full pl-4 pr-12 py-3 group-focus-within:ring-2 group-focus-within:ring-blue-500" placeholder="nama@akun" required>
-                                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition"><i class="fas fa-user"></i></span>
+                                    <input type="text" id="usernameInput" class="clay-input w-full pl-12 py-4" placeholder="nama@akun" required>
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition"><i class="fas fa-user"></i></span>
                                 </div>
                             </div>
 
                             <div class="group">
-                                <label class="block text-xs font-bold text-slate-600 mb-2">Kata Sandi</label>
+                                <label class="block text-xs font-bold text-slate-500 mb-2">Kata Sandi</label>
                                 <div class="relative">
-                                    <input type="password" id="passwordInput" class="input-field w-full pl-4 pr-12 py-3 group-focus-within:ring-2 group-focus-within:ring-blue-500" placeholder="••••••••" required>
+                                    <input type="password" id="passwordInput" class="clay-input w-full pl-12 pr-12 py-4" placeholder="••••••••" required>
+                                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition"><i class="fas fa-lock"></i></span>
                                     <button type="button" onclick="togglePasswordVisibility()" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"><i id="pwdToggleIcon" class="fas fa-eye"></i></button>
                                 </div>
                             </div>
 
                             <div class="flex items-center justify-between text-sm">
-                                <label class="flex items-center gap-2 text-slate-600 group cursor-pointer">
-                                    <input type="checkbox" id="rememberMe" class="w-4 h-4 rounded accent-blue-600">
-                                    <span class="group-hover:text-slate-800 transition">Ingat Saya</span>
+                                <label class="flex items-center gap-3 text-slate-500 group cursor-pointer">
+                                    <input type="checkbox" id="rememberMe" class="clay-checkbox">
+                                    <span class="group-hover:text-slate-700 transition">Ingat Saya</span>
                                 </label>
-                                <a href="#" class="text-blue-600 hover:text-blue-700 font-semibold transition">Lupa Sandi?</a>
+                                <a href="#" class="text-indigo-500 hover:text-indigo-600 font-semibold transition">Lupa Sandi?</a>
                             </div>
 
-                            <button type="submit" id="loginBtn" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold shadow-lg hover:shadow-xl hover:brightness-105 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 relative overflow-hidden group">
+                            <button type="submit" id="loginBtn" class="w-full py-4 rounded-2xl clay-btn-primary text-white font-bold flex items-center justify-center gap-2 relative overflow-hidden group">
                                 <span id="loginBtnText" class="flex items-center gap-2 transition-all duration-300">
                                     <span>Masuk</span>
                                     <i class="fas fa-arrow-right group-hover:translate-x-1 transition-transform duration-200"></i>
@@ -531,18 +531,18 @@
                         </form>
 
                         <!-- Tombol Absen Relawan (tanpa login) -->
-                        <div class="mt-4">
-                            <div class="flex items-center gap-3 mb-3">
+                        <div class="mt-6">
+                            <div class="flex items-center gap-3 mb-4">
                                 <div class="flex-1 h-px bg-slate-200"></div>
                                 <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">atau</span>
                                 <div class="flex-1 h-px bg-slate-200"></div>
                             </div>
-                            <button onclick="startAbsenMandiri()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold shadow-lg hover:shadow-xl hover:brightness-105 transition duration-200 flex items-center justify-center gap-3 border border-emerald-400/30">
+                            <button onclick="startAbsenMandiri()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-3 border border-white/10">
                                 <i class="fas fa-fingerprint text-lg"></i>
                                 <span>Absen Relawan</span>
                                 <i class="fas fa-qrcode text-sm opacity-60"></i>
                             </button>
-                            <p class="text-center text-[10px] text-slate-400 mt-2">Scan QR Code & Selfie — tanpa perlu akun</p>
+                            <p class="text-center text-[10px] text-slate-400 mt-3">Scan QR Code & Selfie — tanpa perlu akun</p>
                         </div>
 
                         <div class="mt-8 pt-6 border-t border-slate-200 text-center text-xs text-slate-400">
@@ -554,10 +554,10 @@
         </div>
 
         <!-- 2. ADMIN DASHBOARD -->
-        <div id="adminLayout" class="hidden flex h-full relative bg-slate-50">
+        <div id="adminLayout" class="hidden flex h-full relative clay-bg">
             <!-- Sidebar Desktop -->
-            <aside id="sidebar" class="fixed inset-y-0 left-0 w-72 bg-white border-r border-slate-200 flex flex-col z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-                <div class="h-24 flex items-center px-8 border-b border-slate-50">
+            <aside id="sidebar" class="fixed inset-y-0 left-0 w-72 clay-sidebar flex flex-col z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300">
+                <div class="h-24 flex items-center px-8">
                     <div class="flex items-center gap-3 text-slate-800">
                         <div class="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden">
                             <img src="/yayasankaryarasanusantara.png" alt="Yayasan logo" class="w-full h-full object-contain">
@@ -568,32 +568,32 @@
                         </div>
                     </div>
                 </div>
-                <nav class="p-6 space-y-2 flex-1 overflow-y-auto">
-                    <button onclick="switchTab('dashboard')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group active">
+                <nav class="p-6 space-y-3 flex-1 overflow-y-auto">
+                    <button onclick="switchTab('dashboard')" class="clay-nav-item w-full text-left flex items-center gap-4 group active">
                         <i class="fas fa-chart-pie w-5 text-center group-hover:scale-110 transition-transform"></i> Dashboard
                     </button>
-                    <button onclick="switchTab('employees')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
+                    <button onclick="switchTab('employees')" class="clay-nav-item w-full text-left flex items-center gap-4 group">
                         <i class="fas fa-users w-5 text-center group-hover:scale-110 transition-transform"></i> Data Relawan
                     </button>
-                    <button onclick="switchTab('manual_attendance')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
+                    <button onclick="switchTab('manual_attendance')" class="clay-nav-item w-full text-left flex items-center gap-4 group">
                         <i class="fas fa-calendar-check w-5 text-center group-hover:scale-110 transition-transform"></i> Absen Manual
                     </button>
-                    <button onclick="switchTab('violations')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
+                    <button onclick="switchTab('violations')" class="clay-nav-item w-full text-left flex items-center gap-4 group">
                         <i class="fas fa-exclamation-circle w-5 text-center group-hover:scale-110 transition-transform"></i> Pelanggaran
                     </button>
-                    <button onclick="switchTab('salaries')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
+                    <button onclick="switchTab('salaries')" class="clay-nav-item w-full text-left flex items-center gap-4 group">
                         <i class="fas fa-file-invoice-dollar w-5 text-center group-hover:scale-110 transition-transform"></i> Rekap Gaji & Lembur
                     </button>
-                    <button onclick="switchTab('pengumuman')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
+                    <button onclick="switchTab('pengumuman')" class="clay-nav-item w-full text-left flex items-center gap-4 group">
                         <i class="fas fa-bullhorn w-5 text-center group-hover:scale-110 transition-transform"></i> Pengumuman
                     </button>
-                    <button onclick="switchTab('settings')" class="nav-item w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-all flex items-center gap-4 group">
+                    <button onclick="switchTab('settings')" class="clay-nav-item w-full text-left flex items-center gap-4 group">
                         <i class="fas fa-cog w-5 text-center group-hover:scale-110 transition-transform"></i> Pengaturan
                     </button>
                 </nav>
-                <div class="p-6 border-t border-slate-50 space-y-4">
-                     <p class="text-[10px] text-slate-300 text-center font-medium">© 2026 by EnjoyCreamID</p>
-                    <button onclick="logout()" class="w-full bg-slate-50 hover:bg-red-50 text-slate-600 hover:text-red-600 px-5 py-3.5 rounded-2xl text-sm font-bold transition-colors flex items-center gap-3 border border-slate-200 hover:border-red-200">
+                <div class="p-6 space-y-4">
+                     <p class="text-[10px] text-slate-400 text-center font-medium">© 2026 by EnjoyCreamID</p>
+                    <button onclick="logout()" class="w-full clay-btn text-slate-600 px-5 py-3.5 text-sm font-bold flex items-center gap-3">
                         <i class="fas fa-sign-out-alt"></i> Keluar
                     </button>
                 </div>
@@ -605,15 +605,22 @@
             <!-- Main Content -->
             <main class="flex-1 flex flex-col overflow-hidden relative md:ml-72 transition-all">
                 <!-- Header -->
-                <header class="h-20 bg-white/80 backdrop-blur-xl border-b border-slate-200 flex items-center justify-between px-5 md:px-8 shrink-0 z-30 sticky top-0">
+                <header class="h-20 clay-card flex items-center justify-between px-5 md:px-8 shrink-0 z-30 sticky top-0 mx-4 mt-4 rounded-2xl">
                     <div class="flex items-center gap-4">
-                        <button onclick="toggleSidebar()" class="w-10 h-10 bg-white border border-slate-200 text-slate-600 rounded-xl flex items-center justify-center md:hidden active:scale-95 shadow-sm">
+                        <button onclick="toggleSidebar()" class="w-10 h-10 clay-btn text-slate-600 flex items-center justify-center md:hidden active:scale-95">
                             <i class="fas fa-bars"></i>
                         </button>
                         <div class="font-bold text-slate-800 text-lg" id="pageTitle">Dashboard</div>
                     </div>
-                    <div class="flex gap-3">
-                        <button id="adminSyncBtn" onclick="setSyncButtonLoading(this,true); fetchData(true)" class="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-xs font-bold hover:bg-slate-50 hover:text-blue-600 shadow-sm transition-all flex items-center gap-2 active:scale-95">
+                    <div class="flex items-center gap-3">
+                        <!-- Try Me Text -->
+                        <span class="text-xs font-bold text-indigo-500 hidden sm:inline animate-pulse">Try Me! -&gt;</span>
+                        <!-- Dark Mode Toggle -->
+                        <button id="darkModeToggle" onclick="toggleDarkMode()" class="dark-toggle-btn" title="Toggle Dark Mode">
+                            <i id="darkModeIcon" class="fas fa-moon"></i>
+                        </button>
+                        <!-- Sync Button -->
+                        <button id="adminSyncBtn" onclick="setSyncButtonLoading(this,true); fetchData(true)" class="clay-btn text-slate-600 px-4 py-2 text-xs font-bold flex items-center gap-2 active:scale-95">
                             <i class="fas fa-sync-alt"></i> <span class="hidden md:inline">Sync Data</span>
                         </button>
                     </div>
@@ -626,8 +633,8 @@
                         <!-- Stats Grid -->
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
                             <!-- Card Total Relawan (Updated: Clickable) -->
-                            <div onclick="showAllEmployees()" class="cursor-pointer hover:scale-[1.02] transition-transform active:scale-95 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group">
-                                <div class="absolute -right-4 -top-4 w-24 h-24 bg-slate-50 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
+                            <div onclick="showAllEmployees()" class="cursor-pointer clay-stat-card relative overflow-hidden group">
+                                <div class="absolute -right-4 -top-4 w-24 h-24 bg-slate-100 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
                                 <div class="relative">
                                     <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                                         Total Relawan <i class="fas fa-chevron-right text-[8px] opacity-50"></i>
@@ -637,7 +644,7 @@
                             </div>
                             
                             <!-- Card Hadir (Clickable) -->
-                            <div onclick="showPresentVolunteers()" class="cursor-pointer bg-gradient-to-br from-blue-600 to-blue-700 p-6 rounded-[2rem] shadow-lg shadow-blue-600/20 text-white relative overflow-hidden group hover:scale-[1.02] transition-transform active:scale-95">
+                            <div onclick="showPresentVolunteers()" class="cursor-pointer bg-gradient-to-br from-indigo-500 to-purple-600 p-6 rounded-[2rem] shadow-lg shadow-indigo-500/30 text-white relative overflow-hidden group hover:scale-[1.02] transition-transform active:scale-95 animate-clay-float">
                                 <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/20 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
                                 <div class="relative h-full flex flex-col justify-between">
                                     <div>
@@ -659,8 +666,8 @@
                             <!-- Card Lembur & Telat Container -->
                             <div class="col-span-1 md:col-span-1 grid grid-rows-2 gap-4">
                                 <!-- Lembur (Updated: Clickable) -->
-                                <div onclick="showOvertimeToday()" class="cursor-pointer hover:scale-[1.02] transition-transform active:scale-95 bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden flex flex-col justify-center">
-                                    <div class="absolute right-2 top-2 w-10 h-10 bg-amber-50 rounded-full"></div>
+                                <div onclick="showOvertimeToday()" class="cursor-pointer clay-card p-4 relative overflow-hidden flex flex-col justify-center">
+                                    <div class="absolute right-2 top-2 w-10 h-10 bg-amber-100 rounded-full"></div>
                                     <div class="relative">
                                         <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                                             Lembur <i class="fas fa-chevron-right text-[8px] opacity-50"></i>
@@ -669,8 +676,8 @@
                                     </div>
                                 </div>
                                 <!-- Telat (Updated: Clickable) -->
-                                <div onclick="showLateToday()" class="cursor-pointer hover:scale-[1.02] transition-transform active:scale-95 bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden flex flex-col justify-center">
-                                    <div class="absolute right-2 top-2 w-10 h-10 bg-red-50 rounded-full"></div>
+                                <div onclick="showLateToday()" class="cursor-pointer clay-card p-4 relative overflow-hidden flex flex-col justify-center">
+                                    <div class="absolute right-2 top-2 w-10 h-10 bg-red-100 rounded-full"></div>
                                     <div class="relative">
                                         <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                                             Telat Hari Ini <i class="fas fa-chevron-right text-[8px] opacity-50"></i>
@@ -681,7 +688,7 @@
                             </div>
                             
                             <!-- Card Setting -->
-                             <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group hover:border-blue-200 transition">
+                             <div class="clay-card p-6 relative overflow-hidden group hover:border-blue-200 transition">
                                 <div class="relative h-full flex flex-col justify-between">
                                     <div>
                                         <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
@@ -701,7 +708,7 @@
                         </div>
 
                         <!-- LINE CHART TREND STATISTIK (NEW) -->
-                         <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden p-6">
+                         <div class="clay-card p-6 overflow-hidden">
                             <h3 class="font-bold text-slate-800 text-sm mb-4 flex items-center gap-2">
                                 <i class="fas fa-chart-line text-blue-600"></i> Tren Kehadiran (7 Hari Terakhir)
                             </h3>
@@ -750,13 +757,28 @@
                                     <tbody id="logsTableBody" class="divide-y divide-slate-50"></tbody>
                                 </table>
                             </div>
+                            <!-- PAGINATION CONTROLS -->
+                            <div class="p-6 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between">
+                                <div class="text-sm text-slate-600">
+                                    Halaman <span id="currentPage" class="font-bold text-slate-800">1</span> dari <span id="totalPages" class="font-bold text-slate-800">1</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="previousLogsPage()" class="clay-btn clay-btn-secondary px-4 py-2 text-sm font-medium inline-flex items-center gap-2">
+                                        <span>←</span> Sebelumnya
+                                    </button>
+                                    <div id="paginationNumbers" class="flex gap-1"></div>
+                                    <button onclick="nextLogsPage()" class="clay-btn clay-btn-secondary px-4 py-2 text-sm font-medium inline-flex items-center gap-2">
+                                        Selanjutnya <span>→</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- TAB 2: EMPLOYEES -->
                     <div id="tab-employees" class="hidden animate-fade-in space-y-6">
                         <!-- ... (Keep Tab 2 Content) ... -->
-                        <div class="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-slate-100 relative overflow-hidden">
+                        <div class="clay-card p-6 md:p-8 relative overflow-hidden">
                             <div class="relative z-10">
                                 <h3 class="font-bold text-slate-800 mb-6 text-lg">Input Relawan Baru</h3>
                                 <form onsubmit="addEmployee(event)" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
@@ -837,7 +859,7 @@
                             </div>
                             <div class="overflow-x-auto">
                                 <table class="w-full text-sm text-left whitespace-nowrap">
-                                    <thead class="text-xs text-slate-400 uppercase bg-slate-50 border-b border-slate-100">
+                                    <thead class="text-xs text-slate-400 uppercase clay-inset">
                                         <tr>
                                             <th class="px-6 py-4 font-bold">ID & Nama</th>
                                             <th class="px-6 py-4 font-bold">Divisi & Jam Kerja</th>
@@ -1451,14 +1473,14 @@
                         </div>
 
                         <!-- FITUR KONTROL -->
-                        <div class="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
+                        <div class="clay-card p-6 md:p-8 space-y-6">
                             <div>
                                 <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2 mb-1"><i class="fas fa-sliders-h text-blue-500"></i> Kontrol Fitur Kehadiran</h3>
                                 <p class="text-xs text-slate-400">Nonaktifkan fitur telat / pulang awal untuk semua relawan. Relawan bebas absen tanpa batasan waktu.</p>
                             </div>
 
                             <!-- Toggle: Matikan Telat + Pulang Awal Berbarengan -->
-                            <div id="settingBothWrap" class="bg-gradient-to-r from-violet-50 to-indigo-50 rounded-2xl p-5 border border-indigo-100">
+                            <div id="settingBothWrap" class="clay-inset rounded-2xl p-5">
                                 <div class="flex items-center justify-between">
                                     <div class="flex-1 mr-4">
                                         <div class="font-bold text-sm text-slate-800 flex items-center gap-2">
@@ -1478,7 +1500,7 @@
                             </div>
 
                             <!-- Toggle: Matikan Fitur Telat -->
-                            <div id="settingLateWrap" class="bg-red-50/50 rounded-2xl p-5 border border-red-100">
+                            <div id="settingLateWrap" class="clay-inset rounded-2xl p-5">
                                 <div class="flex items-center justify-between">
                                     <div class="flex-1 mr-4">
                                         <div class="font-bold text-sm text-slate-800 flex items-center gap-2">
@@ -1498,7 +1520,7 @@
                             </div>
 
                             <!-- Toggle: Matikan Fitur Pulang Awal -->
-                            <div id="settingEarlyWrap" class="bg-amber-50/50 rounded-2xl p-5 border border-amber-100">
+                            <div id="settingEarlyWrap" class="clay-inset rounded-2xl p-5">
                                 <div class="flex items-center justify-between">
                                     <div class="flex-1 mr-4">
                                         <div class="font-bold text-sm text-slate-800 flex items-center gap-2">
@@ -1518,7 +1540,7 @@
                             </div>
 
                             <!-- Toggle: Matikan Lock Lokasi (Geofence) -->
-                            <div id="settingGeofenceWrap" class="bg-teal-50/50 rounded-2xl p-5 border border-teal-100">
+                            <div id="settingGeofenceWrap" class="clay-inset rounded-2xl p-5">
                                 <div class="flex items-center justify-between">
                                     <div class="flex-1 mr-4">
                                         <div class="font-bold text-sm text-slate-800 flex items-center gap-2">
@@ -1534,7 +1556,7 @@
                             </div>
 
                             <!-- Toggle Hide Overtime -->
-                            <div class="flex items-center justify-between bg-amber-50/50 rounded-2xl p-5 border border-amber-100">
+                            <div class="flex items-center justify-between clay-inset rounded-2xl p-5">
                                 <div class="flex-1 mr-4">
                                     <div class="font-bold text-sm text-slate-800 flex items-center gap-2">
                                         <i class="fas fa-business-time text-amber-500"></i> Sembunyikan Info Lembur
@@ -1548,37 +1570,36 @@
                             </div>
 
                             <!-- Save Button -->
-                            <button onclick="saveFeatureSettings()" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-lg shadow-blue-600/20 transition-all flex items-center gap-2 justify-center">
+                            <button onclick="saveFeatureSettings()" class="w-full md:w-auto clay-btn-primary px-8 py-3 text-sm font-bold flex items-center gap-2 justify-center">
                                 <i class="fas fa-save"></i> Simpan Pengaturan Fitur
                             </button>
                         </div>
 
                         <!-- TAMPILAN -->
-                        <div class="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-5">
+                        <div class="clay-card p-6 md:p-8 space-y-5">
                             <div>
                                 <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2 mb-1"><i class="fas fa-palette text-purple-500"></i> Tampilan</h3>
                                 <p class="text-xs text-slate-400">Sesuaikan tampilan aplikasi</p>
                             </div>
-                            <div class="flex items-center justify-between bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                            <div class="flex items-center justify-between clay-inset p-5">
                                 <div class="flex-1 mr-4">
-                                    <div class="font-bold text-sm text-slate-800 flex items-center gap-2">
+                                    <div class="font-bold text-sm text-slate-700 flex items-center gap-2">
                                         <i class="fas fa-moon text-purple-500"></i> Mode Gelap
                                     </div>
-                                    <p class="text-[11px] text-slate-500 mt-1">Tampilan lebih nyaman di malam hari</p>
+                                    <p class="text-[11px] text-slate-500 mt-1">Toggle di header setiap halaman</p>
                                 </div>
-                                <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                    <input type="checkbox" id="toggleDarkMode" onchange="toggleDarkMode(this.checked)" class="sr-only peer">
-                                    <div class="w-11 h-6 bg-slate-200 peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                                </label>
+                                <div class="text-xs text-slate-500 clay-inset px-3 py-1 rounded-lg">
+                                    <i class="fas fa-arrow-up mr-1"></i> Header
+                                </div>
                             </div>
                         </div>
 
                         <!-- TENTANG APLIKASI -->
-                        <div class="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-5">
+                        <div class="clay-card p-6 md:p-8 space-y-5">
                             <div>
                                 <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2 mb-1"><i class="fas fa-info-circle text-sky-500"></i> Tentang Aplikasi</h3>
                             </div>
-                            <div class="bg-gradient-to-br from-slate-50 to-blue-50/50 rounded-2xl p-6 border border-slate-100 space-y-4">
+                            <div class="clay-inset rounded-2xl p-6 space-y-4">
                                 <div class="flex items-center gap-4">
                                     <div class="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-xl shadow-lg shadow-blue-600/30">
                                         <i class="fas fa-cloud"></i>
@@ -1589,15 +1610,15 @@
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-2 gap-3 text-xs">
-                                    <div class="bg-white rounded-xl p-3 border border-slate-100">
+                                    <div class="clay-inset rounded-xl p-3">
                                         <span class="text-slate-400 font-bold uppercase text-[10px]">Versi</span>
                                         <p class="font-bold text-slate-700 mt-0.5">2.5.0</p>
                                     </div>
-                                    <div class="bg-white rounded-xl p-3 border border-slate-100">
+                                    <div class="clay-inset rounded-xl p-3">
                                         <span class="text-slate-400 font-bold uppercase text-[10px]">Diperbarui</span>
                                         <p class="font-bold text-slate-700 mt-0.5">29 Maret 2026</p>
                                     </div>
-                                    <div class="bg-white rounded-xl p-3 border border-slate-100 col-span-2">
+                                    <div class="clay-inset rounded-xl p-3 col-span-2">
                                         <span class="text-slate-400 font-bold uppercase text-[10px]">Lisensi</span>
                                         <p class="font-bold text-slate-700 mt-0.5">Proprietary — Hak Cipta © 2026</p>
                                         <p class="text-[10px] text-slate-400 mt-1">Aplikasi ini dilindungi hak cipta. Dilarang menyalin, mendistribusikan, atau memodifikasi tanpa izin tertulis dari pengembang.</p>
@@ -1608,28 +1629,28 @@
                             <!-- Developer Info -->
                             <div class="space-y-3">
                                 <h4 class="font-bold text-sm text-slate-700 flex items-center gap-2"><i class="fas fa-code text-emerald-500"></i> Pengembang</h4>
-                                <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-3">
+                                <div class="clay-inset rounded-2xl p-5 space-y-3">
                                     <div class="flex items-center gap-3">
                                         <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow">MF</div>
                                         <div>
-                                            <p class="font-bold text-slate-800 text-sm">Muhammad Fikri S. Ak.</p>
+                                            <p class="font-bold text-slate-800 text-sm">AFKxEnjoyCreamID</p>
                                             <p class="text-[11px] text-slate-400">Full-Stack Developer</p>
                                         </div>
                                     </div>
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                        <a href="mailto:muhammadfikri070@gmail.com" class="flex items-center gap-2.5 bg-white rounded-xl px-4 py-2.5 border border-slate-100 hover:border-blue-200 hover:bg-blue-50 transition text-xs group">
+                                        <a href="mailto:enjoycreamid@gmail.com" class="flex items-center gap-2.5 clay-card px-4 py-2.5 text-xs group">
                                             <i class="fas fa-envelope text-blue-500 group-hover:scale-110 transition-transform"></i>
-                                            <span class="text-slate-600 truncate">muhammadfikri070@gmail.com</span>
+                                            <span class="text-slate-600 truncate">enjoycreamid@gmail.com</span>
                                         </a>
-                                        <a href="https://wa.me/6285883595850" target="_blank" class="flex items-center gap-2.5 bg-white rounded-xl px-4 py-2.5 border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50 transition text-xs group">
+                                        <a href="https://wa.me/6281414142726" target="_blank" class="flex items-center gap-2.5 clay-card px-4 py-2.5 text-xs group">
                                             <i class="fab fa-whatsapp text-emerald-500 group-hover:scale-110 transition-transform"></i>
-                                            <span class="text-slate-600">0858-8359-5850</span>
+                                            <span class="text-slate-600">0814-1414-2726</span>
                                         </a>
-                                        <a href="https://github.com/EnjoyCreat662" target="_blank" class="flex items-center gap-2.5 bg-white rounded-xl px-4 py-2.5 border border-slate-100 hover:border-slate-300 hover:bg-slate-50 transition text-xs group">
+                                        <a href="https://github.com/enjoy" target="_blank" class="flex items-center gap-2.5 clay-card px-4 py-2.5 text-xs group">
                                             <i class="fab fa-github text-slate-700 group-hover:scale-110 transition-transform"></i>
-                                            <span class="text-slate-600">EnjoyCreat662</span>
+                                            <span class="text-slate-600">enjoy</span>
                                         </a>
-                                        <a href="https://instagram.com/enjoycreamid" target="_blank" class="flex items-center gap-2.5 bg-white rounded-xl px-4 py-2.5 border border-slate-100 hover:border-pink-200 hover:bg-pink-50 transition text-xs group">
+                                        <a href="https://instagram.com/enjoycreamid" target="_blank" class="flex items-center gap-2.5 clay-card px-4 py-2.5 text-xs group">
                                             <i class="fab fa-instagram text-pink-500 group-hover:scale-110 transition-transform"></i>
                                             <span class="text-slate-600">@enjoycreamid</span>
                                         </a>
@@ -1646,7 +1667,7 @@
                                     <div>
                                         <h4 class="font-bold text-sm text-slate-800">Butuh Bantuan?</h4>
                                         <p class="text-[11px] text-slate-500 mt-1 leading-relaxed">Hubungi pengembang melalui WhatsApp atau Email untuk bantuan teknis, pelaporan bug, atau permintaan fitur baru.</p>
-                                        <a href="https://wa.me/6285883595850?text=Halo%20Fikri%2C%20saya%20butuh%20bantuan%20terkait%20aplikasi%20Cloud%20MBG" target="_blank" class="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-bold mt-3 shadow-sm transition">
+                                        <a href="https://wa.me/6281414142726?text=Halo%20Fikri%2C%20saya%20butuh%20bantuan%20terkait%20aplikasi%20Cloud%20MBG" target="_blank" class="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-bold mt-3 shadow-sm transition">
                                             <i class="fab fa-whatsapp"></i> Hubungi via WhatsApp
                                         </a>
                                     </div>

@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwbrLbxUk1RfI-5yXwXwjGft_gYnSU0nJm5VuuvoTzDJoV5XCzmaYX8C3SvEqJgRxhz/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyGCiOGbR6X9xuQXDnVa52_bOkjwtm_IUsJCkGzPCNWhRR0b0mTTRJtF5O4V3tQD8yM/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -24,6 +24,11 @@ const ROLE_LABELS = {
     head_sppg: 'Ka SPPG',
     foundation: 'Yayasan'
 };
+
+// Pagination Settings
+let logsCurrentPage = 1;
+const LOGS_PER_PAGE = 10;
+let allLogsSorted = [];
 
 function inferRoleFromDivision(division) {
     const normalized = String(division || '').toLowerCase().trim().replace(/\s+/g, ' ');
@@ -646,8 +651,27 @@ function refreshUI() {
 
     // --- RENDER LOGS (TABEL AKTIVITAS) ---
     const sortedLogs = getSortedData(logs, 'logs');
+    allLogsSorted = sortedLogs; // Store for pagination
     const logBody = document.getElementById('logsTableBody');
-    logBody.innerHTML = sortedLogs.slice(0, 20).map(l => {
+    
+    // Calculate pagination
+    const totalPages = Math.ceil(sortedLogs.length / LOGS_PER_PAGE);
+    const startIdx = (logsCurrentPage - 1) * LOGS_PER_PAGE;
+    const endIdx = startIdx + LOGS_PER_PAGE;
+    const paginatedLogs = sortedLogs.slice(startIdx, endIdx);
+    
+    // Update pagination display
+    document.getElementById('currentPage').innerText = logsCurrentPage;
+    document.getElementById('totalPages').innerText = totalPages || 1;
+    
+    // Render pagination numbers
+    renderPaginationNumbers(logsCurrentPage, totalPages);
+    
+    // Disable/enable buttons
+    document.querySelector('button[onclick="previousLogsPage()"]').disabled = logsCurrentPage === 1;
+    document.querySelector('button[onclick="nextLogsPage()"]').disabled = logsCurrentPage === totalPages;
+    
+    logBody.innerHTML = paginatedLogs.map(l => {
         let badge = '', statusText = '';
         
         if (l.type === 'IN') {
@@ -1906,7 +1930,7 @@ Absensi telah terpending di sistem. Mohon kiranya Admin berkenan untuk melakukan
 Atas perhatiannya saya ucapkan terima kasih.
 Wassalamualaikum Warahmatullahi Wabarakatuh.`;
 
-    const phone = '6285691037996';
+    const phone = '6282114806765';
     const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(waUrl, '_blank');
     dismissLateBlocked();
@@ -2391,8 +2415,8 @@ function switchTab(id) {
     ['dashboard','employees','salaries','manual_attendance','violations','settings','pengumuman'].forEach(t => document.getElementById('tab-'+t)?.classList.add('hidden'));
     document.getElementById('tab-'+id)?.classList.remove('hidden');
     if(window.innerWidth < 768) { document.getElementById('sidebar').classList.add('-translate-x-full'); document.getElementById('sidebarOverlay').classList.add('hidden'); }
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    Array.from(document.querySelectorAll('.nav-item')).find(b => b.getAttribute('onclick').includes(id))?.classList.add('active');
+    document.querySelectorAll('.clay-nav-item').forEach(el => el.classList.remove('active'));
+    Array.from(document.querySelectorAll('.clay-nav-item')).find(b => b.getAttribute('onclick').includes(id))?.classList.add('active');
     const titles = { 'dashboard': 'Dashboard', 'employees': 'Data Relawan', 'salaries': 'Laporan Gaji', 'manual_attendance': 'Absen Manual', 'violations': 'Pelanggaran', 'settings': 'Pengaturan', 'pengumuman': 'Pengumuman' };
     document.getElementById('pageTitle').innerText = titles[id] || id;
     if (id === 'manual_attendance') maInit();
@@ -2408,11 +2432,9 @@ function loadSettingsUI() {
     const tBoth = document.getElementById('toggleBoth');
     const tLate = document.getElementById('toggleLate');
     const tEarly = document.getElementById('toggleEarly');
-    const tDark = document.getElementById('toggleDarkMode');
     if (tBoth) tBoth.checked = appConfig.disableBoth;
     if (tLate) tLate.checked = appConfig.disableLate;
     if (tEarly) tEarly.checked = appConfig.disableEarly;
-    if (tDark) tDark.checked = document.documentElement.classList.contains('dark');
     const tGeo = document.getElementById('toggleGeofence');
     if (tGeo) tGeo.checked = appConfig.disableGeofence;
     const tOT = document.getElementById('toggleHideOvertime');
@@ -2496,20 +2518,30 @@ async function saveFeatureSettings() {
     }
 }
 
-function toggleDarkMode(on) {
-    if (on) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('mbg_dark_mode', '1');
-    } else {
+// ===== DARK MODE TOGGLE =====
+function toggleDarkMode() {
+    const isDark = document.documentElement.classList.contains('dark');
+    const icon = document.getElementById('darkModeIcon');
+    
+    if (isDark) {
         document.documentElement.classList.remove('dark');
         localStorage.setItem('mbg_dark_mode', '0');
+        if (icon) icon.className = 'fas fa-moon';
+    } else {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('mbg_dark_mode', '1');
+        if (icon) icon.className = 'fas fa-sun';
     }
 }
 
 // Init dark mode from localStorage
 (function() {
+    const icon = document.getElementById('darkModeIcon');
     if (localStorage.getItem('mbg_dark_mode') === '1') {
         document.documentElement.classList.add('dark');
+        if (icon) icon.className = 'fas fa-sun';
+    } else {
+        if (icon) icon.className = 'fas fa-moon';
     }
 })();
 
@@ -5192,4 +5224,79 @@ function spawnConfetti(container) {
         p.style.animationDelay = (Math.random() * 0.6) + 's';
         container.appendChild(p);
     }
+}
+
+// =============================================
+// PAGINATION FUNCTIONS - Logs Table
+// =============================================
+
+function previousLogsPage() {
+    if (logsCurrentPage > 1) {
+        logsCurrentPage--;
+        refreshUI();
+    }
+}
+
+function nextLogsPage() {
+    const sortedLogs = getSortedData(logs, 'logs');
+    const totalPages = Math.ceil(sortedLogs.length / LOGS_PER_PAGE);
+    if (logsCurrentPage < totalPages) {
+        logsCurrentPage++;
+        refreshUI();
+    }
+}
+
+function goToLogsPage(pageNum) {
+    const sortedLogs = getSortedData(logs, 'logs');
+    const totalPages = Math.ceil(sortedLogs.length / LOGS_PER_PAGE);
+    if (pageNum >= 1 && pageNum <= totalPages) {
+        logsCurrentPage = pageNum;
+        refreshUI();
+    }
+}
+
+function renderPaginationNumbers(currentPage, totalPages) {
+    const container = document.getElementById('paginationNumbers');
+    if (!container) return;
+    
+    if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    let html = '';
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage < maxVisiblePages - 1) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    // First page button
+    if (startPage > 1) {
+        html += `<button onclick="goToLogsPage(1)" class="px-2 py-1 rounded-lg text-xs font-bold bg-white text-slate-500 border border-slate-200 hover:border-blue-300 hover:text-blue-600 transition">1</button>`;
+        if (startPage > 2) {
+            html += `<span class="px-1 text-slate-400">...</span>`;
+        }
+    }
+    
+    // Page number buttons
+    for (let i = startPage; i <= endPage; i++) {
+        if (i === currentPage) {
+            html += `<button class="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-sm shadow-blue-600/20">${i}</button>`;
+        } else {
+            html += `<button onclick="goToLogsPage(${i})" class="px-2 py-1 rounded-lg text-xs font-bold bg-white text-slate-500 border border-slate-200 hover:border-blue-300 hover:text-blue-600 transition">${i}</button>`;
+        }
+    }
+    
+    // Last page button
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            html += `<span class="px-1 text-slate-400">...</span>`;
+        }
+        html += `<button onclick="goToLogsPage(${totalPages})" class="px-2 py-1 rounded-lg text-xs font-bold bg-white text-slate-500 border border-slate-200 hover:border-blue-300 hover:text-blue-600 transition">${totalPages}</button>`;
+    }
+    
+    container.innerHTML = html;
 }
