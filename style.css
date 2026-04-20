@@ -1003,6 +1003,47 @@ body {
 .floating-bubble-2 { width: 140px; height: 140px; background: linear-gradient(135deg,#16a34a,#059669); right: -30px; bottom: -30px; animation: bob 5s ease-in-out infinite; }
 @keyframes bob { 0% { transform: translateY(0) } 50% { transform: translateY(-12px) } 100% { transform: translateY(0) } }
 
+/* ============================================
+   CLOUD UPLOAD ANIMATIONS (Clay Design)
+   ============================================ */
+@keyframes floating {
+    0%, 100% { 
+        transform: translateY(0) translateX(0) scale(1);
+        opacity: 0.8;
+    }
+    25% {
+        transform: translateY(-20px) translateX(8px) scale(1.1);
+        opacity: 0.6;
+    }
+    50% {
+        transform: translateY(-30px) translateX(-8px) scale(1);
+        opacity: 0.8;
+    }
+    75% {
+        transform: translateY(-15px) translateX(12px) scale(0.9);
+        opacity: 0.5;
+    }
+}
+
+.animate-floating {
+    animation: floating 3s ease-in-out infinite;
+}
+
+@keyframes slideProgress {
+    0% {
+        width: 20%;
+        left: -100%;
+    }
+    50% {
+        width: 60%;
+        left: 40%;
+    }
+    100% {
+        width: 20%;
+        left: 100%;
+    }
+}
+
 /* Make login card comfortable on small screens */
 @media (max-width: 768px) {
     #loginView .bg-white { border-radius: 1rem; padding: 1rem; }
