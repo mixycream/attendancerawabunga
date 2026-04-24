@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyGCiOGbR6X9xuQXDnVa52_bOkjwtm_IUsJCkGzPCNWhRR0b0mTTRJtF5O4V3tQD8yM/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwbrLbxUk1RfI-5yXwXwjGft_gYnSU0nJm5VuuvoTzDJoV5XCzmaYX8C3SvEqJgRxhz/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -24,11 +24,6 @@ const ROLE_LABELS = {
     head_sppg: 'Ka SPPG',
     foundation: 'Yayasan'
 };
-
-// Pagination Settings
-let logsCurrentPage = 1;
-const LOGS_PER_PAGE = 10;
-let allLogsSorted = [];
 
 function inferRoleFromDivision(division) {
     const normalized = String(division || '').toLowerCase().trim().replace(/\s+/g, ' ');
@@ -276,9 +271,6 @@ try {
     });
 } catch(e) {}
 
-// Global flag untuk track apakah sedang dalam proses login
-let isLoginInProgress = false;
-
 function setLoginLoading(loading) {
     const btn = document.getElementById('loginBtn');
     const text = document.getElementById('loginBtnText');
@@ -322,35 +314,16 @@ async function handleLogin(e) {
         currentUser = user;
         localStorage.setItem('mbg_user', JSON.stringify(user));
 
-        // Mark login in progress
-        isLoginInProgress = true;
-
-        // Fade out login view
         document.getElementById('loginView').classList.add('opacity-0', 'pointer-events-none');
-        setLoginLoading(false);
-        
-        // Wait for login fade out, then show loading animation
-        setTimeout(async () => {
-            document.getElementById('loginView').classList.add('hidden');
-            
-            // Explicitly show loader for login flow
-            toggleLoader(true, "Mempersiapkan Dashboard...");
-            
-            // Fetch data and init dashboard
-            await fetchData(true);
-            if (user.role === 'security') initSecurity();
-            else if (user.role === 'nutritionist') initNutritionist();
-            else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(user.role)) initSpecialRoleDashboard();
-            else if (user.role === 'employee' || user.role === 'admin_warehouse') initVolunteer();
-            else initAdmin();
-            
-            // Show success animation before hiding loader
-            showLoaderSuccess("Berhasil Masuk");
-            
-            // Mark login complete
-            isLoginInProgress = false;
-            startSessionTimer();
-        }, 500);
+        setTimeout(() => document.getElementById('loginView').classList.add('hidden'), 500);
+
+        await fetchData(true);
+        if (user.role === 'security') initSecurity();
+        else if (user.role === 'nutritionist') initNutritionist();
+        else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(user.role)) initSpecialRoleDashboard();
+        else if (user.role === 'employee' || user.role === 'admin_warehouse') initVolunteer();
+        else initAdmin();
+        startSessionTimer();
 
         const remember = document.getElementById('rememberMe')?.checked;
         if (remember) localStorage.setItem('remembered_username', u); else localStorage.removeItem('remembered_username');
@@ -415,104 +388,35 @@ function resetSessionTimer() {
 // --- CLOUD OPERATIONS ---
 function toggleLoader(show, text="Menghubungkan...") {
     const el = document.getElementById('globalLoader');
-    const loaderContent = document.getElementById('loaderContent');
-    const loaderSuccess = document.getElementById('loaderSuccess');
-    const textEl = document.getElementById('loaderText');
-    const progEl = document.getElementById('loaderProgress');
-    
+    document.getElementById('loaderText').innerText = text;
     if(show) {
-        textEl.innerText = text;
-        // Reset success state
-        loaderSuccess.classList.add('opacity-0', 'scale-75');
-        loaderSuccess.classList.remove('opacity-100', 'scale-100');
-        loaderContent.classList.remove('opacity-0', 'scale-75');
-        loaderContent.classList.add('opacity-100', 'scale-100');
-        
         el.classList.remove('hidden');
-        // Show progress bar if text contains upload keywords
-        if (text.includes('Upload') || text.includes('Sinkronisasi') || text.includes('foto')) {
-            progEl?.classList.remove('hidden');
-        } else {
-            progEl?.classList.add('hidden');
-        }
-        // Smooth entrance animation with scale and opacity
-        setTimeout(() => {
-            el.classList.remove('opacity-0', 'scale-95');
-            el.classList.add('opacity-100', 'scale-100');
-        }, 50);
+        setTimeout(() => el.classList.remove('opacity-0'), 10);
     } else {
-        // Smooth exit animation
-        el.classList.add('opacity-0', 'scale-95');
-        el.classList.remove('opacity-100', 'scale-100');
-        setTimeout(() => {
-            el.classList.add('hidden');
-            progEl?.classList.add('hidden');
-        }, 500);
+        el.classList.add('opacity-0');
+        setTimeout(() => el.classList.add('hidden'), 300);
     }
 }
 
-// Show loader with success animation before hiding
-function showLoaderSuccess(successMsg = "Berhasil!") {
-    const el = document.getElementById('globalLoader');
-    const loaderContent = document.getElementById('loaderContent');
-    const loaderSuccess = document.getElementById('loaderSuccess');
-    const loaderSuccessMsg = document.getElementById('loaderSuccessMsg');
-    
-    // If loader is hidden or in transition, just show toast
-    if (el.classList.contains('hidden')) {
-        showToast(successMsg, "success");
-        return;
-    }
-    
-    // Set custom success message
-    loaderSuccessMsg.innerText = successMsg;
-    
-    // Fade out loading content
-    loaderContent.classList.add('opacity-0', 'scale-75');
-    loaderContent.classList.remove('opacity-100', 'scale-100');
-    
-    // Fade in success content
-    setTimeout(() => {
-        loaderSuccess.classList.remove('opacity-0', 'scale-75');
-        loaderSuccess.classList.add('opacity-100', 'scale-100');
-    }, 200);
-    
-    // Hide loader after 1.8 seconds
-    setTimeout(() => {
-        toggleLoader(false);
-    }, 1800);
-}
-
-// --- Inline sync button animation (Clay Design) ---
+// --- Inline sync button animation ---
 let _syncingButton = null;
 function setSyncButtonLoading(btn, loading) {
     if (!btn) return;
     const icon = btn.querySelector('i.fas, svg');
     if (loading) {
         btn.disabled = true;
-        btn.classList.add('pointer-events-none', 'animate-pulse');
+        btn.classList.add('pointer-events-none');
         _syncingButton = btn;
         btn._origHTML = btn.innerHTML;
-        btn._origClasses = btn.className;
-        
-        // Apply clay loading style
-        btn.classList.add('bg-emerald-50', 'dark:bg-emerald-900/20', 'border-emerald-300', 'dark:border-emerald-700/50');
-        btn.classList.remove('hover:border-blue-300', 'hover:text-blue-600', 'hover:bg-blue-50', 'text-slate-600', 'text-slate-500');
-        btn.classList.add('text-emerald-600', 'dark:text-emerald-400');
-        
         const isSmall = btn.classList.contains('w-8') || btn.classList.contains('w-9') || btn.classList.contains('w-10');
         if (isSmall) {
-            btn.innerHTML = '<svg class="w-3.5 h-3.5 animate-spin text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" class="opacity-30"></circle><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="opacity-100"></path></svg>';
+            btn.innerHTML = '<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"></circle><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" stroke-linecap="round" class="opacity-80"></path></svg>';
         } else {
-            btn.innerHTML = '<svg class="w-3.5 h-3.5 animate-spin text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" class="opacity-30"></circle><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="opacity-100"></path></svg> <span class="hidden md:inline text-xs font-semibold">Syncing...</span>';
+            btn.innerHTML = '<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"></circle><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" stroke-linecap="round" class="opacity-80"></path></svg> <span class="hidden md:inline">Syncing...</span>';
         }
     } else {
         btn.disabled = false;
-        btn.classList.remove('pointer-events-none', 'animate-pulse');
-        // Restore original styling
-        if (btn._origClasses) {
-            btn.className = btn._origClasses;
-        }
+        btn.classList.remove('pointer-events-none');
         _syncingButton = null;
     }
 }
@@ -521,22 +425,17 @@ function showSyncSuccess(btn) {
     if (!btn) return;
     const isSmall = btn.classList.contains('w-8') || btn.classList.contains('w-9') || btn.classList.contains('w-10');
     const prevClasses = btn.className;
-    
-    // Apply clay success style with animation
-    btn.classList.remove('animate-pulse', 'bg-emerald-50', 'text-emerald-600', 'border-emerald-300');
-    btn.classList.add('bg-emerald-100', 'dark:bg-emerald-900/40', 'border-emerald-400', 'dark:border-emerald-600/70', 'text-emerald-700', 'dark:text-emerald-300', 'scale-110');
-    
+    btn.classList.add('border-emerald-300', 'text-emerald-600', 'bg-emerald-50');
+    btn.classList.remove('text-slate-600', 'text-slate-500', 'text-slate-200', 'text-slate-300', 'border-slate-200', 'bg-white');
     if (isSmall) {
-        btn.innerHTML = '<i class="fas fa-check text-xs font-bold"></i>';
+        btn.innerHTML = '<i class="fas fa-check text-xs"></i>';
     } else {
-        btn.innerHTML = '<i class="fas fa-check text-sm font-bold"></i> <span class="hidden md:inline text-xs font-bold">Berhasil</span>';
+        btn.innerHTML = '<i class="fas fa-check"></i> <span class="hidden md:inline">Berhasil</span>';
     }
-    
     setTimeout(() => {
         btn.className = prevClasses;
         if (btn._origHTML) btn.innerHTML = btn._origHTML;
         delete btn._origHTML;
-        delete btn._origClasses;
     }, 1800);
 }
 
@@ -584,12 +483,7 @@ async function fetchData(force = false) {
                 if (force && triggerBtn) {
                     setSyncButtonLoading(triggerBtn, false);
                     showSyncSuccess(triggerBtn);
-                } else if (!isLoginInProgress) {
-                    // Hanya tampilkan success jika tidak sedang login
-                    // Saat login, success akan ditampilkan dari handleLogin
-                    showLoaderSuccess("Data Disinkronisasi");
                 } else {
-                    // Sedang login, hide loader tanpa success animation
                     toggleLoader(false);
                 }
                 return;
@@ -686,11 +580,7 @@ async function postData(action, payload) {
         showToast("Gagal terhubung ke server: " + e.message, "error");
         return false;
     } finally {
-        if (!document.getElementById('globalLoader').classList.contains('hidden')) {
-            showLoaderSuccess("Data Berhasil Disimpan");
-        } else {
-            toggleLoader(false);
-        }
+        toggleLoader(false);
     }
 }
 
@@ -756,27 +646,8 @@ function refreshUI() {
 
     // --- RENDER LOGS (TABEL AKTIVITAS) ---
     const sortedLogs = getSortedData(logs, 'logs');
-    allLogsSorted = sortedLogs; // Store for pagination
     const logBody = document.getElementById('logsTableBody');
-    
-    // Calculate pagination
-    const totalPages = Math.ceil(sortedLogs.length / LOGS_PER_PAGE);
-    const startIdx = (logsCurrentPage - 1) * LOGS_PER_PAGE;
-    const endIdx = startIdx + LOGS_PER_PAGE;
-    const paginatedLogs = sortedLogs.slice(startIdx, endIdx);
-    
-    // Update pagination display
-    document.getElementById('currentPage').innerText = logsCurrentPage;
-    document.getElementById('totalPages').innerText = totalPages || 1;
-    
-    // Render pagination numbers
-    renderPaginationNumbers(logsCurrentPage, totalPages);
-    
-    // Disable/enable buttons
-    document.querySelector('button[onclick="previousLogsPage()"]').disabled = logsCurrentPage === 1;
-    document.querySelector('button[onclick="nextLogsPage()"]').disabled = logsCurrentPage === totalPages;
-    
-    logBody.innerHTML = paginatedLogs.map(l => {
+    logBody.innerHTML = sortedLogs.slice(0, 20).map(l => {
         let badge = '', statusText = '';
         
         if (l.type === 'IN') {
@@ -2035,7 +1906,7 @@ Absensi telah terpending di sistem. Mohon kiranya Admin berkenan untuk melakukan
 Atas perhatiannya saya ucapkan terima kasih.
 Wassalamualaikum Warahmatullahi Wabarakatuh.`;
 
-    const phone = '6282114806765';
+    const phone = '6285691037996';
     const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(waUrl, '_blank');
     dismissLateBlocked();
@@ -2520,8 +2391,8 @@ function switchTab(id) {
     ['dashboard','employees','salaries','manual_attendance','violations','settings','pengumuman'].forEach(t => document.getElementById('tab-'+t)?.classList.add('hidden'));
     document.getElementById('tab-'+id)?.classList.remove('hidden');
     if(window.innerWidth < 768) { document.getElementById('sidebar').classList.add('-translate-x-full'); document.getElementById('sidebarOverlay').classList.add('hidden'); }
-    document.querySelectorAll('.clay-nav-item').forEach(el => el.classList.remove('active'));
-    Array.from(document.querySelectorAll('.clay-nav-item')).find(b => b.getAttribute('onclick').includes(id))?.classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    Array.from(document.querySelectorAll('.nav-item')).find(b => b.getAttribute('onclick').includes(id))?.classList.add('active');
     const titles = { 'dashboard': 'Dashboard', 'employees': 'Data Relawan', 'salaries': 'Laporan Gaji', 'manual_attendance': 'Absen Manual', 'violations': 'Pelanggaran', 'settings': 'Pengaturan', 'pengumuman': 'Pengumuman' };
     document.getElementById('pageTitle').innerText = titles[id] || id;
     if (id === 'manual_attendance') maInit();
@@ -2537,9 +2408,11 @@ function loadSettingsUI() {
     const tBoth = document.getElementById('toggleBoth');
     const tLate = document.getElementById('toggleLate');
     const tEarly = document.getElementById('toggleEarly');
+    const tDark = document.getElementById('toggleDarkMode');
     if (tBoth) tBoth.checked = appConfig.disableBoth;
     if (tLate) tLate.checked = appConfig.disableLate;
     if (tEarly) tEarly.checked = appConfig.disableEarly;
+    if (tDark) tDark.checked = document.documentElement.classList.contains('dark');
     const tGeo = document.getElementById('toggleGeofence');
     if (tGeo) tGeo.checked = appConfig.disableGeofence;
     const tOT = document.getElementById('toggleHideOvertime');
@@ -2623,30 +2496,20 @@ async function saveFeatureSettings() {
     }
 }
 
-// ===== DARK MODE TOGGLE =====
-function toggleDarkMode() {
-    const isDark = document.documentElement.classList.contains('dark');
-    const icon = document.getElementById('darkModeIcon');
-    
-    if (isDark) {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('mbg_dark_mode', '0');
-        if (icon) icon.className = 'fas fa-moon';
-    } else {
+function toggleDarkMode(on) {
+    if (on) {
         document.documentElement.classList.add('dark');
         localStorage.setItem('mbg_dark_mode', '1');
-        if (icon) icon.className = 'fas fa-sun';
+    } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('mbg_dark_mode', '0');
     }
 }
 
 // Init dark mode from localStorage
 (function() {
-    const icon = document.getElementById('darkModeIcon');
     if (localStorage.getItem('mbg_dark_mode') === '1') {
         document.documentElement.classList.add('dark');
-        if (icon) icon.className = 'fas fa-sun';
-    } else {
-        if (icon) icon.className = 'fas fa-moon';
     }
 })();
 
@@ -3637,19 +3500,7 @@ async function maSubmit() {
     maSendEntries(entries, 0, 0, 0);
 }
 
-function initAdmin() {
-    if (!isLoginInProgress) {
-        toggleLoader(true, "Mempersiapkan Admin Dashboard...");
-        setTimeout(() => {
-            document.getElementById('adminLayout').classList.remove('hidden');
-            refreshUI();
-            showLoaderSuccess("Admin Dashboard Siap");
-        }, 300);
-    } else {
-        document.getElementById('adminLayout').classList.remove('hidden');
-        refreshUI();
-    }
-}
+function initAdmin() { document.getElementById('adminLayout').classList.remove('hidden'); refreshUI(); }
 
 // =============================================
 // NUTRITIONIST DASHBOARD - Complete System
@@ -3753,47 +3604,23 @@ let nPendingIngredient = null;
 let nNutritionChartInstance = null;
 
 function initNutritionist() {
-    if (!isLoginInProgress) {
-        toggleLoader(true, "Mempersiapkan Nutritionist Page...");
-        setTimeout(() => {
-            document.getElementById('nutritionistLayout').classList.remove('hidden');
-            // Set user info in sidebar
-            const nameEl = document.getElementById('nUserName');
-            const divEl = document.getElementById('nUserDivision');
-            const avatarEl = document.getElementById('nUserAvatar');
-            if (nameEl) nameEl.textContent = currentUser?.name || 'Ahli Gizi';
-            if (divEl) divEl.textContent = currentUser?.division || 'Nutrisionis';
-            if (avatarEl) {
-                const initials = (currentUser?.name || 'AG').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-                avatarEl.textContent = initials;
-            }
-            // Load saved state from localStorage
-            nLoadPlannerState();
-            // Render all tabs
-            nRenderOverview();
-            nRenderDatabase();
-            nRecalcPlanner();
-            showLoaderSuccess("Nutritionist Page Siap");
-        }, 300);
-    } else {
-        document.getElementById('nutritionistLayout').classList.remove('hidden');
-        // Set user info in sidebar
-        const nameEl = document.getElementById('nUserName');
-        const divEl = document.getElementById('nUserDivision');
-        const avatarEl = document.getElementById('nUserAvatar');
-        if (nameEl) nameEl.textContent = currentUser?.name || 'Ahli Gizi';
-        if (divEl) divEl.textContent = currentUser?.division || 'Nutrisionis';
-        if (avatarEl) {
-            const initials = (currentUser?.name || 'AG').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-            avatarEl.textContent = initials;
-        }
-        // Load saved state from localStorage
-        nLoadPlannerState();
-        // Render all tabs
-        nRenderOverview();
-        nRenderDatabase();
-        nRecalcPlanner();
+    document.getElementById('nutritionistLayout').classList.remove('hidden');
+    // Set user info in sidebar
+    const nameEl = document.getElementById('nUserName');
+    const divEl = document.getElementById('nUserDivision');
+    const avatarEl = document.getElementById('nUserAvatar');
+    if (nameEl) nameEl.textContent = currentUser?.name || 'Ahli Gizi';
+    if (divEl) divEl.textContent = currentUser?.division || 'Nutrisionis';
+    if (avatarEl) {
+        const initials = (currentUser?.name || 'AG').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+        avatarEl.textContent = initials;
     }
+    // Load saved state from localStorage
+    nLoadPlannerState();
+    // Render all tabs
+    nRenderOverview();
+    nRenderDatabase();
+    nRecalcPlanner();
 }
 
 // --- Sidebar & Tab Navigation ---
@@ -4273,17 +4100,8 @@ document.addEventListener('click', (e) => {
 
 // --- SPECIAL ROLE DASHBOARD (Akuntan, Gudang, Ka SPPG, Yayasan) ---
 function initSpecialRoleDashboard() {
-    if (!isLoginInProgress) {
-        toggleLoader(true, "Mempersiapkan Dashboard...");
-        setTimeout(() => {
-            document.getElementById('specialRoleLayout').classList.remove('hidden');
-            renderSpecialRoleDashboard();
-            showLoaderSuccess("Dashboard Siap");
-        }, 300);
-    } else {
-        document.getElementById('specialRoleLayout').classList.remove('hidden');
-        renderSpecialRoleDashboard();
-    }
+    document.getElementById('specialRoleLayout').classList.remove('hidden');
+    renderSpecialRoleDashboard();
 }
 
 function renderSpecialRoleDashboard() {
@@ -4371,25 +4189,12 @@ function startSecuritySelfCheck() {
 }
 
 function initSecurity() {
-    if (!isLoginInProgress) {
-        toggleLoader(true, "Mempersiapkan Security Page...");
-        setTimeout(() => {
-            document.getElementById('securityLayout').classList.remove('hidden');
-            updateSecurityDropdown();
-            updateSecurityInfo();
-            updateSecurityProfileIndicator();
-            startClockAndGPS();
-            updateSecurityEntryGate();
-            showLoaderSuccess("Security Page Siap");
-        }, 300);
-    } else {
-        document.getElementById('securityLayout').classList.remove('hidden');
-        updateSecurityDropdown();
-        updateSecurityInfo();
-        updateSecurityProfileIndicator();
-        startClockAndGPS();
-        updateSecurityEntryGate();
-    }
+    document.getElementById('securityLayout').classList.remove('hidden');
+    updateSecurityDropdown();
+    updateSecurityInfo();
+    updateSecurityProfileIndicator();
+    startClockAndGPS();
+    updateSecurityEntryGate();
 }
 function toggleNewEmpCreds(role) {
     const el = document.getElementById('newEmpCreds');
@@ -4694,88 +4499,43 @@ function volUpdateTodayStatus() {
 }
 
 function initVolunteer() {
-    if (!isLoginInProgress) {
-        toggleLoader(true, "Mempersiapkan Volunteer Page...");
-        setTimeout(() => {
-        // Hide all other layouts
-        ['adminLayout', 'securityLayout', 'nutritionistLayout', 'specialRoleLayout'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.classList.add('hidden');
-        });
-        document.getElementById('volunteerLayout').classList.remove('hidden');
+    // Hide all other layouts
+    ['adminLayout', 'securityLayout', 'nutritionistLayout', 'specialRoleLayout'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+    });
+    document.getElementById('volunteerLayout').classList.remove('hidden');
 
-        const profileCard = document.getElementById('volProfileCard');
+    const profileCard = document.getElementById('volProfileCard');
 
-        if (volGuestMode) {
-            // Mode tamu: sembunyikan kartu profil, tampilkan info umum
-            if (profileCard) profileCard.classList.add('hidden');
-        } else {
-            // Mode login: tampilkan profil user
-            if (profileCard) profileCard.classList.remove('hidden');
-            if (currentUser) {
-                const nameEl = document.getElementById('volProfileName');
-                const divEl = document.getElementById('volProfileDiv');
-                const shiftEl = document.getElementById('volProfileShift');
-                const avatarEl = document.getElementById('volProfileAvatar');
-                if (nameEl) nameEl.innerText = currentUser.name || currentUser.u || '-';
-                if (divEl) divEl.innerText = currentUser.division || 'Relawan';
-                if (shiftEl) {
-                    const st = getShiftTime(currentUser.division || '');
-                    shiftEl.innerHTML = `<i class="far fa-clock mr-1"></i>${st}`;
-                }
-                if (avatarEl && currentUser.photo) {
-                    const url = convertDriveUrl(currentUser.photo);
-                    avatarEl.innerHTML = `<img src="${url}" class="w-full h-full object-cover rounded-full" onerror="this.onerror=null;this.parentElement.innerHTML='<i class=\\'fas fa-user\\'></i>'">`;
-                }
-            }
-        }
-
-        volStartClockAndGPS();
-        volUpdateGeofenceUI();
-        volUpdateTodayStatus();
-        volShowPage('home');
-        
-        showLoaderSuccess("Volunteer Page Siap");
-        }, 300);
+    if (volGuestMode) {
+        // Mode tamu: sembunyikan kartu profil, tampilkan info umum
+        if (profileCard) profileCard.classList.add('hidden');
     } else {
-        // Hide all other layouts
-        ['adminLayout', 'securityLayout', 'nutritionistLayout', 'specialRoleLayout'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.classList.add('hidden');
-        });
-        document.getElementById('volunteerLayout').classList.remove('hidden');
-
-        const profileCard = document.getElementById('volProfileCard');
-
-        if (volGuestMode) {
-            // Mode tamu: sembunyikan kartu profil, tampilkan info umum
-            if (profileCard) profileCard.classList.add('hidden');
-        } else {
-            // Mode login: tampilkan profil user
-            if (profileCard) profileCard.classList.remove('hidden');
-            if (currentUser) {
-                const nameEl = document.getElementById('volProfileName');
-                const divEl = document.getElementById('volProfileDiv');
-                const shiftEl = document.getElementById('volProfileShift');
-                const avatarEl = document.getElementById('volProfileAvatar');
-                if (nameEl) nameEl.innerText = currentUser.name || currentUser.u || '-';
-                if (divEl) divEl.innerText = currentUser.division || 'Relawan';
-                if (shiftEl) {
-                    const st = getShiftTime(currentUser.division || '');
-                    shiftEl.innerHTML = `<i class="far fa-clock mr-1"></i>${st}`;
-                }
-                if (avatarEl && currentUser.photo) {
-                    const url = convertDriveUrl(currentUser.photo);
-                    avatarEl.innerHTML = `<img src="${url}" class="w-full h-full object-cover rounded-full" onerror="this.onerror=null;this.parentElement.innerHTML='<i class=\\'fas fa-user\\'></i>'">`;
-                }
+        // Mode login: tampilkan profil user
+        if (profileCard) profileCard.classList.remove('hidden');
+        if (currentUser) {
+            const nameEl = document.getElementById('volProfileName');
+            const divEl = document.getElementById('volProfileDiv');
+            const shiftEl = document.getElementById('volProfileShift');
+            const avatarEl = document.getElementById('volProfileAvatar');
+            if (nameEl) nameEl.innerText = currentUser.name || currentUser.u || '-';
+            if (divEl) divEl.innerText = currentUser.division || 'Relawan';
+            if (shiftEl) {
+                const st = getShiftTime(currentUser.division || '');
+                shiftEl.innerHTML = `<i class="far fa-clock mr-1"></i>${st}`;
+            }
+            if (avatarEl && currentUser.photo) {
+                const url = convertDriveUrl(currentUser.photo);
+                avatarEl.innerHTML = `<img src="${url}" class="w-full h-full object-cover rounded-full" onerror="this.onerror=null;this.parentElement.innerHTML='<i class=\\'fas fa-user\\'></i>'">`;
             }
         }
-
-        volStartClockAndGPS();
-        volUpdateGeofenceUI();
-        volUpdateTodayStatus();
-        volShowPage('home');
     }
+
+    volStartClockAndGPS();
+    volUpdateGeofenceUI();
+    volUpdateTodayStatus();
+    volShowPage('home');
 }
 
 function volShowPage(page) {
@@ -5432,79 +5192,4 @@ function spawnConfetti(container) {
         p.style.animationDelay = (Math.random() * 0.6) + 's';
         container.appendChild(p);
     }
-}
-
-// =============================================
-// PAGINATION FUNCTIONS - Logs Table
-// =============================================
-
-function previousLogsPage() {
-    if (logsCurrentPage > 1) {
-        logsCurrentPage--;
-        refreshUI();
-    }
-}
-
-function nextLogsPage() {
-    const sortedLogs = getSortedData(logs, 'logs');
-    const totalPages = Math.ceil(sortedLogs.length / LOGS_PER_PAGE);
-    if (logsCurrentPage < totalPages) {
-        logsCurrentPage++;
-        refreshUI();
-    }
-}
-
-function goToLogsPage(pageNum) {
-    const sortedLogs = getSortedData(logs, 'logs');
-    const totalPages = Math.ceil(sortedLogs.length / LOGS_PER_PAGE);
-    if (pageNum >= 1 && pageNum <= totalPages) {
-        logsCurrentPage = pageNum;
-        refreshUI();
-    }
-}
-
-function renderPaginationNumbers(currentPage, totalPages) {
-    const container = document.getElementById('paginationNumbers');
-    if (!container) return;
-    
-    if (totalPages <= 1) {
-        container.innerHTML = '';
-        return;
-    }
-    
-    let html = '';
-    const maxVisiblePages = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-    
-    if (endPage - startPage < maxVisiblePages - 1) {
-        startPage = Math.max(1, endPage - maxVisiblePages + 1);
-    }
-    
-    // First page button
-    if (startPage > 1) {
-        html += `<button onclick="goToLogsPage(1)" class="px-2 py-1 rounded-lg text-xs font-bold bg-white text-slate-500 border border-slate-200 hover:border-blue-300 hover:text-blue-600 transition">1</button>`;
-        if (startPage > 2) {
-            html += `<span class="px-1 text-slate-400">...</span>`;
-        }
-    }
-    
-    // Page number buttons
-    for (let i = startPage; i <= endPage; i++) {
-        if (i === currentPage) {
-            html += `<button class="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-sm shadow-blue-600/20">${i}</button>`;
-        } else {
-            html += `<button onclick="goToLogsPage(${i})" class="px-2 py-1 rounded-lg text-xs font-bold bg-white text-slate-500 border border-slate-200 hover:border-blue-300 hover:text-blue-600 transition">${i}</button>`;
-        }
-    }
-    
-    // Last page button
-    if (endPage < totalPages) {
-        if (endPage < totalPages - 1) {
-            html += `<span class="px-1 text-slate-400">...</span>`;
-        }
-        html += `<button onclick="goToLogsPage(${totalPages})" class="px-2 py-1 rounded-lg text-xs font-bold bg-white text-slate-500 border border-slate-200 hover:border-blue-300 hover:text-blue-600 transition">${totalPages}</button>`;
-    }
-    
-    container.innerHTML = html;
 }
