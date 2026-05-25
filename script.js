@@ -2436,8 +2436,64 @@ async function adminDeleteAbsen(empId, empName) {
 }
 
 // --- CLEAN DUPLICATE LOGS ---
+
+function openCleanDupModal() {
+    const modal = document.getElementById('cleanDupModal');
+    modal.classList.remove('hidden');
+    requestAnimationFrame(() => {
+        modal.classList.remove('opacity-0');
+        modal.classList.add('opacity-100');
+    });
+}
+
+function closeCleanDupModal() {
+    const modal = document.getElementById('cleanDupModal');
+    modal.classList.remove('opacity-100');
+    modal.classList.add('opacity-0');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+}
+
+function _cleanDupSetProgress(current, total, desc) {
+    const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+    document.getElementById('cleanDupProgressBar').style.width = pct + '%';
+    document.getElementById('cleanDupProgressLabel').textContent = `${current} / ${total}`;
+    document.getElementById('cleanDupProgressPct').textContent = pct + '%';
+    if (desc) document.getElementById('cleanDupProgressDesc').textContent = desc;
+}
+
+function _cleanDupActivateStep(stepId) {
+    ['stepScan', 'stepDelete', 'stepSync'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (id === stepId) {
+            el.classList.remove('opacity-40');
+            // swap icon to spinner
+            const iconWrap = el.querySelector('div');
+            if (iconWrap && id !== 'stepScan') {
+                iconWrap.className = 'w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0';
+                iconWrap.innerHTML = '<svg class="w-3 h-3 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"></circle><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" stroke-linecap="round" class="opacity-90"></path></svg>';
+            }
+        } else {
+            el.classList.add('opacity-40');
+        }
+    });
+}
+
+function _cleanDupMarkStepDone(stepId) {
+    const el = document.getElementById(stepId);
+    if (!el) return;
+    el.classList.remove('opacity-40');
+    const iconWrap = el.querySelector('div');
+    if (iconWrap) {
+        iconWrap.className = 'w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0';
+        iconWrap.innerHTML = '<i class="fas fa-check text-[10px] text-emerald-600"></i>';
+    }
+    const label = el.querySelector('span');
+    if (label) label.classList.remove('text-slate-400');
+}
+
 async function cleanDuplicateLogs() {
-    // Hitung dulu duplikat di lokal untuk preview
+    // Hitung duplikat lokal untuk konfirmasi
     const seen = {};
     let localDupes = 0;
     logs.forEach(l => {
@@ -2447,37 +2503,123 @@ async function cleanDuplicateLogs() {
     });
 
     const msg = localDupes > 0
-        ? `Ditemukan ${localDupes} data duplikat di logs.\nLanjutkan hapus duplikat dari Spreadsheet?\n\n(Data pertama akan dipertahankan, data duplikat akan dihapus)`
-        : `Tidak ada duplikat terdeteksi secara lokal.\nTetap jalankan pengecekan di server (Spreadsheet)?`;
+        ? `Ditemukan ${localDupes} data duplikat di sesi ini.\nLanjutkan bersihkan Spreadsheet?\n\n(Baris pertama dipertahankan, duplikat dihapus)`
+        : `Tidak ada duplikat terdeteksi secara lokal.\nTetap jalankan pengecekan di server?`;
 
     if (!confirm(msg)) return;
 
-    toggleLoader(true, 'Membersihkan data duplikat...');
+    // Reset modal ke state awal
+    document.getElementById('cleanDupScanning').classList.remove('hidden');
+    document.getElementById('cleanDupSuccess').classList.add('hidden');
+    document.getElementById('cleanDupError').classList.add('hidden');
+    document.getElementById('cleanDupCloseBtn').classList.add('hidden');
+    document.getElementById('cleanDupWaitNote').classList.remove('hidden');
+    document.getElementById('cleanDupResultBadge').classList.add('hidden');
+    document.getElementById('cleanDupTitle').textContent = 'Membersihkan Data Duplikat';
+    document.getElementById('cleanDupSubtitle').textContent = 'Sedang memindai Spreadsheet...';
+    document.getElementById('cleanDupIconWrap').className = 'w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-red-500 flex-shrink-0 transition-all duration-500';
+    document.getElementById('cleanDupIcon').className = 'fas fa-broom text-sm';
+    ['stepScan','stepDelete','stepSync'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('opacity-40');
+    });
+    // Reset step scan ke spinner
+    const scanEl = document.getElementById('stepScan');
+    if (scanEl) {
+        scanEl.classList.remove('opacity-40');
+        const iconWrap = scanEl.querySelector('div');
+        if (iconWrap) {
+            iconWrap.className = 'w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0';
+            iconWrap.innerHTML = '<svg class="w-3 h-3 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"></circle><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" stroke-linecap="round" class="opacity-90"></path></svg>';
+        }
+    }
+    _cleanDupSetProgress(0, logs.length, 'Menghubungi server...');
+
+    openCleanDupModal();
+
+    // Animasi progress scanning (simulasi, karena server langsung kerja semua)
+    const total = logs.length || 100;
+    let animFrame = 0;
+    const scanAnim = setInterval(() => {
+        animFrame = Math.min(animFrame + Math.ceil(total / 20), Math.floor(total * 0.85));
+        _cleanDupSetProgress(animFrame, total, `Memindai ${animFrame} dari ${total} baris...`);
+        if (animFrame >= Math.floor(total * 0.85)) clearInterval(scanAnim);
+    }, 80);
+
     try {
         const form = new URLSearchParams();
         form.append('action', 'cleanDuplicateLogs');
         const res = await fetch(SCRIPT_URL, { method: 'POST', body: form });
         const json = await res.json().catch(() => null);
 
+        clearInterval(scanAnim);
+
         if (json && json.status === 'success') {
             const deleted = json.deleted || 0;
+
+            // Step 1 done
+            _cleanDupMarkStepDone('stepScan');
+            _cleanDupSetProgress(total, total, `Pemindaian selesai. Ditemukan ${deleted} duplikat.`);
+            await new Promise(r => setTimeout(r, 400));
+
+            // Step 2: delete
+            _cleanDupActivateStep('stepDelete');
+            document.getElementById('cleanDupSubtitle').textContent = deleted > 0 ? `Menghapus ${deleted} baris duplikat...` : 'Tidak ada yang perlu dihapus.';
+            await new Promise(r => setTimeout(r, deleted > 0 ? 600 : 300));
+            _cleanDupMarkStepDone('stepDelete');
+            await new Promise(r => setTimeout(r, 300));
+
+            // Step 3: sync
+            _cleanDupActivateStep('stepSync');
+            document.getElementById('cleanDupSubtitle').textContent = 'Menyinkronkan data dari server...';
+            await new Promise(r => setTimeout(r, 300));
+
+            // Fetch baru di background — jangan tunggu lama
+            fetchData(false).catch(() => {});
+            await new Promise(r => setTimeout(r, 700));
+            _cleanDupMarkStepDone('stepSync');
+            await new Promise(r => setTimeout(r, 300));
+
+            // Tampilkan state sukses
+            document.getElementById('cleanDupScanning').classList.add('hidden');
+            document.getElementById('cleanDupSuccess').classList.remove('hidden');
+            document.getElementById('cleanDupTitle').textContent = 'Selesai!';
+            document.getElementById('cleanDupSubtitle').textContent = deleted > 0 ? `${deleted} duplikat berhasil dihapus` : 'Logs sudah bersih';
+            document.getElementById('cleanDupSuccessMsg').textContent = deleted > 0
+                ? `${deleted} baris duplikat dihapus dari Spreadsheet. Data dipertahankan dari entri pertama.`
+                : 'Tidak ada data duplikat — semua log absensi sudah bersih!';
+
             if (deleted > 0) {
-                showToast(`✅ ${deleted} data duplikat berhasil dihapus dari Spreadsheet`, 'success');
-            } else {
-                showToast('✅ Tidak ada duplikat ditemukan — logs sudah bersih!', 'success');
+                document.getElementById('cleanDupResultBadge').classList.remove('hidden');
+                document.getElementById('cleanDupResultCount').textContent = `${deleted} baris dihapus`;
             }
-            // Refresh data dari server agar sinkron
-            await fetchData(true);
+
+            // Update icon header ke centang hijau
+            document.getElementById('cleanDupIconWrap').className = 'w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0 transition-all duration-500';
+            document.getElementById('cleanDupIcon').className = 'fas fa-check text-sm';
+
         } else {
-            showToast('Gagal membersihkan duplikat: ' + (json?.message || 'Error server'), 'error');
-            toggleLoader(false);
+            clearInterval(scanAnim);
+            throw new Error(json?.message || 'Respons server tidak valid');
         }
+
     } catch (err) {
+        clearInterval(scanAnim);
         console.error('[CleanDuplicates] Error:', err);
-        showToast('Gagal terhubung ke server', 'error');
-        toggleLoader(false);
+        document.getElementById('cleanDupScanning').classList.add('hidden');
+        document.getElementById('cleanDupError').classList.remove('hidden');
+        document.getElementById('cleanDupErrorMsg').textContent = err.message || 'Gagal terhubung ke server.';
+        document.getElementById('cleanDupTitle').textContent = 'Terjadi Kesalahan';
+        document.getElementById('cleanDupSubtitle').textContent = 'Proses dibatalkan';
+        document.getElementById('cleanDupIconWrap').className = 'w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-red-500 flex-shrink-0 transition-all duration-500';
+        document.getElementById('cleanDupIcon').className = 'fas fa-exclamation-triangle text-sm';
+    } finally {
+        // Selalu tampilkan tombol Tutup
+        document.getElementById('cleanDupCloseBtn').classList.remove('hidden');
+        document.getElementById('cleanDupWaitNote').classList.add('hidden');
     }
 }
+
 
 // Auto Clock-Out: relawan yang lupa absen OUT
 // Cook: >13 jam, Lainnya (non-Security): >12 jam
