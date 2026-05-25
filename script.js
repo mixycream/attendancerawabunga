@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxD-NOw1zD_6eR0aG_eOh-CnHyyW6FZG31QTHrr9SEUi01YEAHtTQz2RzQDinFlp-6C/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyx477VAxPYRxsGwi3gSo3MNhIOaP7So_TC1_O7j9z_QpI4UwYX88VYCkAAm3oW3Q_O/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -2435,70 +2435,166 @@ async function adminDeleteAbsen(empId, empName) {
     }
 }
 
+// --- CLEAN DUPLICATE LOGS ---
+async function cleanDuplicateLogs() {
+    // Hitung dulu duplikat di lokal untuk preview
+    const seen = {};
+    let localDupes = 0;
+    logs.forEach(l => {
+        const key = `${l.empId}|${l.date}|${l.type}`;
+        if (seen[key]) localDupes++;
+        else seen[key] = true;
+    });
+
+    const msg = localDupes > 0
+        ? `Ditemukan ${localDupes} data duplikat di logs.\nLanjutkan hapus duplikat dari Spreadsheet?\n\n(Data pertama akan dipertahankan, data duplikat akan dihapus)`
+        : `Tidak ada duplikat terdeteksi secara lokal.\nTetap jalankan pengecekan di server (Spreadsheet)?`;
+
+    if (!confirm(msg)) return;
+
+    toggleLoader(true, 'Membersihkan data duplikat...');
+    try {
+        const form = new URLSearchParams();
+        form.append('action', 'cleanDuplicateLogs');
+        const res = await fetch(SCRIPT_URL, { method: 'POST', body: form });
+        const json = await res.json().catch(() => null);
+
+        if (json && json.status === 'success') {
+            const deleted = json.deleted || 0;
+            if (deleted > 0) {
+                showToast(`✅ ${deleted} data duplikat berhasil dihapus dari Spreadsheet`, 'success');
+            } else {
+                showToast('✅ Tidak ada duplikat ditemukan — logs sudah bersih!', 'success');
+            }
+            // Refresh data dari server agar sinkron
+            await fetchData(true);
+        } else {
+            showToast('Gagal membersihkan duplikat: ' + (json?.message || 'Error server'), 'error');
+            toggleLoader(false);
+        }
+    } catch (err) {
+        console.error('[CleanDuplicates] Error:', err);
+        showToast('Gagal terhubung ke server', 'error');
+        toggleLoader(false);
+    }
+}
+
 // Auto Clock-Out: relawan yang lupa absen OUT
 // Cook: >13 jam, Lainnya (non-Security): >12 jam
 // Waktu OUT = jam shift end, Lokasi = sama dengan IN
+let isAutoClockOutRunning = false; // Guard flag untuk mencegah spam auto OUT
 async function autoClockOutForgotten() {
-    const now = new Date();
-    const stuckWorkers = employees.map(emp => {
-        const role = emp.role || inferRoleFromDivision(emp.division);
-        // Skip security
-        if (role === 'security') return null;
-
-        const sortedLogs = logs
-            .filter(l => String(l.empId) === String(emp.id))
-            .sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
-        if (sortedLogs.length === 0 || sortedLogs[0].type !== 'IN') return null;
-
-        const lastIN = sortedLogs[0];
-        const inTime = new Date(`${lastIN.date}T${lastIN.time}`);
-        const diffHours = (now - inTime) / 3600000;
-
-        const div = (emp.division || '').toLowerCase();
-        const isCook = div === 'cook';
-        const maxHours = isCook ? 13 : 12;
-
-        if (diffHours < maxHours) return null;
-
-        return { emp, lastIN, diffHours };
-    }).filter(Boolean);
-
-    if (stuckWorkers.length === 0) return;
-
-    console.log(`[AutoClockOut] ${stuckWorkers.length} relawan lupa OUT:`, stuckWorkers.map(w => w.emp.name));
-
-    for (const { emp, lastIN } of stuckWorkers) {
-        const shift = appConfig.shifts?.[emp.division];
-        let outTime = shift ? shift.end : '17:00';
-        const outDate = lastIN.date;
-        const location = lastIN.location || '';
-
-        try {
-            await postData('attendance', {
-                empId: emp.id,
-                name: emp.name,
-                type: 'OUT',
-                date: outDate,
-                forcedTime: outTime,
-                overtime: 0,
-                location,
-                note: '[Auto OUT - Lupa Absen]',
-                absentBy: 'Admin'
-            });
-            logs.push({
-                empId: emp.id, name: emp.name, type: 'OUT',
-                date: outDate, time: outTime + ':00',
-                overtime: 0, lateMinutes: 0,
-                location, note: '[Auto OUT - Lupa Absen]', absentBy: 'Admin'
-            });
-            console.log(`[AutoClockOut] ${emp.name} auto OUT at ${outTime} on ${outDate}`);
-        } catch (err) {
-            console.error(`[AutoClockOut] Failed for ${emp.name}:`, err);
-        }
+    // BUG FIX #1: Guard flag — cegah eksekusi ganda/spam
+    if (isAutoClockOutRunning) {
+        console.log('[AutoClockOut] Sudah berjalan, skip.');
+        return;
     }
+    isAutoClockOutRunning = true;
 
-    refreshUI();
-    showToast(`${stuckWorkers.length} relawan di-auto OUT (lupa absen)`, 'info');
+    try {
+        const now = new Date();
+        const stuckWorkers = employees.map(emp => {
+            const role = emp.role || inferRoleFromDivision(emp.division);
+            // Skip security
+            if (role === 'security') return null;
+
+            const empLogs = logs
+                .filter(l => String(l.empId) === String(emp.id))
+                .sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+            if (empLogs.length === 0 || empLogs[0].type !== 'IN') return null;
+
+            const lastIN = empLogs[0];
+
+            // BUG FIX #3: Cek duplikat di sisi client — jika sudah ada OUT di hari yang sama, skip
+            const alreadyHasOUT = logs.some(l =>
+                String(l.empId) === String(emp.id) &&
+                l.date === lastIN.date &&
+                l.type === 'OUT'
+            );
+            if (alreadyHasOUT) return null;
+
+            const inTime = new Date(`${lastIN.date}T${lastIN.time}`);
+            const diffHours = (now - inTime) / 3600000;
+
+            const div = (emp.division || '').toLowerCase();
+            const isCook = div === 'cook';
+            const maxHours = isCook ? 13 : 12;
+
+            if (diffHours < maxHours) return null;
+
+            return { emp, lastIN, diffHours };
+        }).filter(Boolean);
+
+        if (stuckWorkers.length === 0) return;
+
+        console.log(`[AutoClockOut] ${stuckWorkers.length} relawan lupa OUT:`, stuckWorkers.map(w => w.emp.name));
+
+        let successCount = 0;
+        for (const { emp, lastIN } of stuckWorkers) {
+            const shift = appConfig.shifts?.[emp.division];
+            let outTime = shift ? shift.end : '17:00';
+            const outDate = lastIN.date;
+            const location = lastIN.location || '';
+
+            // BUG FIX #3: Double-check di sisi client sebelum kirim ke server
+            const alreadyOut = logs.some(l =>
+                String(l.empId) === String(emp.id) &&
+                l.date === outDate &&
+                l.type === 'OUT'
+            );
+            if (alreadyOut) {
+                console.log(`[AutoClockOut] ${emp.name} sudah OUT, skip.`);
+                continue;
+            }
+
+            try {
+                // BUG FIX #2: Pakai callApi langsung (bukan postData) agar tidak
+                // memicu fetchData() → autoClockOutForgotten() loop rekursif
+                const form = new URLSearchParams();
+                const payload = {
+                    action: 'attendance',
+                    empId: emp.id,
+                    name: emp.name,
+                    type: 'OUT',
+                    date: outDate,
+                    forcedTime: outTime,
+                    overtime: 0,
+                    location,
+                    note: '[Auto OUT - Lupa Absen]',
+                    absentBy: 'Admin'
+                };
+                Object.keys(payload).forEach(k => form.append(k, String(payload[k])));
+                const res = await fetch(SCRIPT_URL, { method: 'POST', body: form });
+                const json = await res.json().catch(() => null);
+
+                if (json && json.status === 'success') {
+                    // Tambahkan ke logs lokal agar cek duplikat berikutnya akurat
+                    logs.push({
+                        empId: emp.id, name: emp.name, type: 'OUT',
+                        date: outDate, time: outTime + ':00',
+                        overtime: 0, lateMinutes: 0,
+                        location, note: '[Auto OUT - Lupa Absen]', absentBy: 'Admin'
+                    });
+                    successCount++;
+                    console.log(`[AutoClockOut] ${emp.name} auto OUT at ${outTime} on ${outDate}`);
+                } else if (json && json.duplicate) {
+                    console.log(`[AutoClockOut] ${emp.name} sudah OUT di server, skip.`);
+                } else {
+                    console.warn(`[AutoClockOut] Server tolak untuk ${emp.name}:`, json);
+                }
+            } catch (err) {
+                console.error(`[AutoClockOut] Failed for ${emp.name}:`, err);
+            }
+        }
+
+        if (successCount > 0) {
+            refreshUI();
+            showToast(`${successCount} relawan di-auto OUT (lupa absen)`, 'info');
+        }
+    } finally {
+        // Selalu reset flag meski terjadi error
+        isAutoClockOutRunning = false;
+    }
 }
 
 function closeActiveWorkers() {
