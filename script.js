@@ -1121,26 +1121,125 @@ function renderViolationsTab() {
 }
 
 // --- RENDER SALARY & REPORTS ---
+function onSalaryDateChange(changedInputId) {
+    let tglMulai = document.getElementById('salaryTglMulai')?.value || '';
+    let tglSelesai = document.getElementById('salaryTglSelesai')?.value || '';
+    
+    if (changedInputId === 'mulai' && tglMulai) {
+        const d = new Date(tglMulai + 'T00:00:00');
+        d.setDate(d.getDate() + 13);
+        tglSelesai = getLocalDateStr(d);
+        document.getElementById('salaryTglSelesai').value = tglSelesai;
+    } else if (changedInputId === 'selesai' && tglSelesai) {
+        const d = new Date(tglSelesai + 'T00:00:00');
+        d.setDate(d.getDate() - 13);
+        tglMulai = getLocalDateStr(d);
+        document.getElementById('salaryTglMulai').value = tglMulai;
+    }
+    
+    // Sync to cetakModal
+    const cetakMulai = document.getElementById('cetakTglMulai');
+    const cetakSelesai = document.getElementById('cetakTglSelesai');
+    if (cetakMulai) cetakMulai.value = tglMulai;
+    if (cetakSelesai) cetakSelesai.value = tglSelesai;
+    
+    _updateFotoInfoBadge();
+    renderSalary();
+}
+
 function renderSalary(filteredLogsOverride) {
     const body = document.getElementById('salaryTableBody');
     const detailBody = document.getElementById('overtimeDetailBody');
     const lateDetailBody = document.getElementById('lateDetailBody'); 
     
+    // Initialize date inputs if they are empty
+    const tglMulaiInput = document.getElementById('salaryTglMulai');
+    const tglSelesaiInput = document.getElementById('salaryTglSelesai');
+    
+    if (tglMulaiInput && !tglMulaiInput.value) {
+        const today = new Date();
+        const twoWeeksAgo = new Date(today);
+        twoWeeksAgo.setDate(today.getDate() - 13);
+        tglMulaiInput.value = getLocalDateStr(twoWeeksAgo);
+    }
+    if (tglSelesaiInput && !tglSelesaiInput.value) {
+        tglSelesaiInput.value = getLocalDateStr(new Date());
+    }
+    
+    const tglMulai = tglMulaiInput?.value || '';
+    const tglSelesai = tglSelesaiInput?.value || '';
+    
+    // Sync to print modal
+    const cetakMulai = document.getElementById('cetakTglMulai');
+    const cetakSelesai = document.getElementById('cetakTglSelesai');
+    if (cetakMulai && !cetakMulai.value) cetakMulai.value = tglMulai;
+    if (cetakSelesai && !cetakSelesai.value) cetakSelesai.value = tglSelesai;
+
+    // Generate day list for the 14 columns
+    const dates = [];
+    const dayNames = [];
+    const dateNumbers = [];
+    const start = new Date(tglMulai + 'T00:00:00');
+    const daysIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    
+    for (let i = 0; i < 14; i++) {
+        const curr = new Date(start);
+        curr.setDate(start.getDate() + i);
+        const dateStr = getLocalDateStr(curr);
+        dates.push(dateStr);
+        dayNames.push(daysIndo[curr.getDay()]);
+        dateNumbers.push(curr.getDate());
+    }
+
+    // Render 2-row table headers dynamically
+    const headerEl = document.getElementById('salaryTableHeader');
+    if (headerEl) {
+        let row1 = `
+        <tr>
+            <th rowspan="2" class="border-r border-b border-slate-200 p-3 w-10 text-center align-middle">No</th>
+            <th rowspan="2" class="border-r border-b border-slate-200 p-3 text-left align-middle min-w-[120px]">Divisi</th>
+            <th rowspan="2" class="border-r border-b border-slate-200 p-3 text-left align-middle min-w-[150px]">Nama Relawan</th>
+            <th colspan="14" class="border-r border-b border-slate-200 p-2 text-center align-middle bg-blue-50 text-blue-700 font-extrabold uppercase tracking-wider text-[10px]">Absensi Harian (2 Minggu)</th>
+            <th rowspan="2" class="border-r border-b border-slate-200 p-3 text-right align-middle min-w-[140px]">Honoranium Sukarelawan</th>
+            <th rowspan="2" class="border-r border-b border-slate-200 p-3 text-right align-middle min-w-[100px] text-slate-500">Iuran BPJS</th>
+            <th rowspan="2" class="border-r border-b border-slate-200 p-3 text-right align-middle min-w-[80px] text-slate-500">TK</th>
+            <th rowspan="2" class="border-r border-b border-slate-200 p-3 text-right align-middle min-w-[80px] text-slate-500">PJ</th>
+            <th rowspan="2" class="border-b border-slate-200 p-3 text-right align-middle min-w-[140px] text-blue-600 font-extrabold bg-blue-50/50">Total Upah</th>
+        </tr>`;
+        
+        let row2 = `<tr>`;
+        for (let i = 0; i < 14; i++) {
+            const isWeekend = dayNames[i] === 'Minggu' || dayNames[i] === 'Sabtu';
+            const textClass = isWeekend ? 'text-rose-600 font-bold' : 'text-slate-700 font-medium';
+            row2 += `
+            <th class="border-r border-b border-slate-200 p-1.5 text-center align-middle text-[9px] min-w-[45px] bg-slate-50/30">
+                <div class="${textClass}">${dayNames[i]}</div>
+                <div class="text-[10px] font-bold text-slate-500 mt-0.5">${dateNumbers[i]}</div>
+            </th>`;
+        }
+        row2 += `</tr>`;
+        headerEl.innerHTML = row1 + row2;
+    }
+
     const useLogs = filteredLogsOverride || logs;
     let overtimeDetailsHtml = '';
     let lateDetailsHtml = ''; 
     
+    // Filter logs that are within the 14-day range
+    const periodLogs = useLogs.filter(l => l.date >= tglMulai && l.date <= tglSelesai);
+    
     let salaryData = employees.map(e => {
-        const empLogs = useLogs.filter(l => l.empId === e.id);
+        const empLogs = periodLogs.filter(l => l.empId === e.id);
+        const allLogsOfEmp = useLogs.filter(l => l.empId === e.id); // For details which might extend
+        
         // Count days where employee has IN (each unique IN date = 1 work day)
         const inDates = new Set(empLogs.filter(l => l.type === 'IN').map(l => l.date));
-        let days = inDates.size;
         
         let totalOvertimeHours = 0;
         let totalLateCount = 0; 
         
         // Detail Lembur
-        empLogs.filter(l => l.type === 'OUT' && l.overtime > 0).forEach(l => {
+        allLogsOfEmp.filter(l => l.type === 'OUT' && l.overtime > 0 && l.date >= tglMulai && l.date <= tglSelesai).forEach(l => {
             totalOvertimeHours += (parseInt(l.overtime) || 0);
             const shift = appConfig.shifts[e.division];
             const shiftEnd = shift ? (typeof shift === 'string' ? 'Auto 8h' : shift.end) : '-';
@@ -1157,7 +1256,7 @@ function renderSalary(filteredLogsOverride) {
         });
 
         // Detail Telat
-        empLogs.filter(l => l.type === 'IN' && l.lateMinutes > 0).forEach(l => {
+        allLogsOfEmp.filter(l => l.type === 'IN' && l.lateMinutes > 0 && l.date >= tglMulai && l.date <= tglSelesai).forEach(l => {
             totalLateCount++;
             const shift = appConfig.shifts[e.division];
             const shiftStart = shift ? (typeof shift === 'string' ? '00:00' : shift.start) : '-';
@@ -1173,11 +1272,29 @@ function renderSalary(filteredLogsOverride) {
             </tr>`;
         });
 
-        const basicSalary = days * e.salary;
-        const overtimePay = totalOvertimeHours * appConfig.overtimeRate;
-        const total = basicSalary + overtimePay;
+        // Calculate presence daily wages for the 14 columns
+        const dailySalaries = dates.map(dateStr => {
+            return inDates.has(dateStr) ? parseInt(e.salary) : 0;
+        });
+
+        const honoranium = dailySalaries.reduce((sum, val) => sum + val, 0);
+        const bpjs = 16800; // Flat Rp16.800 but doesn't affect total upah
+        const tk = 0; // Flat Rp0 but doesn't affect total upah
+        const pj = 0; // Flat Rp0 but doesn't affect total upah
+        const totalUpah = honoranium; // Total Upah is just the Honoranium per user setting
         
-        return { ...e, days, totalOvertimeHours, totalLateCount, total };
+        return { 
+            ...e, 
+            dailySalaries, 
+            honoranium, 
+            bpjs, 
+            tk, 
+            pj, 
+            totalUpah, 
+            daysHadir: inDates.size,
+            totalOvertimeHours, 
+            totalLateCount 
+        };
     });
     
     if(detailBody) detailBody.innerHTML = overtimeDetailsHtml || '<tr><td colspan="6" class="p-4 text-center text-slate-400">Belum ada data lembur</td></tr>';
@@ -1185,55 +1302,78 @@ function renderSalary(filteredLogsOverride) {
 
     const criteria = sortState['salary'];
     if (criteria === 'name_asc') salaryData.sort((a, b) => a.name.localeCompare(b.name));
-    if (criteria === 'total_desc') salaryData.sort((a, b) => b.total - a.total);
-    if (criteria === 'days_desc') salaryData.sort((a, b) => b.days - a.days);
+    if (criteria === 'total_desc') salaryData.sort((a, b) => b.totalUpah - a.totalUpah);
+    if (criteria === 'days_desc') salaryData.sort((a, b) => b.daysHadir - a.daysHadir);
 
-    body.innerHTML = salaryData.map((e, i) => {
-        const lateClass = e.totalLateCount > 0 ? "text-red-500 font-bold" : "text-slate-300";
-        
-        return `
-        <tr class="border-b border-slate-100 hover:bg-slate-50 break-inside-avoid">
-            <td class="p-4 text-center text-slate-400 font-mono text-xs">${i+1}</td>
-            <td class="p-4 font-bold text-slate-700">${e.name}<br><span class="text-[10px] font-normal text-slate-400">${e.division}</span></td>
-            <td class="p-4 text-center">
-                <div class="text-xs font-bold text-slate-700">${e.days} Hari</div>
-                <div class="text-[10px] text-slate-400">x Rp ${parseInt(e.salary).toLocaleString()}</div>
-            </td>
-            <td class="p-4 text-center ${lateClass}">
-                ${e.totalLateCount}x
-            </td>
-            <td class="p-4 text-center">
-                <div class="text-xs font-bold text-amber-600">${e.totalOvertimeHours} Jam</div>
-                <div class="text-[10px] text-slate-400">x Rp ${parseInt(appConfig.overtimeRate).toLocaleString()}</div>
-            </td>
-            <td class="p-4 text-right font-extrabold text-slate-800 text-base">Rp ${e.total.toLocaleString()}</td>
+    if (body) {
+        body.innerHTML = salaryData.map((item, i) => {
+            let dailyCellsHtml = '';
+            for (let dIdx = 0; dIdx < 14; dIdx++) {
+                const val = item.dailySalaries[dIdx];
+                const cellContent = val > 0 
+                    ? `<span class="text-emerald-600 font-extrabold">${val.toLocaleString()}</span>` 
+                    : `<span class="text-slate-300">-</span>`;
+                dailyCellsHtml += `<td class="border-r border-slate-200 p-1.5 text-center font-mono text-[10px]">${cellContent}</td>`;
+            }
+
+            return `
+            <tr class="border-b border-slate-100 hover:bg-slate-50 break-inside-avoid text-[11px]">
+                <td class="border-r border-slate-200 p-2 text-center text-slate-400 font-mono">${i+1}</td>
+                <td class="border-r border-slate-200 p-2 font-semibold text-slate-600">${item.division}</td>
+                <td class="border-r border-slate-200 p-2 font-bold text-slate-700">${item.name}</td>
+                ${dailyCellsHtml}
+                <td class="border-r border-slate-200 p-2 text-right font-extrabold text-slate-800">Rp ${item.honoranium.toLocaleString()}</td>
+                <td class="border-r border-slate-200 p-2 text-right text-slate-500">Rp 16.800</td>
+                <td class="border-r border-slate-200 p-2 text-right text-slate-400">Rp 0</td>
+                <td class="border-r border-slate-200 p-2 text-right text-slate-400">Rp 0</td>
+                <td class="p-2 text-right font-extrabold text-blue-700 bg-blue-50/20">Rp ${item.totalUpah.toLocaleString()}</td>
+            </tr>`;
+        }).join('');
+
+        // Grand Total row
+        const dailyTotals = Array(14).fill(0);
+        salaryData.forEach(item => {
+            for (let dIdx = 0; dIdx < 14; dIdx++) {
+                dailyTotals[dIdx] += item.dailySalaries[dIdx];
+            }
+        });
+
+        const grandHonoranium = salaryData.reduce((s, item) => s + item.honoranium, 0);
+        const grandBpjs = salaryData.length * 16800;
+        const grandTk = 0;
+        const grandPj = 0;
+        const grandTotalUpah = grandHonoranium;
+
+        let footerDailyCells = '';
+        for (let dIdx = 0; dIdx < 14; dIdx++) {
+            const val = dailyTotals[dIdx];
+            const content = val > 0 ? val.toLocaleString() : '-';
+            footerDailyCells += `<td class="border-r border-slate-200 p-1.5 text-center font-extrabold text-slate-700 text-[10px]">${content}</td>`;
+        }
+
+        body.innerHTML += `
+        <tr class="bg-slate-100 border-t-2 border-slate-300 break-inside-avoid text-[11px]">
+            <td colspan="3" class="border-r border-slate-200 p-2.5 text-right font-extrabold text-slate-700 uppercase tracking-wider">Total Keseluruhan</td>
+            ${footerDailyCells}
+            <td class="border-r border-slate-200 p-2.5 text-right font-extrabold text-slate-800">Rp ${grandHonoranium.toLocaleString()}</td>
+            <td class="border-r border-slate-200 p-2.5 text-right font-extrabold text-slate-500">Rp ${grandBpjs.toLocaleString()}</td>
+            <td class="border-r border-slate-200 p-2.5 text-right font-extrabold text-slate-400">Rp 0</td>
+            <td class="border-r border-slate-200 p-2.5 text-right font-extrabold text-slate-400">Rp 0</td>
+            <td class="p-2.5 text-right font-extrabold text-blue-700 bg-blue-100/50">Rp ${grandTotalUpah.toLocaleString()}</td>
         </tr>`;
-    }).join('');
-
-    // Total footer row
-    const totalDays = salaryData.reduce((s, e) => s + e.days, 0);
-    const totalOT = salaryData.reduce((s, e) => s + e.totalOvertimeHours, 0);
-    const totalLate = salaryData.reduce((s, e) => s + e.totalLateCount, 0);
-    const grandTotal = salaryData.reduce((s, e) => s + e.total, 0);
-    body.innerHTML += `
-    <tr class="bg-slate-100 border-t-2 border-slate-300 break-inside-avoid">
-        <td colspan="2" class="p-4 text-right font-extrabold text-slate-700 text-sm uppercase tracking-wider">Total Keseluruhan</td>
-        <td class="p-4 text-center font-extrabold text-slate-700 text-sm">${totalDays} Hari</td>
-        <td class="p-4 text-center font-bold ${totalLate > 0 ? 'text-red-500' : 'text-slate-400'}">${totalLate}x</td>
-        <td class="p-4 text-center font-extrabold text-amber-600 text-sm">${totalOT} Jam</td>
-        <td class="p-4 text-right font-extrabold text-blue-700 text-lg">Rp ${grandTotal.toLocaleString()}</td>
-    </tr>`;
+    }
 }
 
 // --- CETAK REKAP GAJI (Print with Kop Surat) ---
 function openCetakModal() {
     const modal = document.getElementById('cetakModal');
-    // Auto-set default: 2 minggu terakhir
-    const today = new Date();
-    const twoWeeksAgo = new Date(today);
-    twoWeeksAgo.setDate(today.getDate() - 13);
-    document.getElementById('cetakTglMulai').value = getLocalDateStr(twoWeeksAgo);
-    document.getElementById('cetakTglSelesai').value = getLocalDateStr(today);
+    // Grab current dates from Laporan Gaji tab to ensure they are synchronized
+    const tglMulai = document.getElementById('salaryTglMulai')?.value || '';
+    const tglSelesai = document.getElementById('salaryTglSelesai')?.value || '';
+    
+    if (tglMulai) document.getElementById('cetakTglMulai').value = tglMulai;
+    if (tglSelesai) document.getElementById('cetakTglSelesai').value = tglSelesai;
+    
     modal.classList.remove('hidden');
     setTimeout(() => modal.classList.remove('opacity-0'), 10);
     // Update info jumlah foto setiap kali tanggal berubah
@@ -1299,37 +1439,95 @@ async function downloadRekapData() {
         const tglSelesai = document.getElementById('cetakTglSelesai')?.value || '';
         const filteredLogs = (tglMulai && tglSelesai) ? logs.filter(l => l.date >= tglMulai && l.date <= tglSelesai) : logs;
 
-        // Build salary data
-        const salaryRows = employees.map(e => {
+        // Generate day list for the 14 columns
+        const dates = [];
+        const dayNames = [];
+        const dateNumbers = [];
+        const start = new Date(tglMulai + 'T00:00:00');
+        const daysIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        
+        for (let i = 0; i < 14; i++) {
+            const curr = new Date(start);
+            curr.setDate(start.getDate() + i);
+            dates.push(getLocalDateStr(curr));
+            dayNames.push(daysIndo[curr.getDay()]);
+            dateNumbers.push(curr.getDate());
+        }
+
+        // Build Excel Headers for Sheet 1
+        const excelHeaders = ['No', 'Divisi', 'Nama Relawan'];
+        for (let i = 0; i < 14; i++) {
+            excelHeaders.push(`${dayNames[i]} (${dateNumbers[i]})`);
+        }
+        excelHeaders.push('Honoranium Sukarelawan', 'Iuran BPJS', 'TK', 'PJ', 'Total Upah');
+
+        const ws1Data = [excelHeaders];
+
+        // Build salary data rows
+        employees.forEach((e, index) => {
             const empLogs = filteredLogs.filter(l => l.empId === e.id);
             const inDates = new Set(empLogs.filter(l => l.type === 'IN').map(l => l.date));
-            const outDates = new Set(empLogs.filter(l => l.type === 'OUT').map(l => l.date));
-            const allOutDates = empLogs.filter(l => l.type === 'OUT').map(l => l.date);
-            let days = 0;
-            inDates.forEach(d => {
-                if (outDates.has(d)) { days++; return; }
-                const next = new Date(d + 'T00:00:00');
-                next.setDate(next.getDate() + 1);
-                const yyyy = next.getFullYear();
-                const mm = String(next.getMonth() + 1).padStart(2, '0');
-                const dd = String(next.getDate()).padStart(2, '0');
-                if (allOutDates.includes(`${yyyy}-${mm}-${dd}`)) days++;
-            });
-            let totalOT = 0, totalLate = 0;
-            empLogs.filter(l => l.type === 'OUT' && l.overtime > 0).forEach(l => totalOT += (parseInt(l.overtime) || 0));
-            empLogs.filter(l => l.type === 'IN' && l.lateMinutes > 0).forEach(() => totalLate++);
-            const basic = days * e.salary;
-            const otPay = totalOT * appConfig.overtimeRate;
-            return { id: e.id, name: e.name, division: e.division, salary: e.salary, days, totalOT, totalLate, basic, otPay, total: basic + otPay };
+            
+            const rowData = [
+                index + 1,
+                e.division,
+                e.name
+            ];
+            
+            // Presence daily salaries for col D to col Q (14 columns)
+            let honorariumSum = 0;
+            for (let i = 0; i < 14; i++) {
+                const isPresent = inDates.has(dates[i]);
+                const wage = isPresent ? parseInt(e.salary) : 0;
+                rowData.push(wage);
+                honorariumSum += wage;
+            }
+            
+            // R: Honoranium Sukarelawan
+            rowData.push(honorariumSum);
+            
+            // S: Iuran BPJS (Flat Rp16.800)
+            rowData.push(16800);
+            
+            // T: TK (Flat Rp0)
+            rowData.push(0);
+            
+            // U: PJ (Flat Rp0)
+            rowData.push(0);
+            
+            // V: Total Upah (Excel formula linking to R)
+            const excelRowNumber = index + 2;
+            rowData.push({ f: `R${excelRowNumber}` });
+            
+            ws1Data.push(rowData);
         });
 
-        // Sheet 1: Rekap Gaji
-        const ws1Data = [['No', 'Nama', 'Divisi', 'Gaji/Hari', 'Hari Kerja', 'Gaji Pokok', 'Jam Lembur', 'Upah Lembur', 'Telat (x)', 'Total Take Home Pay']];
-        salaryRows.forEach((r, i) => {
-            ws1Data.push([i + 1, r.name, r.division, r.salary, r.days, r.basic, r.totalOT, r.otPay, r.totalLate, r.total]);
-        });
-        const totalAll = salaryRows.reduce((s, r) => s + r.total, 0);
-        ws1Data.push(['', '', '', '', '', '', '', '', 'GRAND TOTAL', totalAll]);
+        // Add GRAND TOTAL row using Excel formulas
+        const lastDataRow = employees.length + 1;
+        const grandTotalRow = ['', '', 'GRAND TOTAL'];
+        
+        // Sum formulas for D to Q
+        for (let i = 0; i < 14; i++) {
+            const colLetter = String.fromCharCode(68 + i); // 68 is ASCII for 'D'
+            grandTotalRow.push({ f: `SUM(${colLetter}2:${colLetter}${lastDataRow})` });
+        }
+        
+        // R: Honoranium
+        grandTotalRow.push({ f: `SUM(R2:R${lastDataRow})` });
+        
+        // S: BPJS
+        grandTotalRow.push({ f: `SUM(S2:S${lastDataRow})` });
+        
+        // T: TK
+        grandTotalRow.push({ f: `SUM(T2:T${lastDataRow})` });
+        
+        // Col U: PJ
+        grandTotalRow.push({ f: `SUM(U2:U${lastDataRow})` });
+        
+        // Col V: Total Upah
+        grandTotalRow.push({ f: `SUM(V2:V${lastDataRow})` });
+        
+        ws1Data.push(grandTotalRow);
 
         // Sheet 2: Detail Log Absensi
         const ws2Data = [['Tanggal', 'Jam', 'ID', 'Nama', 'Tipe', 'Lembur (Jam)', 'Telat (Menit)', 'Lokasi', 'Catatan', 'Oleh']];
@@ -1365,7 +1563,13 @@ async function downloadRekapData() {
         const ws4 = XLSX.utils.aoa_to_sheet(ws4Data);
 
         // Set column widths
-        ws1['!cols'] = [{wch:4},{wch:25},{wch:20},{wch:14},{wch:10},{wch:14},{wch:10},{wch:14},{wch:8},{wch:18}];
+        const ws1Cols = [{wch:4},{wch:15},{wch:20}];
+        for (let i = 0; i < 14; i++) {
+            ws1Cols.push({wch:12});
+        }
+        ws1Cols.push({wch:22},{wch:12},{wch:8},{wch:8},{wch:16});
+        ws1['!cols'] = ws1Cols;
+        
         ws2['!cols'] = [{wch:12},{wch:10},{wch:10},{wch:25},{wch:6},{wch:10},{wch:10},{wch:30},{wch:25},{wch:12}];
 
         XLSX.utils.book_append_sheet(wb, ws1, 'Rekap Gaji');

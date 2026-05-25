@@ -1293,13 +1293,21 @@
                         
                         <!-- TABLE GAJI -->
                         <div class="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden" id="printAreaSalary">
-                            <div class="flex justify-between items-center mb-4 no-print">
-                                <h3 class="font-bold text-slate-800">Tabel Rekap</h3>
-                                <select onchange="handleSort('salary', this.value)" class="bg-slate-50 border border-slate-200 text-slate-600 text-xs rounded-lg px-3 py-2 outline-none focus:border-blue-600 cursor-pointer">
-                                    <option value="name_asc">Nama (A-Z)</option>
-                                    <option value="total_desc">Total Gaji Tertinggi</option>
-                                    <option value="days_desc">Kehadiran Terbanyak</option>
-                                </select>
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 no-print">
+                                <h3 class="font-bold text-slate-800 text-lg">Tabel Rekap Gaji</h3>
+                                <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                                    <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm text-xs">
+                                        <span class="font-medium text-slate-500 flex items-center gap-1"><i class="fas fa-calendar-alt text-blue-500"></i> Periode:</span>
+                                        <input type="date" id="salaryTglMulai" onchange="onSalaryDateChange('mulai')" class="bg-transparent border-none outline-none font-bold text-slate-700 cursor-pointer focus:text-blue-600">
+                                        <span class="text-slate-300">s/d</span>
+                                        <input type="date" id="salaryTglSelesai" onchange="onSalaryDateChange('selesai')" class="bg-transparent border-none outline-none font-bold text-slate-700 cursor-pointer focus:text-blue-600">
+                                    </div>
+                                    <select onchange="handleSort('salary', this.value)" class="bg-slate-50 border border-slate-200 text-slate-600 text-xs rounded-xl px-3 py-2 outline-none focus:border-blue-600 cursor-pointer shadow-sm">
+                                        <option value="name_asc">Nama (A-Z)</option>
+                                        <option value="total_desc">Total Gaji Tertinggi</option>
+                                        <option value="days_desc">Kehadiran Terbanyak</option>
+                                    </select>
+                                </div>
                             </div>
                             <!-- KOP SURAT RESMI (Print Only) -->
                             <div class="hidden print-only" id="kopSuratGaji">
@@ -1326,17 +1334,8 @@
                                 <p style="text-align:center; font-size:11px; color:#555; margin:0 0 16px;" id="printPeriodeGaji">Periode: -</p>
                             </div>
                             <div class="overflow-x-auto">
-                                <table class="w-full text-sm text-left border border-slate-200 rounded-lg">
-                                    <!-- UPDATED: SWAPPED TELAT & LEMBUR -->
-                                    <thead class="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
-                                        <tr>
-                                            <th class="border-r border-slate-200 p-4 w-10 text-center">No</th>
-                                            <th class="border-r border-slate-200 p-4">Nama & Divisi</th>
-                                            <th class="border-r border-slate-200 p-4 text-center">Kehadiran</th>
-                                            <th class="border-r border-slate-200 p-4 text-center text-red-500">Telat</th>
-                                            <th class="border-r border-slate-200 p-4 text-center">Lembur</th>
-                                            <th class="p-4 text-right">Total Take Home Pay</th>
-                                        </tr>
+                                <table class="w-full text-xs text-left border border-slate-200 rounded-lg">
+                                    <thead id="salaryTableHeader" class="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
                                     </thead>
                                     <tbody id="salaryTableBody" class="divide-y divide-slate-100"></tbody>
                                 </table>
