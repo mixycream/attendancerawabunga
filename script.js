@@ -1698,6 +1698,21 @@ function buildRekapWorkbook(tglMulai, tglSelesai) {
     // Create workbook
     const wb = XLSX.utils.book_new();
     const ws1 = XLSX.utils.aoa_to_sheet(ws1Data);
+
+    // Apply Currency format (Rp#,##0) to columns D (3) to V (21)
+    for (const key in ws1) {
+        if (key[0] === '!') continue;
+        const cell = ws1[key];
+        const decoded = XLSX.utils.decode_cell(key);
+        if (decoded.c >= 3 && decoded.c <= 21) {
+            if (decoded.r >= 2) {
+                if (cell && (cell.t === 'n' || cell.f)) {
+                    cell.z = '"Rp"#,##0';
+                }
+            }
+        }
+    }
+
     const ws2 = XLSX.utils.aoa_to_sheet(ws2Data);
     const ws3 = XLSX.utils.aoa_to_sheet(ws3Data);
     const ws4 = XLSX.utils.aoa_to_sheet(ws4Data);
