@@ -1858,6 +1858,7 @@ async function downloadRekapData() {
         btn.disabled = false;
         btn.innerHTML = origHTML;
     }
+}
 
 function cetakRekapGaji() {
     const bulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
