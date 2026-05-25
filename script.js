@@ -1555,21 +1555,19 @@ function cetakRekapGaji() {
         slipContainer.innerHTML = slipsHtml;
     }
 
-    // Apply checkbox options to main print sections
-
+    // Apply checkbox options — pakai class print-excluded (override .print-only !important)
     const sectionLembur = document.getElementById('printSectionLembur');
-    const sectionTelat = document.getElementById('printSectionTelat');
-    const sectionSlip = document.getElementById('slipGajiIndividual');
-    const sectionKop = document.getElementById('kopSuratGaji');
-    const sectionTtd = document.getElementById('printTtdFooter');
+    const sectionTelat  = document.getElementById('printSectionTelat');
+    const sectionSlip   = document.getElementById('slipGajiIndividual');
+    const sectionKop    = document.getElementById('kopSuratGaji');
+    const sectionTtd    = document.getElementById('printTtdFooter');
 
-    // Store original display to restore after print
-    const restore = [];
-    if (!showLembur && sectionLembur) { restore.push([sectionLembur, sectionLembur.style.display]); sectionLembur.style.display = 'none'; }
-    if (!showTelat && sectionTelat) { restore.push([sectionTelat, sectionTelat.style.display]); sectionTelat.style.display = 'none'; }
-    if (!showSlip && sectionSlip) { restore.push([sectionSlip, sectionSlip.style.display]); sectionSlip.style.display = 'none'; }
-    if (!showKop && sectionKop) { restore.push([sectionKop, sectionKop.style.display]); sectionKop.style.display = 'none'; }
-    if (!showKop && sectionTtd) { restore.push([sectionTtd, sectionTtd.style.display]); sectionTtd.style.display = 'none'; }
+    const excluded = [];
+    if (!showLembur && sectionLembur) { sectionLembur.classList.add('print-excluded'); excluded.push(sectionLembur); }
+    if (!showTelat  && sectionTelat)  { sectionTelat.classList.add('print-excluded');  excluded.push(sectionTelat); }
+    if (!showSlip   && sectionSlip)   { sectionSlip.classList.add('print-excluded');   excluded.push(sectionSlip); }
+    if (!showKop    && sectionKop)    { sectionKop.classList.add('print-excluded');    excluded.push(sectionKop); }
+    if (!showKop    && sectionTtd)    { sectionTtd.classList.add('print-excluded');    excluded.push(sectionTtd); }
 
     // Set document title for PDF filename
     const origTitle = document.title;
@@ -1577,13 +1575,14 @@ function cetakRekapGaji() {
 
     window.print();
 
-    // Restore after print
+    // Restore: hapus class print-excluded setelah dialog print selesai
     setTimeout(() => {
         document.title = origTitle;
-        restore.forEach(([el, orig]) => el.style.display = orig || '');
+        excluded.forEach(el => el.classList.remove('print-excluded'));
         renderSalary(); // Re-render with all logs (unfiltered)
     }, 500);
 }
+
 
 // --- CHART & GRID ---
 function renderTrendChart() {

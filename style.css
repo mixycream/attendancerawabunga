@@ -1144,6 +1144,8 @@ html.dark table tbody tr:hover { background-color: #334155 !important; }
 @media print {
     .no-print { display: none !important; }
     .print-only { display: block !important; }
+    /* Class ini untuk hide section yang di-uncheck user — harus lebih kuat dari .print-only */
+    .print-excluded { display: none !important; }
     body { background-color: white; color: black; font-family: 'Segoe UI', Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     #adminLayout { display: block !important; }
     #sidebar, header { display: none !important; }
