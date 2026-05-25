@@ -1231,11 +1231,32 @@ function openCetakModal() {
     // Auto-set default: 2 minggu terakhir
     const today = new Date();
     const twoWeeksAgo = new Date(today);
-    twoWeeksAgo.setDate(today.getDate() - 13); // 14 hari termasuk hari ini
+    twoWeeksAgo.setDate(today.getDate() - 13);
     document.getElementById('cetakTglMulai').value = getLocalDateStr(twoWeeksAgo);
     document.getElementById('cetakTglSelesai').value = getLocalDateStr(today);
     modal.classList.remove('hidden');
     setTimeout(() => modal.classList.remove('opacity-0'), 10);
+    // Update info jumlah foto setiap kali tanggal berubah
+    _updateFotoInfoBadge();
+    document.getElementById('cetakTglMulai').addEventListener('change', _updateFotoInfoBadge);
+    document.getElementById('cetakTglSelesai').addEventListener('change', _updateFotoInfoBadge);
+    document.getElementById('chkSertakanFoto').addEventListener('change', _updateFotoInfoBadge);
+}
+
+function _updateFotoInfoBadge() {
+    const tglMulai  = document.getElementById('cetakTglMulai')?.value || '';
+    const tglSelesai = document.getElementById('cetakTglSelesai')?.value || '';
+    const withPhoto  = document.getElementById('chkSertakanFoto')?.checked;
+    const badge      = document.getElementById('fotoInfoBadge');
+    const countEl    = document.getElementById('fotoInfoCount');
+    if (!badge || !countEl) return;
+    if (!withPhoto) { badge.classList.add('hidden'); return; }
+    const filtered = (tglMulai && tglSelesai)
+        ? logs.filter(l => l.date >= tglMulai && l.date <= tglSelesai)
+        : logs;
+    const fotoCount = filtered.filter(l => l.photo && typeof l.photo === 'string' && l.photo.startsWith('http')).length;
+    countEl.textContent = fotoCount;
+    badge.classList.toggle('hidden', fotoCount === 0);
 }
 function closeCetakModal() {
     const modal = document.getElementById('cetakModal');
@@ -1269,6 +1290,9 @@ async function downloadRekapData() {
     const origHTML = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyiapkan data...';
+
+    // Baca opsi foto
+    const sertakanFoto = document.getElementById('chkSertakanFoto')?.checked ?? true;
 
     try {
         const tglMulai = document.getElementById('cetakTglMulai')?.value || '';
@@ -1352,28 +1376,35 @@ async function downloadRekapData() {
         const xlsxData = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
 
         // Create ZIP
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengunduh foto absen...';
         const zip = new JSZip();
         zip.file(generateRekapFilename('xlsx'), xlsxData);
 
-        // Fetch attendance photos
-        const photosFolder = zip.folder('Foto_Absen');
-        const photoLogs = filteredLogs.filter(l => l.photo && typeof l.photo === 'string' && l.photo.startsWith('http'));
-        let downloaded = 0;
-        const maxPhotos = photoLogs.length;
+        let downloadedPhotos = 0;
 
-        for (const l of photoLogs) {
-            try {
-                btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Foto ${++downloaded}/${maxPhotos}...`;
-                const resp = await fetch(l.photo);
-                if (resp.ok) {
-                    const blob = await resp.blob();
-                    const safeName = `${l.name}_${l.date}_${l.type}`.replace(/[^a-zA-Z0-9_-]/g, '_');
-                    photosFolder.file(`${safeName}.jpg`, blob);
+        if (sertakanFoto) {
+            // Fetch attendance photos
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengunduh foto absen...';
+            const photosFolder = zip.folder('Foto_Absen');
+            const photoLogs = filteredLogs.filter(l => l.photo && typeof l.photo === 'string' && l.photo.startsWith('http'));
+            const maxPhotos = photoLogs.length;
+            downloadedPhotos = 0;
+
+            for (const l of photoLogs) {
+                try {
+                    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Foto ${++downloadedPhotos}/${maxPhotos}...`;
+                    const resp = await fetch(l.photo);
+                    if (resp.ok) {
+                        const blob = await resp.blob();
+                        const safeName = `${l.name}_${l.date}_${l.type}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+                        photosFolder.file(`${safeName}.jpg`, blob);
+                    }
+                } catch (e) {
+                    console.warn('Photo download failed:', l.photo, e);
                 }
-            } catch (e) {
-                console.warn('Photo download failed:', l.photo, e);
             }
+        } else {
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Membuat file Excel...';
+            await new Promise(r => setTimeout(r, 200)); // animasi sebentar
         }
 
         // Generate and download ZIP
@@ -1399,7 +1430,11 @@ async function downloadRekapData() {
             URL.revokeObjectURL(url);
         }
 
-        showToast(`Download selesai! ${maxPhotos} foto + Excel dalam ZIP.`, 'success');
+        if (sertakanFoto) {
+            showToast(`Download selesai! ${downloadedPhotos} foto + Excel dalam ZIP.`, 'success');
+        } else {
+            showToast('Download selesai! File Excel rekap berhasil diunduh (tanpa foto).', 'success');
+        }
     } catch (err) {
         console.error('Download rekap error:', err);
         showToast('Gagal download: ' + err.message, 'error');

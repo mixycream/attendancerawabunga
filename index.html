@@ -240,7 +240,29 @@
                     </div>
                 </label>
             </div>
-            <div class="p-6 border-t border-slate-100/50 clay-bg space-y-3">
+            <!-- OPSI DOWNLOAD ZIP (terpisah dari opsi cetak PDF) -->
+            <div class="px-6 pb-4">
+                <div class="p-4 rounded-2xl border-2 border-emerald-200 bg-emerald-50/60">
+                    <div class="flex items-center gap-2 mb-3">
+                        <i class="fas fa-file-archive text-emerald-600 text-sm"></i>
+                        <span class="font-bold text-sm text-emerald-700">Opsi Download ZIP</span>
+                    </div>
+                    <label class="flex items-center gap-3 cursor-pointer group">
+                        <input type="checkbox" id="chkSertakanFoto" checked class="clay-checkbox accent-emerald-500">
+                        <div>
+                            <div class="font-bold text-sm text-slate-700 flex items-center gap-2">
+                                <i class="fas fa-camera text-emerald-500 text-xs"></i>
+                                Sertakan Foto Absen
+                            </div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">Foto selfie relawan saat absen masuk &amp; pulang akan ikut di-download dalam folder <code class="bg-slate-100 px-1 rounded">Foto_Absen/</code></div>
+                        </div>
+                    </label>
+                    <div id="fotoInfoBadge" class="mt-2 ml-8 text-[10px] text-emerald-600 font-semibold hidden">
+                        <i class="fas fa-images mr-1"></i><span id="fotoInfoCount">0</span> foto tersedia pada periode ini
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 pb-6 border-t border-slate-100/50 clay-bg space-y-3 pt-4">
                 <button onclick="downloadRekapData()" id="btnDownloadRekap" class="w-full py-4 rounded-2xl clay-btn-success text-white font-bold text-sm flex items-center justify-center gap-2">
                     <i class="fas fa-file-archive"></i> Download Data Rekap (.zip)
                 </button>
