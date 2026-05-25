@@ -1497,10 +1497,10 @@ function confirmCetakGaji() {
 }
 
 // Helper: generate official filename
-function generateRekapFilename(ext) {
+function generateRekapFilename(ext, specificStart, specificEnd) {
     const bulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-    const tglMulai = document.getElementById('cetakTglMulai')?.value || '';
-    const tglSelesai = document.getElementById('cetakTglSelesai')?.value || '';
+    const tglMulai = specificStart || document.getElementById('cetakTglMulai')?.value || document.getElementById('salaryTglMulai')?.value || '';
+    const tglSelesai = specificEnd || document.getElementById('cetakTglSelesai')?.value || document.getElementById('salaryTglSelesai')?.value || '';
     let periode;
     if (tglMulai && tglSelesai) {
         const dM = new Date(tglMulai + 'T00:00:00');
@@ -1511,6 +1511,262 @@ function generateRekapFilename(ext) {
         periode = `${bulan[now.getMonth()]}-${now.getFullYear()}`;
     }
     return `Rekap_Gaji_SPPG_Rawa_Bunga_1_${periode}.${ext}`;
+}
+
+function buildRekapWorkbook(tglMulai, tglSelesai) {
+    // Generate day list for the 14 columns
+    const dates = [];
+    const dayNames = [];
+    const dateNumbers = [];
+    const start = new Date(tglMulai + 'T00:00:00');
+    const daysIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    
+    for (let i = 0; i < 14; i++) {
+        const curr = new Date(start);
+        curr.setDate(start.getDate() + i);
+        dates.push(getLocalDateStr(curr));
+        dayNames.push(daysIndo[curr.getDay()]);
+        dateNumbers.push(curr.getDate());
+    }
+
+    // Build Excel Headers for Sheet 1 (2-Row Header)
+    // Row 1: Merge labels
+    const headerRow1 = [
+        'No', 'Divisi', 'Nama Relawan', 
+        'Absensi Harian (2 Minggu)', '', '', '', '', '', '', '', '', '', '', '', '', '', 
+        'Honoranium Sukarelawan', 'Iuran BPJS', 'TK', 'PJ', 'Total Upah'
+    ];
+    
+    // Row 2: Sub-labels (column headers for daily cells)
+    const headerRow2 = ['', '', ''];
+    for (let i = 0; i < 14; i++) {
+        headerRow2.push(`${dayNames[i]} (${dateNumbers[i]})`);
+    }
+    headerRow2.push('', '', '', '', '');
+
+    const ws1Data = [headerRow1, headerRow2];
+    const merges = [
+        { s: { r: 0, c: 0 }, e: { r: 1, c: 0 } }, // No
+        { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } }, // Divisi
+        { s: { r: 0, c: 2 }, e: { r: 1, c: 2 } }, // Nama Relawan
+        { s: { r: 0, c: 3 }, e: { r: 0, c: 16 } }, // Absensi Harian (2 Minggu)
+        { s: { r: 0, c: 17 }, e: { r: 1, c: 17 } }, // Honoranium
+        { s: { r: 0, c: 18 }, e: { r: 1, c: 18 } }, // Iuran BPJS
+        { s: { r: 0, c: 19 }, e: { r: 1, c: 19 } }, // TK
+        { s: { r: 0, c: 20 }, e: { r: 1, c: 20 } }, // PJ
+        { s: { r: 0, c: 21 }, e: { r: 1, c: 21 } }  // Total Upah
+    ];
+
+    // Filter logs that are within the selected range
+    const filteredLogs = logs.filter(l => l.date >= tglMulai && l.date <= tglSelesai);
+
+    // Group by division
+    const groups = {};
+    employees.forEach(e => {
+        const empLogs = filteredLogs.filter(l => l.empId === e.id);
+        const inDates = new Set(empLogs.filter(l => l.type === 'IN').map(l => l.date));
+        
+        const dailySalaries = dates.map(dateStr => {
+            return inDates.has(dateStr) ? parseInt(e.salary) : 0;
+        });
+        const honoranium = dailySalaries.reduce((sum, val) => sum + val, 0);
+        const bpjs = 16800;
+        const tk = 0;
+        const pj = 0;
+        const totalUpah = honoranium;
+
+        const div = e.division || 'Lainnya';
+        if (!groups[div]) groups[div] = [];
+        groups[div].push({ 
+            ...e, 
+            dailySalaries, 
+            honoranium, 
+            bpjs, 
+            tk, 
+            pj, 
+            totalUpah 
+        });
+    });
+
+    // Define custom division order (Case-Insensitive)
+    const DIV_ORDER = ['aslap', 'leader helper cook', 'helper cook', 'chef', 'cook'];
+    const getDivisionSortIndex = (divName) => {
+        const norm = String(divName || '').toLowerCase().trim().replace(/\s+/g, ' ');
+        const idx = DIV_ORDER.indexOf(norm);
+        return idx !== -1 ? idx : 999;
+    };
+
+    const sortedDivisions = Object.keys(groups).sort((a, b) => {
+        const idxA = getDivisionSortIndex(a);
+        const idxB = getDivisionSortIndex(b);
+        if (idxA !== idxB) return idxA - idxB;
+        return a.localeCompare(b);
+    });
+
+    let currentRowIdx = 2; // Data rows start after the 2-row header
+    let globalIndex = 0;
+
+    sortedDivisions.forEach(divName => {
+        const groupMembers = groups[divName];
+        const K = groupMembers.length;
+        groupMembers.sort((a, b) => a.name.localeCompare(b.name));
+
+        if (K > 1) {
+            merges.push({ s: { r: currentRowIdx, c: 1 }, e: { r: currentRowIdx + K - 1, c: 1 } });
+        }
+
+        groupMembers.forEach((item, memberIdx) => {
+            globalIndex++;
+            const rowData = [
+                globalIndex,
+                divName,
+                item.name
+            ];
+
+            // Presence daily salaries for col D to col Q (14 columns)
+            for (let i = 0; i < 14; i++) {
+                rowData.push(item.dailySalaries[i]);
+            }
+
+            // R: Honoranium
+            rowData.push(item.honoranium);
+            // S: BPJS
+            rowData.push(item.bpjs);
+            // T: TK
+            rowData.push(item.tk);
+            // U: PJ
+            rowData.push(item.pj);
+            
+            // V: Total Upah (Excel formula linking to R)
+            const excelRowNumber = currentRowIdx + 1; // 1-indexed Excel row
+            rowData.push({ f: `R${excelRowNumber}` });
+
+            ws1Data.push(rowData);
+            currentRowIdx++;
+        });
+    });
+
+    // Add GRAND TOTAL row using Excel formulas
+    const lastDataRow = currentRowIdx;
+    const grandTotalRow = ['', '', 'GRAND TOTAL'];
+    
+    // Sum formulas for D to Q
+    for (let i = 0; i < 14; i++) {
+        const colLetter = String.fromCharCode(68 + i); // 68 is ASCII for 'D'
+        grandTotalRow.push({ f: `SUM(${colLetter}3:${colLetter}${lastDataRow})` });
+    }
+    
+    // R: Honoranium
+    grandTotalRow.push({ f: `SUM(R3:R${lastDataRow})` });
+    // S: BPJS
+    grandTotalRow.push({ f: `SUM(S3:S${lastDataRow})` });
+    // T: TK
+    grandTotalRow.push({ f: `SUM(T3:T${lastDataRow})` });
+    // U: PJ
+    grandTotalRow.push({ f: `SUM(U3:U${lastDataRow})` });
+    // V: Total Upah
+    grandTotalRow.push({ f: `SUM(V3:V${lastDataRow})` });
+    
+    ws1Data.push(grandTotalRow);
+
+    // Sheet 2: Detail Log Absensi
+    const ws2Data = [['Tanggal', 'Jam', 'ID', 'Nama', 'Tipe', 'Lembur (Jam)', 'Telat (Menit)', 'Lokasi', 'Catatan', 'Oleh']];
+    filteredLogs.forEach(l => {
+        ws2Data.push([l.date, l.time, l.empId, l.name, l.type, l.overtime || 0, l.lateMinutes || 0, l.location, l.note, l.absentBy]);
+    });
+
+    // Sheet 3: Detail Lembur
+    const ws3Data = [['Nama', 'Divisi', 'Tanggal', 'Shift Pulang', 'Actual Out', 'Jam Lembur']];
+    employees.forEach(e => {
+        filteredLogs.filter(l => l.empId === e.id && l.type === 'OUT' && l.overtime > 0).forEach(l => {
+            const shift = appConfig.shifts[e.division];
+            const shiftEnd = shift ? (typeof shift === 'string' ? '-' : shift.end) : '-';
+            ws3Data.push([e.name, e.division, l.date, shiftEnd, l.time, l.overtime]);
+        });
+    });
+
+    // Sheet 4: Detail Keterlambatan
+    const ws4Data = [['Nama', 'Divisi', 'Tanggal', 'Shift Masuk', 'Actual In', 'Terlambat (Menit)', 'Catatan']];
+    employees.forEach(e => {
+        filteredLogs.filter(l => l.empId === e.id && l.type === 'IN' && l.lateMinutes > 0).forEach(l => {
+            const shift = appConfig.shifts[e.division];
+            const shiftStart = shift ? (typeof shift === 'string' ? '-' : shift.start) : '-';
+            ws4Data.push([e.name, e.division, l.date, shiftStart, l.time, l.lateMinutes, l.note]);
+        });
+    });
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.aoa_to_sheet(ws1Data);
+    const ws2 = XLSX.utils.aoa_to_sheet(ws2Data);
+    const ws3 = XLSX.utils.aoa_to_sheet(ws3Data);
+    const ws4 = XLSX.utils.aoa_to_sheet(ws4Data);
+
+    // Set column widths
+    const ws1Cols = [{wch:4},{wch:15},{wch:20}];
+    for (let i = 0; i < 14; i++) {
+        ws1Cols.push({wch:12});
+    }
+    ws1Cols.push({wch:22},{wch:12},{wch:8},{wch:8},{wch:16});
+    ws1['!cols'] = ws1Cols;
+    ws1['!merges'] = merges;
+    
+    ws2['!cols'] = [{wch:12},{wch:10},{wch:10},{wch:25},{wch:6},{wch:10},{wch:10},{wch:30},{wch:25},{wch:12}];
+
+    XLSX.utils.book_append_sheet(wb, ws1, 'Rekap Gaji');
+    XLSX.utils.book_append_sheet(wb, ws2, 'Log Absensi');
+    XLSX.utils.book_append_sheet(wb, ws3, 'Detail Lembur');
+    XLSX.utils.book_append_sheet(wb, ws4, 'Detail Keterlambatan');
+
+    return wb;
+}
+
+async function downloadDirectRekapExcel() {
+    const btn = document.getElementById('btnDownloadDirectExcel');
+    const origHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengunduh...';
+
+    try {
+        const tglMulai = document.getElementById('salaryTglMulai')?.value || '';
+        const tglSelesai = document.getElementById('salaryTglSelesai')?.value || '';
+        
+        if (!tglMulai || !tglSelesai) {
+            showToast('Silakan tentukan periode tanggal terlebih dahulu.', 'error');
+            return;
+        }
+
+        const wb = buildRekapWorkbook(tglMulai, tglSelesai);
+        const filename = generateRekapFilename('xlsx', tglMulai, tglSelesai);
+
+        const xlsxData = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const xlsxBlob = new Blob([xlsxData], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+        if (window.AndroidApp && window.AndroidApp.saveFile) {
+            const reader = new FileReader();
+            reader.onloadend = function() {
+                const base64 = reader.result.split(',')[1];
+                AndroidApp.saveFile(base64, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            };
+            reader.readAsDataURL(xlsxBlob);
+        } else {
+            const url = URL.createObjectURL(xlsxBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        showToast('Download selesai! File Excel rekap berhasil diunduh.', 'success');
+    } catch (err) {
+        console.error('Download direct excel error:', err);
+        showToast('Gagal download: ' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHTML;
+    }
 }
 
 async function downloadRekapData() {
@@ -1525,172 +1781,21 @@ async function downloadRekapData() {
     try {
         const tglMulai = document.getElementById('cetakTglMulai')?.value || '';
         const tglSelesai = document.getElementById('cetakTglSelesai')?.value || '';
-        const filteredLogs = (tglMulai && tglSelesai) ? logs.filter(l => l.date >= tglMulai && l.date <= tglSelesai) : logs;
 
-        // Generate day list for the 14 columns
-        const dates = [];
-        const dayNames = [];
-        const dateNumbers = [];
-        const start = new Date(tglMulai + 'T00:00:00');
-        const daysIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-        
-        for (let i = 0; i < 14; i++) {
-            const curr = new Date(start);
-            curr.setDate(start.getDate() + i);
-            dates.push(getLocalDateStr(curr));
-            dayNames.push(daysIndo[curr.getDay()]);
-            dateNumbers.push(curr.getDate());
+        if (!tglMulai || !tglSelesai) {
+            showToast('Silakan tentukan periode tanggal terlebih dahulu.', 'error');
+            return;
         }
 
-        // Build Excel Headers for Sheet 1
-        const excelHeaders = ['No', 'Divisi', 'Nama Relawan'];
-        for (let i = 0; i < 14; i++) {
-            excelHeaders.push(`${dayNames[i]} (${dateNumbers[i]})`);
-        }
-        excelHeaders.push('Honoranium Sukarelawan', 'Iuran BPJS', 'TK', 'PJ', 'Total Upah');
-
-        const ws1Data = [excelHeaders];
-
-        // Build salary data rows
-        // Define custom division order (Case-Insensitive)
-        const DIV_ORDER = ['aslap', 'leader helper cook', 'helper cook', 'chef', 'cook'];
-        const getDivisionSortIndex = (divName) => {
-            const norm = String(divName || '').toLowerCase().trim().replace(/\s+/g, ' ');
-            const idx = DIV_ORDER.indexOf(norm);
-            return idx !== -1 ? idx : 999;
-        };
-
-        const sortedEmployeesExcel = [...employees].sort((a, b) => {
-            const idxA = getDivisionSortIndex(a.division);
-            const idxB = getDivisionSortIndex(b.division);
-            if (idxA !== idxB) return idxA - idxB;
-            
-            const divComp = (a.division || '').localeCompare(b.division || '');
-            if (divComp !== 0) return divComp;
-            
-            return a.name.localeCompare(b.name);
-        });
-
-        sortedEmployeesExcel.forEach((e, index) => {
-            const empLogs = filteredLogs.filter(l => l.empId === e.id);
-            const inDates = new Set(empLogs.filter(l => l.type === 'IN').map(l => l.date));
-            
-            const rowData = [
-                index + 1,
-                e.division,
-                e.name
-            ];
-            
-            // Presence daily salaries for col D to col Q (14 columns)
-            let honorariumSum = 0;
-            for (let i = 0; i < 14; i++) {
-                const isPresent = inDates.has(dates[i]);
-                const wage = isPresent ? parseInt(e.salary) : 0;
-                rowData.push(wage);
-                honorariumSum += wage;
-            }
-            
-            // R: Honoranium Sukarelawan
-            rowData.push(honorariumSum);
-            
-            // S: Iuran BPJS (Flat Rp16.800)
-            rowData.push(16800);
-            
-            // T: TK (Flat Rp0)
-            rowData.push(0);
-            
-            // U: PJ (Flat Rp0)
-            rowData.push(0);
-            
-            // V: Total Upah (Excel formula linking to R)
-            const excelRowNumber = index + 2;
-            rowData.push({ f: `R${excelRowNumber}` });
-            
-            ws1Data.push(rowData);
-        });
-
-        // Add GRAND TOTAL row using Excel formulas
-        const lastDataRow = employees.length + 1;
-        const grandTotalRow = ['', '', 'GRAND TOTAL'];
-        
-        // Sum formulas for D to Q
-        for (let i = 0; i < 14; i++) {
-            const colLetter = String.fromCharCode(68 + i); // 68 is ASCII for 'D'
-            grandTotalRow.push({ f: `SUM(${colLetter}2:${colLetter}${lastDataRow})` });
-        }
-        
-        // R: Honoranium
-        grandTotalRow.push({ f: `SUM(R2:R${lastDataRow})` });
-        
-        // S: BPJS
-        grandTotalRow.push({ f: `SUM(S2:S${lastDataRow})` });
-        
-        // T: TK
-        grandTotalRow.push({ f: `SUM(T2:T${lastDataRow})` });
-        
-        // Col U: PJ
-        grandTotalRow.push({ f: `SUM(U2:U${lastDataRow})` });
-        
-        // Col V: Total Upah
-        grandTotalRow.push({ f: `SUM(V2:V${lastDataRow})` });
-        
-        ws1Data.push(grandTotalRow);
-
-        // Sheet 2: Detail Log Absensi
-        const ws2Data = [['Tanggal', 'Jam', 'ID', 'Nama', 'Tipe', 'Lembur (Jam)', 'Telat (Menit)', 'Lokasi', 'Catatan', 'Oleh']];
-        filteredLogs.forEach(l => {
-            ws2Data.push([l.date, l.time, l.empId, l.name, l.type, l.overtime || 0, l.lateMinutes || 0, l.location, l.note, l.absentBy]);
-        });
-
-        // Sheet 3: Detail Lembur
-        const ws3Data = [['Nama', 'Divisi', 'Tanggal', 'Shift Pulang', 'Actual Out', 'Jam Lembur']];
-        employees.forEach(e => {
-            filteredLogs.filter(l => l.empId === e.id && l.type === 'OUT' && l.overtime > 0).forEach(l => {
-                const shift = appConfig.shifts[e.division];
-                const shiftEnd = shift ? (typeof shift === 'string' ? '-' : shift.end) : '-';
-                ws3Data.push([e.name, e.division, l.date, shiftEnd, l.time, l.overtime]);
-            });
-        });
-
-        // Sheet 4: Detail Keterlambatan
-        const ws4Data = [['Nama', 'Divisi', 'Tanggal', 'Shift Masuk', 'Actual In', 'Terlambat (Menit)', 'Catatan']];
-        employees.forEach(e => {
-            filteredLogs.filter(l => l.empId === e.id && l.type === 'IN' && l.lateMinutes > 0).forEach(l => {
-                const shift = appConfig.shifts[e.division];
-                const shiftStart = shift ? (typeof shift === 'string' ? '-' : shift.start) : '-';
-                ws4Data.push([e.name, e.division, l.date, shiftStart, l.time, l.lateMinutes, l.note]);
-            });
-        });
-
-        // Create workbook
-        const wb = XLSX.utils.book_new();
-        const ws1 = XLSX.utils.aoa_to_sheet(ws1Data);
-        const ws2 = XLSX.utils.aoa_to_sheet(ws2Data);
-        const ws3 = XLSX.utils.aoa_to_sheet(ws3Data);
-        const ws4 = XLSX.utils.aoa_to_sheet(ws4Data);
-
-        // Set column widths
-        const ws1Cols = [{wch:4},{wch:15},{wch:20}];
-        for (let i = 0; i < 14; i++) {
-            ws1Cols.push({wch:12});
-        }
-        ws1Cols.push({wch:22},{wch:12},{wch:8},{wch:8},{wch:16});
-        ws1['!cols'] = ws1Cols;
-        
-        ws2['!cols'] = [{wch:12},{wch:10},{wch:10},{wch:25},{wch:6},{wch:10},{wch:10},{wch:30},{wch:25},{wch:12}];
-
-        XLSX.utils.book_append_sheet(wb, ws1, 'Rekap Gaji');
-        XLSX.utils.book_append_sheet(wb, ws2, 'Log Absensi');
-        XLSX.utils.book_append_sheet(wb, ws3, 'Detail Lembur');
-        XLSX.utils.book_append_sheet(wb, ws4, 'Detail Keterlambatan');
-
+        const wb = buildRekapWorkbook(tglMulai, tglSelesai);
         const xlsxData = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
 
         // Create ZIP
         const zip = new JSZip();
-        zip.file(generateRekapFilename('xlsx'), xlsxData);
+        zip.file(generateRekapFilename('xlsx', tglMulai, tglSelesai), xlsxData);
 
         let downloadedPhotos = 0;
+        const filteredLogs = logs.filter(l => l.date >= tglMulai && l.date <= tglSelesai);
 
         if (sertakanFoto) {
             // Fetch attendance photos
@@ -1727,14 +1832,14 @@ async function downloadRekapData() {
             const reader = new FileReader();
             reader.onloadend = function() {
                 const base64 = reader.result.split(',')[1];
-                AndroidApp.saveFile(base64, generateRekapFilename('zip'), 'application/zip');
+                AndroidApp.saveFile(base64, generateRekapFilename('zip', tglMulai, tglSelesai), 'application/zip');
             };
             reader.readAsDataURL(zipBlob);
         } else {
             const url = URL.createObjectURL(zipBlob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = generateRekapFilename('zip');
+            a.download = generateRekapFilename('zip', tglMulai, tglSelesai);
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -1753,7 +1858,6 @@ async function downloadRekapData() {
         btn.disabled = false;
         btn.innerHTML = origHTML;
     }
-}
 
 function cetakRekapGaji() {
     const bulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
