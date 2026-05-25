@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyx477VAxPYRxsGwi3gSo3MNhIOaP7So_TC1_O7j9z_QpI4UwYX88VYCkAAm3oW3Q_O/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwnZMAKYC3bu75Yp-YYRmyzC4pXA2Udmp2NFs79hFsgDBZuAvN8T_LfdGaxWdW9E8Mw/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -4743,7 +4743,29 @@ function addEmployee(e) {
     const creds = document.getElementById('newEmpCreds'); if (creds) creds.classList.add('hidden');
     handleDivisionRolePreset('new');
 }
-function deleteEmployee() { if (!editingEmployeeId) return; if(confirm("Hapus data relawan ini?")) { employees = employees.filter(e => e.id !== editingEmployeeId); refreshUI(); closeEditEmployee(); postData('deleteEmployee', { id: editingEmployeeId }); } }
+async function deleteEmployee() {
+    if (!editingEmployeeId) return;
+    if (!confirm('Hapus data relawan ini? Tindakan ini tidak bisa dibatalkan.')) return;
+
+    // Simpan referensi employee untuk rollback jika gagal
+    const idToDelete = String(editingEmployeeId);
+    const deletedEmp = employees.find(e => String(e.id) === idToDelete);
+
+    // Update UI optimistis
+    employees = employees.filter(e => String(e.id) !== idToDelete);
+    refreshUI();
+    closeEditEmployee();
+
+    // Kirim ke server — ID selalu sebagai string
+    const success = await postData('deleteEmployee', { id: idToDelete });
+
+    if (!success && deletedEmp) {
+        // Rollback: kembalikan employee ke array jika server gagal
+        employees.push(deletedEmp);
+        refreshUI();
+        showToast('Hapus gagal — data relawan dikembalikan.', 'error');
+    }
+}
 function submitEditEmployee(e) {
     e.preventDefault(); if (!editingEmployeeId) return;
     const name = document.getElementById('editEmpName').value;

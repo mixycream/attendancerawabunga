@@ -479,16 +479,41 @@ function saveNutritionistPlan(data) {
 }
 
 function deleteEmployee(data) {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sheet = ss.getSheetByName("Employees");
-  if (!sheet) return response({ status: "error", message: "Sheet not found" });
-  const ids = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues().flat().map(v => String(v));
-  const rowIndex = ids.indexOf(String(data.id));
-  if (rowIndex > -1) {
-    sheet.deleteRow(rowIndex + 2);
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName("Employees");
+  if (!sheet) return response({ status: "error", message: "Sheet Employees tidak ditemukan" });
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return response({ status: "error", message: "Tidak ada data relawan" });
+
+  // Cari kolom ID melalui header map (robust: tidak asumsi selalu kolom 1)
+  var headerMap = getHeaderMap(sheet);
+  var idColIndex = findHeaderIndex(headerMap, ['id', 'emp id', 'empid'], 0); // 0-based
+  var idColNum = idColIndex + 1; // 1-based untuk getRange
+
+  var targetId = String(data.id || '').trim();
+  if (!targetId) return response({ status: "error", message: "ID tidak boleh kosong" });
+
+  var numRows = lastRow - 1;
+  var colValues = sheet.getRange(2, idColNum, numRows, 1).getValues();
+
+  var rowToDelete = -1;
+  for (var i = 0; i < colValues.length; i++) {
+    var cellVal = String(colValues[i][0] || '').trim();
+    // Compare as string dan juga sebagai angka (handle Sheets yang simpan ID sebagai number)
+    if (cellVal === targetId || cellVal === String(parseFloat(targetId))) {
+      rowToDelete = i + 2; // +2 = offset header
+      break;
+    }
+  }
+
+  if (rowToDelete > 0) {
+    sheet.deleteRow(rowToDelete);
     return response({ status: "success" });
   }
-  return response({ status: "error", message: "ID not found" });
+
+  // Debug info agar bisa diagnosa lebih lanjut
+  return response({ status: "error", message: "ID not found: " + targetId });
 }
 
 function handleAttendance(data) {
