@@ -183,7 +183,7 @@
 
     <!-- CETAK PDF OPTIONS MODAL -->
     <div id="cetakModal" class="fixed inset-0 z-[280] bg-slate-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
-        <div class="clay-modal w-full max-w-md overflow-hidden animate-zoom-in p-0">
+        <div class="clay-modal w-full max-w-md max-h-[90vh] overflow-y-auto animate-zoom-in p-0">
             <div class="p-6 border-b border-slate-100/50 bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-t-[36px]">
                 <h3 class="font-bold text-lg"><i class="fas fa-print mr-2"></i>Opsi Cetak Rekap Gaji</h3>
                 <p class="text-xs text-blue-100 mt-1">Pilih komponen yang ingin ditampilkan di PDF</p>
@@ -1334,8 +1334,16 @@
                                 <p style="text-align:center; font-size:11px; color:#555; margin:0 0 16px;" id="printPeriodeGaji">Periode: -</p>
                             </div>
                             <div class="overflow-x-auto">
-                                <table class="w-full text-xs text-left border border-slate-200 rounded-lg">
-                                    <thead id="salaryTableHeader" class="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                                <table class="w-full text-sm text-left border border-slate-200 rounded-lg">
+                                    <thead class="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                                        <tr>
+                                            <th class="border-r border-slate-200 p-4 w-10 text-center">No</th>
+                                            <th class="border-r border-slate-200 p-4">Nama & Divisi</th>
+                                            <th class="border-r border-slate-200 p-4 text-center">Kehadiran</th>
+                                            <th class="border-r border-slate-200 p-4 text-center text-red-500">Telat</th>
+                                            <th class="border-r border-slate-200 p-4 text-center">Lembur</th>
+                                            <th class="p-4 text-right">Total Take Home Pay</th>
+                                        </tr>
                                     </thead>
                                     <tbody id="salaryTableBody" class="divide-y divide-slate-100"></tbody>
                                 </table>
