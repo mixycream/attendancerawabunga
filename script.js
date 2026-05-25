@@ -1364,11 +1364,25 @@ function renderSalary(filteredLogsOverride) {
         });
 
         // Define custom division order (Case-Insensitive)
-        const DIV_ORDER = ['aslap', 'leader helper cook', 'helper cook', 'chef', 'cook'];
         const getDivisionSortIndex = (divName) => {
             const norm = String(divName || '').toLowerCase().trim().replace(/\s+/g, ' ');
-            const idx = DIV_ORDER.indexOf(norm);
-            return idx !== -1 ? idx : 999;
+            if (norm.includes('asisten lapangan') || norm.includes('aslap')) return 0;
+            if (norm.includes('koordinasi lapangan') || norm.includes('kordinasi lapangan')) return 1;
+            if (norm.includes('leader helper cook')) return 2;
+            if (norm.includes('helper cook')) return 3;
+            if (norm.includes('chef')) return 4;
+            if (norm.includes('cook')) return 5;
+            if (norm.includes('leader packing')) return 6;
+            if (norm.includes('packing')) return 7;
+            if (norm.includes('kenek')) return 9;
+            if (norm.includes('distribusi')) return 8;
+            if (norm.includes('leader ompreng')) return 10;
+            if (norm.includes('ompreng')) return 11;
+            if (norm.includes('keamanan')) return 12;
+            if (norm.includes('kebersihan')) return 13;
+            if (norm.includes('admin gudang')) return 14;
+            if (norm.includes('gudang')) return 15;
+            return 999;
         };
 
         const sortedDivisions = Object.keys(groups).sort((a, b) => {
@@ -1589,11 +1603,25 @@ function buildRekapWorkbook(tglMulai, tglSelesai) {
     });
 
     // Define custom division order (Case-Insensitive)
-    const DIV_ORDER = ['aslap', 'leader helper cook', 'helper cook', 'chef', 'cook'];
     const getDivisionSortIndex = (divName) => {
         const norm = String(divName || '').toLowerCase().trim().replace(/\s+/g, ' ');
-        const idx = DIV_ORDER.indexOf(norm);
-        return idx !== -1 ? idx : 999;
+        if (norm.includes('asisten lapangan') || norm.includes('aslap')) return 0;
+        if (norm.includes('koordinasi lapangan') || norm.includes('kordinasi lapangan')) return 1;
+        if (norm.includes('leader helper cook')) return 2;
+        if (norm.includes('helper cook')) return 3;
+        if (norm.includes('chef')) return 4;
+        if (norm.includes('cook')) return 5;
+        if (norm.includes('leader packing')) return 6;
+        if (norm.includes('packing')) return 7;
+        if (norm.includes('kenek')) return 9;
+        if (norm.includes('distribusi')) return 8;
+        if (norm.includes('leader ompreng')) return 10;
+        if (norm.includes('ompreng')) return 11;
+        if (norm.includes('keamanan')) return 12;
+        if (norm.includes('kebersihan')) return 13;
+        if (norm.includes('admin gudang')) return 14;
+        if (norm.includes('gudang')) return 15;
+        return 999;
     };
 
     const sortedDivisions = Object.keys(groups).sort((a, b) => {
