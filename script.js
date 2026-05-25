@@ -1306,29 +1306,68 @@ function renderSalary(filteredLogsOverride) {
     if (criteria === 'days_desc') salaryData.sort((a, b) => b.daysHadir - a.daysHadir);
 
     if (body) {
-        body.innerHTML = salaryData.map((item, i) => {
-            let dailyCellsHtml = '';
-            for (let dIdx = 0; dIdx < 14; dIdx++) {
-                const val = item.dailySalaries[dIdx];
-                const cellContent = val > 0 
-                    ? `<span class="text-emerald-600 font-extrabold">${val.toLocaleString()}</span>` 
-                    : `<span class="text-slate-300">-</span>`;
-                dailyCellsHtml += `<td class="border-r border-slate-200 p-1.5 text-center font-mono text-[10px]">${cellContent}</td>`;
-            }
+        // Group by division
+        const groups = {};
+        salaryData.forEach(item => {
+            const div = item.division || 'Lainnya';
+            if (!groups[div]) groups[div] = [];
+            groups[div].push(item);
+        });
 
-            return `
-            <tr class="border-b border-slate-100 hover:bg-slate-50 break-inside-avoid text-[11px]">
-                <td class="border-r border-slate-200 p-2 text-center text-slate-400 font-mono">${i+1}</td>
-                <td class="border-r border-slate-200 p-2 font-semibold text-slate-600">${item.division}</td>
-                <td class="border-r border-slate-200 p-2 font-bold text-slate-700">${item.name}</td>
-                ${dailyCellsHtml}
-                <td class="border-r border-slate-200 p-2 text-right font-extrabold text-slate-800">Rp ${item.honoranium.toLocaleString()}</td>
-                <td class="border-r border-slate-200 p-2 text-right text-slate-500">Rp 16.800</td>
-                <td class="border-r border-slate-200 p-2 text-right text-slate-400">Rp 0</td>
-                <td class="border-r border-slate-200 p-2 text-right text-slate-400">Rp 0</td>
-                <td class="p-2 text-right font-extrabold text-blue-700 bg-blue-50/20">Rp ${item.totalUpah.toLocaleString()}</td>
-            </tr>`;
-        }).join('');
+        // Define custom division order (Case-Insensitive)
+        const DIV_ORDER = ['aslap', 'leader helper cook', 'helper cook', 'chef', 'cook'];
+        const getDivisionSortIndex = (divName) => {
+            const norm = String(divName || '').toLowerCase().trim().replace(/\s+/g, ' ');
+            const idx = DIV_ORDER.indexOf(norm);
+            return idx !== -1 ? idx : 999;
+        };
+
+        const sortedDivisions = Object.keys(groups).sort((a, b) => {
+            const idxA = getDivisionSortIndex(a);
+            const idxB = getDivisionSortIndex(b);
+            if (idxA !== idxB) return idxA - idxB;
+            return a.localeCompare(b);
+        });
+
+        let rowsHtml = '';
+        let globalIndex = 0;
+
+        sortedDivisions.forEach(divName => {
+            const groupMembers = groups[divName];
+            const K = groupMembers.length;
+
+            groupMembers.forEach((item, memberIdx) => {
+                globalIndex++;
+                let dailyCellsHtml = '';
+                for (let dIdx = 0; dIdx < 14; dIdx++) {
+                    const val = item.dailySalaries[dIdx];
+                    const cellContent = val > 0 
+                        ? `<span class="text-emerald-600 font-extrabold">${val.toLocaleString()}</span>` 
+                        : `<span class="text-slate-300">-</span>`;
+                    dailyCellsHtml += `<td class="border-r border-slate-200 p-1.5 text-center font-mono text-[10px]">${cellContent}</td>`;
+                }
+
+                // Divisi cell is only rendered on the first row of the group with rowspan=K
+                const divisionCellHtml = memberIdx === 0 
+                    ? `<td rowspan="${K}" class="border-r border-slate-200 p-2 font-bold text-slate-700 bg-slate-50/50 align-middle text-center">${divName}</td>`
+                    : '';
+
+                rowsHtml += `
+                <tr class="border-b border-slate-100 hover:bg-slate-50 break-inside-avoid text-[11px]">
+                    <td class="border-r border-slate-200 p-2 text-center text-slate-400 font-mono">${globalIndex}</td>
+                    ${divisionCellHtml}
+                    <td class="border-r border-slate-200 p-2 font-bold text-slate-700">${item.name}</td>
+                    ${dailyCellsHtml}
+                    <td class="border-r border-slate-200 p-2 text-right font-extrabold text-slate-800">Rp ${item.honoranium.toLocaleString()}</td>
+                    <td class="border-r border-slate-200 p-2 text-right text-slate-500">Rp 16.800</td>
+                    <td class="border-r border-slate-200 p-2 text-right text-slate-400">Rp 0</td>
+                    <td class="border-r border-slate-200 p-2 text-right text-slate-400">Rp 0</td>
+                    <td class="p-2 text-right font-extrabold text-blue-700 bg-blue-50/20">Rp ${item.totalUpah.toLocaleString()}</td>
+                </tr>`;
+            });
+        });
+
+        body.innerHTML = rowsHtml;
 
         // Grand Total row
         const dailyTotals = Array(14).fill(0);
@@ -1464,7 +1503,26 @@ async function downloadRekapData() {
         const ws1Data = [excelHeaders];
 
         // Build salary data rows
-        employees.forEach((e, index) => {
+        // Define custom division order (Case-Insensitive)
+        const DIV_ORDER = ['aslap', 'leader helper cook', 'helper cook', 'chef', 'cook'];
+        const getDivisionSortIndex = (divName) => {
+            const norm = String(divName || '').toLowerCase().trim().replace(/\s+/g, ' ');
+            const idx = DIV_ORDER.indexOf(norm);
+            return idx !== -1 ? idx : 999;
+        };
+
+        const sortedEmployeesExcel = [...employees].sort((a, b) => {
+            const idxA = getDivisionSortIndex(a.division);
+            const idxB = getDivisionSortIndex(b.division);
+            if (idxA !== idxB) return idxA - idxB;
+            
+            const divComp = (a.division || '').localeCompare(b.division || '');
+            if (divComp !== 0) return divComp;
+            
+            return a.name.localeCompare(b.name);
+        });
+
+        sortedEmployeesExcel.forEach((e, index) => {
             const empLogs = filteredLogs.filter(l => l.empId === e.id);
             const inDates = new Set(empLogs.filter(l => l.type === 'IN').map(l => l.date));
             
