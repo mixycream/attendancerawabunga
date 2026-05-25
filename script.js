@@ -1765,18 +1765,26 @@ async function submitAbsence(type) {
                 lateMinutes = diffMin;
                 const lateDisabled = appConfig.disableBoth || appConfig.disableLate;
                 if (lateDisabled) {
+                    // Admin matikan fitur telat — bebas masuk
                     const reason = appConfig.disableBoth ? appConfig.disableBothReason : appConfig.disableLateReason;
                     forcedTime = null;
                     toastMessage = reason ? `Absen Masuk (${reason})` : 'Absen Masuk.';
                     lateMinutes = 0;
                 } else if (diffMin < 5) {
+                    // Tier 1: 1–5 menit → Toleransi, tidak dicatat sebagai pelanggaran
+                    lateMinutes = 0;
                     toastMessage = `Telat ${diffMin}m (Toleransi).`;
-                } else if (diffMin <= 30) {
+                } else if (diffMin < 25) {
+                    // Tier 2: 5–25 menit → Terlambat, langsung simpan tanpa alasan
+                    toastMessage = `Terlambat ${diffMin} menit.`;
+                } else if (diffMin < 35) {
+                    // Tier 3: 25–35 menit → Wajib isi alasan, tanpa WA
                     needsReason = 'late';
-                    toastMessage = "Absen Masuk (Terlambat).";
+                    toastMessage = `Terlambat ${diffMin} menit — isi alasan.`;
                 } else {
+                    // Tier 4: 35+ menit → Wajib alasan + konfirmasi WA ke Admin
                     needsReason = 'blocked';
-                    toastMessage = "Absen Masuk (Terlambat >30 menit).";
+                    toastMessage = `Terlambat ${diffMin} menit — konfirmasi ke Admin.`;
                 }
             }
         }
@@ -1939,7 +1947,7 @@ function showLateBlockedModal(name, division, shiftStart) {
     const xIcon = document.getElementById('lateBlockedXIcon');
     const msg = document.getElementById('lateBlockedMsg');
 
-    msg.textContent = `Maaf ${name}, kamu tidak bisa absen di atas 30 menit pada jam kerja divisi ${division} (${shiftStart}). Silahkan isi form di bawah.`;
+    msg.textContent = `Maaf ${name}, kamu terlambat lebih dari 35 menit dari jam kerja divisi ${division} (${shiftStart}). Wajib isi alasan & konfirmasi ke Admin via WhatsApp.`;
     document.getElementById('lateBlockedReasonInput').value = '';
 
     // Reset animation state
@@ -1978,7 +1986,8 @@ function dismissLateBlocked() {
     }, 400);
 }
 
-function sendLateWA() {
+
+async function sendLateWA() {
     const reason = (document.getElementById('lateBlockedReasonInput').value || '').trim();
     if (!reason) {
         document.getElementById('lateBlockedWarn').classList.remove('hidden');
@@ -1987,34 +1996,54 @@ function sendLateWA() {
     }
     if (!pendingAttendancePayload) return;
 
+    // Disable tombol agar tidak double-submit
+    const waBtn = document.querySelector('#lateBlockedCard button[onclick="sendLateWA()"]');
+    if (waBtn) {
+        waBtn.disabled = true;
+        waBtn.innerHTML = '<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"></circle><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg> Menyimpan absen...';
+    }
+
     const lateMin = pendingAttendancePayload._lateMinutes || 0;
-    pendingAttendancePayload.note = `[Telat ${lateMin} mnt >30m] ${reason}`;
+    pendingAttendancePayload.note = `[Telat ${lateMin} mnt >35m] ${reason}`;
     delete pendingAttendancePayload._lateMinutes;
 
     const isVolunteer = pendingAttendancePayload.absentBy === 'Mandiri';
     const empName = pendingAttendancePayload.name || '';
-
-    // Simpan ke database dulu
-    postData('attendance', pendingAttendancePayload).then(async (success) => {
-        if (success) {
-            toggleLoader(false);
-            if (isVolunteer) {
-                volCancelFlow();
-                await fetchData(true);
-                volUpdateTodayStatus();
-            } else {
-                resetSecurityFlow();
-            }
-        }
-    });
-
+    const payloadToSend = { ...pendingAttendancePayload };
     pendingAttendancePayload = null;
 
-    // Buka WhatsApp
+    // --- Step 1: Simpan absen ke server DULU (await, bukan fire-and-forget) ---
+    let saveSuccess = false;
+    try {
+        toggleLoader(true, 'Menyimpan absen terlambat...');
+        const form = new URLSearchParams();
+        Object.keys(payloadToSend).forEach(k => {
+            if (payloadToSend[k] !== undefined && payloadToSend[k] !== null)
+                form.append(k, String(payloadToSend[k]));
+        });
+        form.set('action', 'attendance');
+        const res = await fetch(SCRIPT_URL, { method: 'POST', body: form });
+        const json = await res.json().catch(() => null);
+        saveSuccess = json && (json.status === 'success' || json.duplicate === true);
+    } catch (err) {
+        console.error('[sendLateWA] Gagal simpan:', err);
+    }
+    toggleLoader(false);
+
+    if (!saveSuccess) {
+        showToast('Gagal menyimpan absen. Coba lagi.', 'error');
+        if (waBtn) {
+            waBtn.disabled = false;
+            waBtn.innerHTML = '<i class="fab fa-whatsapp text-lg"></i> Kirim via WhatsApp & Simpan Absen';
+        }
+        return;
+    }
+
+    // --- Step 2: Absen berhasil → buka WhatsApp ---
     const now = new Date();
     const hour = now.getHours();
     const greeting = hour < 11 ? 'Pagi' : hour < 15 ? 'Siang' : hour < 18 ? 'Sore' : 'Malam';
-    const name = _lateBlockedInfo.name || '-';
+    const name = _lateBlockedInfo.name || empName || '-';
     const division = _lateBlockedInfo.division || '-';
     const shiftStart = _lateBlockedInfo.shiftStart || '-';
     const dateStr = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -2025,12 +2054,12 @@ Selamat ${greeting} Admin SPPG Rawa Bunga 1.
 
 Saya *${name}* dari divisi *${division}*.
 
-Dengan ini saya menginformasikan bahwa pada hari *${dateStr}* pukul *${timeStr} WIB*, saya terlambat hadir melebihi batas toleransi 30 menit dari jadwal shift pukul *${shiftStart} WIB*.
+Dengan ini saya menginformasikan bahwa pada hari *${dateStr}* pukul *${timeStr} WIB*, saya terlambat hadir melebihi 35 menit dari jadwal shift pukul *${shiftStart} WIB*.
 
 Adapun alasan keterlambatan saya:
 _${reason}_
 
-Absensi telah terpending di sistem. Mohon kiranya Admin berkenan untuk melakukan konfirmasi terhadap absensi saya.
+Absensi saya telah *otomatis tercatat* di sistem dengan catatan terlambat. Mohon kiranya Admin berkenan meninjau pelanggaran ini.
 
 Atas perhatiannya saya ucapkan terima kasih.
 Wassalamualaikum Warahmatullahi Wabarakatuh.`;
@@ -2038,8 +2067,24 @@ Wassalamualaikum Warahmatullahi Wabarakatuh.`;
     const phone = '6282114806765';
     const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(waUrl, '_blank');
+
+    // --- Step 3: Tutup modal & tampilkan sukses ---
     dismissLateBlocked();
+
+    if (isVolunteer) {
+        volCancelFlow();
+        showAbsenSuccess({
+            type: 'IN', name: empName,
+            message: `Absen tercatat! Konfirmasi WA terkirim ke Admin.`,
+            onDone: async () => { await fetchData(true); volUpdateTodayStatus(); }
+        });
+    } else {
+        resetSecurityFlow();
+        showAbsenSuccess({ type: 'IN', name: empName, message: `Absen tercatat! Konfirmasi WA terkirim ke Admin.` });
+        fetchData(false).catch(() => {});
+    }
 }
+
 
 async function submitEarlyReason() {
     if (!pendingAttendancePayload) return;
@@ -5319,18 +5364,26 @@ async function volSubmitSelfie() {
                 lateMinutes = diffMin;
                 const lateDisabled = appConfig.disableBoth || appConfig.disableLate;
                 if (lateDisabled) {
+                    // Admin matikan fitur telat — bebas masuk
                     const reason = appConfig.disableBoth ? appConfig.disableBothReason : appConfig.disableLateReason;
                     forcedTime = null;
                     toastMsg = reason ? `Absen Masuk (${reason})` : 'Absen Masuk.';
                     lateMinutes = 0;
                 } else if (diffMin < 5) {
+                    // Tier 1: 1–5 menit → Toleransi, tidak dicatat sebagai pelanggaran
+                    lateMinutes = 0;
                     toastMsg = `Telat ${diffMin}m (Toleransi).`;
-                } else if (diffMin <= 30) {
+                } else if (diffMin < 25) {
+                    // Tier 2: 5–25 menit → Terlambat, langsung simpan tanpa alasan
+                    toastMsg = `Terlambat ${diffMin} menit.`;
+                } else if (diffMin < 35) {
+                    // Tier 3: 25–35 menit → Wajib isi alasan, tanpa WA
                     needsReason = 'late';
-                    toastMsg = 'Absen Masuk (Terlambat).';
+                    toastMsg = `Terlambat ${diffMin} menit — isi alasan.`;
                 } else {
+                    // Tier 4: 35+ menit → Wajib alasan + konfirmasi WA ke Admin
                     needsReason = 'blocked';
-                    toastMsg = 'Absen Masuk (Terlambat >30 menit).';
+                    toastMsg = `Terlambat ${diffMin} menit — konfirmasi ke Admin.`;
                 }
             }
         }

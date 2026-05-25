@@ -291,16 +291,20 @@
                 <i class="fas fa-exclamation-triangle"></i>
             </div>
             <h3 class="text-xl font-extrabold text-slate-800">Relawan Terlambat!</h3>
-            <p class="text-sm text-slate-500 mt-2 mb-4 leading-relaxed">
-                Telat 5–30 menit. Mohon isi alasan keterlambatan untuk dilaporkan ke Admin.
+            <!-- Badge tier 3 -->
+            <div class="inline-flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-600 px-3 py-1 rounded-full text-xs font-bold mt-2 mb-3">
+                <i class="fas fa-clock text-[10px]"></i> 25 – 35 Menit
+            </div>
+            <p class="text-sm text-slate-500 mb-4 leading-relaxed">
+                Kamu terlambat <strong>25–35 menit</strong>. Wajib mengisi alasan keterlambatan sebelum absen dicatat.
             </p>
             <div class="text-left mb-6">
-                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Alasan / Keterangan</label>
-                <textarea id="lateNoteInput" rows="2" class="input-field mt-1 resize-none" placeholder="Contoh: Ban bocor, Macet parah..." oninput="document.getElementById('lateNoteWarn').classList.add('hidden')"></textarea>
+                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Alasan Keterlambatan</label>
+                <textarea id="lateNoteInput" rows="2" class="input-field mt-1 resize-none" placeholder="Contoh: Ban bocor, Macet parah, dll..." oninput="document.getElementById('lateNoteWarn').classList.add('hidden')"></textarea>
                 <p id="lateNoteWarn" class="hidden text-[11px] text-red-500 font-semibold mt-1 ml-1"><i class="fas fa-exclamation-circle mr-1"></i>Wajib diisi alasan keterlambatan.</p>
             </div>
             <button onclick="submitLateReason()" class="w-full py-4 rounded-2xl clay-btn-danger text-white font-bold">
-                Kirim Laporan & Lanjutkan
+                <i class="fas fa-check mr-2"></i>Simpan Absen dengan Alasan
             </button>
         </div>
     </div>
@@ -338,19 +342,22 @@
                     <i class="fas fa-times" id="lateBlockedXIcon" style="opacity:0; transition: opacity 0.3s, transform 0.3s; transform: scale(0.3);"></i>
                 </div>
             </div>
-            <h2 class="text-2xl font-black text-white drop-shadow-lg">Tidak Bisa Absen!</h2>
+            <div class="inline-flex items-center gap-2 bg-white/20 border border-white/30 text-white px-3 py-1 rounded-full text-xs font-bold mb-3">
+                <i class="fas fa-clock text-[10px]"></i> 35+ Menit
+            </div>
+            <h2 class="text-2xl font-black text-white drop-shadow-lg">Terlambat Kritis!</h2>
             <p id="lateBlockedMsg" class="text-sm text-white/80 mt-2 drop-shadow leading-relaxed"></p>
             <!-- Form alasan untuk WA -->
             <div class="mt-4 text-left bg-white/15 backdrop-blur-md rounded-2xl p-4 border border-white/20">
-                <label class="text-[10px] font-bold text-white/60 uppercase ml-1">Kirim Alasan ke Admin via WhatsApp</label>
+                <label class="text-[10px] font-bold text-white/60 uppercase ml-1">Alasan — Wajib Konfirmasi ke Admin via WhatsApp</label>
                 <textarea id="lateBlockedReasonInput" rows="3" class="w-full mt-2 p-3 rounded-xl bg-white/20 text-white placeholder-white/40 border border-white/30 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-300" placeholder="Tulis alasan kamu di sini..." oninput="document.getElementById('lateBlockedWarn').classList.add('hidden')"></textarea>
                 <p id="lateBlockedWarn" class="hidden text-[11px] text-red-300 font-semibold mt-1 ml-1"><i class="fas fa-exclamation-circle mr-1"></i>Wajib diisi alasan sebelum kirim.</p>
                 <button onclick="sendLateWA()" class="w-full mt-3 py-3 rounded-xl bg-green-500 text-white font-bold hover:bg-green-600 transition shadow-lg shadow-green-500/30 flex items-center justify-center gap-2">
-                    <i class="fab fa-whatsapp text-lg"></i> Kirim via WhatsApp
+                    <i class="fab fa-whatsapp text-lg"></i> Kirim via WhatsApp & Simpan Absen
                 </button>
             </div>
             <button onclick="dismissLateBlocked()" class="mt-4 w-full py-3 rounded-2xl bg-white/20 backdrop-blur-md text-white font-bold text-sm border border-white/30 transition-all duration-300 hover:bg-white/30 active:scale-95">
-                Tutup
+                Batalkan Absen
             </button>
         </div>
     </div>
