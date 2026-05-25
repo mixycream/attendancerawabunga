@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwnZMAKYC3bu75Yp-YYRmyzC4pXA2Udmp2NFs79hFsgDBZuAvN8T_LfdGaxWdW9E8Mw/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyz3Wb8ae7LARULjH2QlFTD50u2MjjboNVthPzcfn8NkspPzYQA-9jMle-xU20cTDTr/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -2563,7 +2563,7 @@ function toggleCamera() { const newMode = currentFacingMode === 'user' ? 'enviro
 function openConfigModal() {
     const list = document.getElementById('configList');
     list.innerHTML = '';
-    const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Admin Gudang", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2", "Cuci Ompreng", "Leader Ompreng", "Leader Packing", "Leader Helper Cook", "Admin Yayasan"];
+    const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Admin Gudang", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2", "Cuci Ompreng", "Leader Ompreng", "Leader Packing", "Leader Helper Cook", "Admin Yayasan", "Koordinasi Lapangan"];
     orderedKeys.forEach(key => {
         const shiftData = appConfig.shifts[key] || { start: "00:00", end: "08:00" };
         const startVal = typeof shiftData === 'string' ? shiftData : shiftData.start; 
@@ -5053,7 +5053,8 @@ function generateEmployeeId(division) {
         'Keamanan Shift 1': 'KM1', 'Keamanan Shift 2': 'KM2',
         'Ahli Gizi': 'AGZ', 'Akuntan': 'AKT', 'Ka SPPG': 'KSP', 'Yayasan': 'YSN',
         'Cuci Ompreng': 'COM', 'Admin Yayasan': 'AYN',
-        'Leader Ompreng': 'LOM', 'Leader Packing': 'LPK', 'Leader Helper Cook': 'LHC'
+        'Leader Ompreng': 'LOM', 'Leader Packing': 'LPK', 'Leader Helper Cook': 'LHC',
+        'Koordinasi Lapangan': 'KOL'
     };
     const code = codeMap[division] || division.substring(0, 3).toUpperCase();
     const existing = employees.filter(e => e.id && e.id.startsWith('MBG-' + code + '-'));
