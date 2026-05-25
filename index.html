@@ -1349,6 +1349,23 @@
                                 </table>
                             </div>
 
+                            <!-- TABLE REKAP HARIAN (2 MINGGU) - Hanya tampil di Web, tidak ikut dicetak -->
+                            <div class="mt-8 no-print border-t border-slate-100 pt-6" id="dailySalarySection">
+                                <h4 class="font-bold text-slate-800 mb-3 text-sm flex items-center gap-2">
+                                    <i class="fas fa-table text-blue-600"></i> Detail Kehadiran Harian & Potongan (2 Minggu)
+                                    <span class="bg-blue-100 text-blue-800 text-[10px] px-2 py-0.5 rounded-full font-bold">Hanya Tampil di Web</span>
+                                </h4>
+                                <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                                    <table class="w-full text-xs text-left">
+                                        <thead id="dailySalaryTableHeader" class="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                                        </thead>
+                                        <tbody id="dailySalaryTableBody" class="divide-y divide-slate-100 bg-white">
+                                            <!-- Diisi JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
                             <!-- TABEL RINCIAN LEMBUR -->
                              <div class="mt-8" id="printSectionLembur">
                                 <h4 class="font-bold text-slate-800 mb-3 text-sm">Rincian Perhitungan Lembur (Detail)</h4>
