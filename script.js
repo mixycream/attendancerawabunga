@@ -973,8 +973,14 @@ function renderViolationsTab() {
 
     // Identify violations: late IN (>=30 min) or early OUT (note starts with [Pulang)
     // Exclude [Bebas] entries — those are admin-approved free attendance
+    const allowedEmpIds = new Set(
+        employees
+            .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+            .map(e => String(e.id))
+    );
     let violations = [];
     logs.forEach(l => {
+        if (!allowedEmpIds.has(String(l.empId))) return;
         if (l.note && l.note.includes('[Bebas')) return;
         let vType = null;
         let duration = 0;
@@ -1232,7 +1238,9 @@ function renderSalary(filteredLogsOverride) {
         ? useLogs.filter(l => l.date >= tglMulai && l.date <= tglSelesai) 
         : useLogs;
     
-    let salaryData = employees.map(e => {
+    let salaryData = employees
+        .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+        .map(e => {
         const empLogs = periodLogs.filter(l => l.empId === e.id);
         const allLogsOfEmp = useLogs.filter(l => l.empId === e.id); // For details which might extend
         
@@ -1528,6 +1536,10 @@ function generateRekapFilename(ext, specificStart, specificEnd) {
 }
 
 function buildRekapWorkbook(tglMulai, tglSelesai) {
+    const allowedRoles = ['employee', 'security', 'foundation'];
+    const allowedEmployees = employees.filter(e => allowedRoles.includes(e.role || 'employee'));
+    const allowedEmpIds = new Set(allowedEmployees.map(e => String(e.id)));
+
     // Generate day list for the 14 columns
     const dates = [];
     const dayNames = [];
@@ -1571,12 +1583,12 @@ function buildRekapWorkbook(tglMulai, tglSelesai) {
         { s: { r: 0, c: 21 }, e: { r: 1, c: 21 } }  // Total Upah
     ];
 
-    // Filter logs that are within the selected range
-    const filteredLogs = logs.filter(l => l.date >= tglMulai && l.date <= tglSelesai);
+    // Filter logs that are within the selected range and are for allowed employees
+    const filteredLogs = logs.filter(l => l.date >= tglMulai && l.date <= tglSelesai && allowedEmpIds.has(String(l.empId)));
 
     // Group by division
     const groups = {};
-    employees.forEach(e => {
+    allowedEmployees.forEach(e => {
         const empLogs = filteredLogs.filter(l => l.empId === e.id);
         const inDates = new Set(empLogs.filter(l => l.type === 'IN').map(l => l.date));
         
@@ -1705,7 +1717,7 @@ function buildRekapWorkbook(tglMulai, tglSelesai) {
 
     // Sheet 3: Detail Lembur
     const ws3Data = [['Nama', 'Divisi', 'Tanggal', 'Shift Pulang', 'Actual Out', 'Jam Lembur']];
-    employees.forEach(e => {
+    allowedEmployees.forEach(e => {
         filteredLogs.filter(l => l.empId === e.id && l.type === 'OUT' && l.overtime > 0).forEach(l => {
             const shift = appConfig.shifts[e.division];
             const shiftEnd = shift ? (typeof shift === 'string' ? '-' : shift.end) : '-';
@@ -1715,7 +1727,7 @@ function buildRekapWorkbook(tglMulai, tglSelesai) {
 
     // Sheet 4: Detail Keterlambatan
     const ws4Data = [['Nama', 'Divisi', 'Tanggal', 'Shift Masuk', 'Actual In', 'Terlambat (Menit)', 'Catatan']];
-    employees.forEach(e => {
+    allowedEmployees.forEach(e => {
         filteredLogs.filter(l => l.empId === e.id && l.type === 'IN' && l.lateMinutes > 0).forEach(l => {
             const shift = appConfig.shifts[e.division];
             const shiftStart = shift ? (typeof shift === 'string' ? '-' : shift.start) : '-';
@@ -2159,6 +2171,12 @@ function validateEmployee(id) {
     const cleanId = String(id).trim().replace(/\s+/g, ' ');
     const emp = employees.find(e => String(e.id).trim() == cleanId || e.name.trim().replace(/\s+/g, ' ').toLowerCase() == cleanId.toLowerCase());
     if(emp) {
+        // Block other roles from self attendance
+        const allowedRoles = ['employee', 'security', 'foundation'];
+        if (!allowedRoles.includes(emp.role || 'employee')) {
+            showToast("Peran Anda tidak memerlukan pencatatan absensi.", "error");
+            return;
+        }
         if (!securitySelfAttendanceMode && String(emp.division || '').toLowerCase().includes('keamanan')) {
             showToast("Security tidak bisa di-scan dari halaman relawan.", "error");
             return;
@@ -3434,7 +3452,12 @@ const pengExcludedDates = []; // [{date: 'YYYY-MM-DD', divisions: Set<string>}]
 function renderExcludeDivCheckboxes() {
     const container = document.getElementById('pengExcludeDivChecks');
     if (!container) return;
-    const divs = [...new Set(employees.map(e => e.division).filter(Boolean))].sort();
+    const divs = [...new Set(
+        employees
+            .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+            .map(e => e.division)
+            .filter(Boolean)
+    )].sort();
     container.innerHTML = divs.map(d =>
         `<label class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 text-slate-700 text-[11px] cursor-pointer hover:bg-slate-200 transition select-none">
             <input type="checkbox" class="pengExcDivChk accent-red-500 w-3.5 h-3.5" value="${d}" checked> ${d}
@@ -3523,6 +3546,12 @@ function renderPengumumanPreview() {
     const tglSelesai = document.getElementById('pengTglSelesai')?.value;
     if (!tglMulai || !tglSelesai) return showToast('Pilih periode tanggal terlebih dahulu.', 'error');
 
+    const allowedEmpIds = new Set(
+        employees
+            .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+            .map(e => String(e.id))
+    );
+
     const noSurat = document.getElementById('pengNoSurat')?.value || '-';
     const perihal = document.getElementById('pengPerihal')?.value || 'Laporan Kehadiran Relawan';
     const showHadir = document.getElementById('pengChkHadir')?.checked;
@@ -3609,7 +3638,9 @@ function renderPengumumanPreview() {
     const hadirEl = document.getElementById('pengDataHadir');
     if (showHadir) {
         const label = nextSection();
-        const empHadirData = employees.map(e => {
+        const empHadirData = employees
+            .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+            .map(e => {
             const empWorkDates = getWorkDatesForDiv(e.division);
             const hadirMap = getHadirMap(e.id, empWorkDates);
             const hadirDates = empWorkDates.filter(d => hadirMap.has(d));
@@ -3653,7 +3684,9 @@ function renderPengumumanPreview() {
     const tidakHadirEl = document.getElementById('pengDataTidakHadir');
     if (showTidakHadir) {
         const label = nextSection();
-        const empTidakData = employees.map(e => {
+        const empTidakData = employees
+            .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+            .map(e => {
             const empWorkDates = getWorkDatesForDiv(e.division);
             const hadirMap = getHadirMap(e.id, empWorkDates);
             const tidakHadirDates = empWorkDates.filter(d => !hadirMap.has(d));
@@ -3696,7 +3729,7 @@ function renderPengumumanPreview() {
     const telatEl = document.getElementById('pengDataTelat');
     if (showTelat) {
         const label = nextSection();
-        const lateLogs = filteredLogs.filter(l => l.type === 'IN' && l.lateMinutes >= 5 && l.lateMinutes <= 30);
+        const lateLogs = filteredLogs.filter(l => l.type === 'IN' && l.lateMinutes >= 5 && l.lateMinutes <= 30 && allowedEmpIds.has(String(l.empId)));
         if (lateLogs.length > 0) {
             telatEl.innerHTML = `
                 <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${label}. Daftar Keterlambatan (5–30 Menit)</h4>
@@ -3736,7 +3769,7 @@ function renderPengumumanPreview() {
     const telat30El = document.getElementById('pengDataTelat30');
     if (showTelat30) {
         const label = nextSection();
-        const lateLogs30 = filteredLogs.filter(l => l.type === 'IN' && l.lateMinutes > 30);
+        const lateLogs30 = filteredLogs.filter(l => l.type === 'IN' && l.lateMinutes > 30 && allowedEmpIds.has(String(l.empId)));
         if (lateLogs30.length > 0) {
             telat30El.innerHTML = `
                 <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${label}. Daftar Keterlambatan Lebih dari 30 Menit</h4>
@@ -3776,7 +3809,7 @@ function renderPengumumanPreview() {
     const lemburEl = document.getElementById('pengDataLembur');
     if (showLembur) {
         const label = nextSection();
-        const otLogs = filteredLogs.filter(l => l.type === 'OUT' && l.overtime > 0);
+        const otLogs = filteredLogs.filter(l => l.type === 'OUT' && l.overtime > 0 && allowedEmpIds.has(String(l.empId)));
         if (otLogs.length > 0) {
             lemburEl.innerHTML = `
                 <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${label}. Daftar Lembur</h4>
@@ -3968,7 +4001,9 @@ function maSetMode(mode) {
 
 function maGetDivisions() {
     const divs = new Set();
-    employees.forEach(e => { if (e.division) divs.add(e.division); });
+    employees
+        .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+        .forEach(e => { if (e.division) divs.add(e.division); });
     return [...divs].sort();
 }
 
@@ -3977,7 +4012,9 @@ function maRenderDivisionChips() {
     const divs = maGetDivisions();
     container.innerHTML = divs.map(d => {
         const isActive = maSelectedDivisions.has(d);
-        const count = employees.filter(e => e.division === d).length;
+        const count = employees
+            .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+            .filter(e => e.division === d).length;
         return `<button onclick="maToggleDivision('${d.replace(/'/g, "\\'")}')" class="px-3 py-2 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
             isActive ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'
         }">${d} <span class="opacity-60">(${count})</span></button>`;
@@ -3989,7 +4026,9 @@ function maToggleDivision(div) {
     else maSelectedDivisions.add(div);
     // Rebuild selected employees from selected divisions
     maSelectedEmployees.clear();
-    employees.forEach(e => { if (maSelectedDivisions.has(e.division)) maSelectedEmployees.add(e.id); });
+    employees
+        .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+        .forEach(e => { if (maSelectedDivisions.has(e.division)) maSelectedEmployees.add(e.id); });
     maRenderDivisionChips();
     maRenderExcludeList();
     maUpdateCount();
@@ -4008,9 +4047,10 @@ function maRenderExcludeList() {
     if (!container) return;
     const search = (document.getElementById('maExcludeSearch')?.value || '').toLowerCase();
     // Show employees that are in the current selection pool
+    const allowedPool = employees.filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'));
     let pool;
-    if (maSelectionMode === 'all') pool = employees;
-    else if (maSelectionMode === 'division') pool = employees.filter(e => maSelectedDivisions.has(e.division));
+    if (maSelectionMode === 'all') pool = allowedPool;
+    else if (maSelectionMode === 'division') pool = allowedPool.filter(e => maSelectedDivisions.has(e.division));
     else return;
     const filtered = pool.filter(e => e.name.toLowerCase().includes(search));
     if (filtered.length === 0) {
@@ -4035,7 +4075,9 @@ function maToggleExclude(id, checked) {
 
 function maRenderEmployeeList(filter = '') {
     const container = document.getElementById('maEmployeeList');
-    const filtered = employees.filter(e => e.name.toLowerCase().includes(filter.toLowerCase()));
+    const filtered = employees
+        .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+        .filter(e => e.name.toLowerCase().includes(filter.toLowerCase()));
     container.innerHTML = filtered.length === 0 ? '<div class="p-4 text-center text-xs text-slate-400">Tidak ada relawan ditemukan</div>' :
         filtered.map(e => `
         <label class="flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50/50 cursor-pointer transition-colors">
