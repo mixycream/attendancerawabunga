@@ -1589,3 +1589,70 @@ html.dark table tbody tr:hover { background-color: #334155 !important; }
         font-size: 0.65rem;
     }
 }
+
+/* =============================================
+   NUTRITIONIST PRINT & DESIGN UPGRADES
+   ============================================= */
+@media print {
+    body.printing-gizi {
+        background: white !important;
+        color: black !important;
+    }
+    body.printing-gizi #nutritionistLayout,
+    body.printing-gizi #nSidebar,
+    body.printing-gizi #nSidebarOverlay,
+    body.printing-gizi header,
+    body.printing-gizi #nMainContent,
+    body.printing-gizi #specialRoleLayout,
+    body.printing-gizi #adminLayout,
+    body.printing-gizi #securityLayout,
+    body.printing-gizi #loaderEl,
+    body.printing-gizi #toastContainer {
+        display: none !important;
+    }
+    body.printing-gizi #nPrintArea {
+        display: block !important;
+        position: relative !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 10mm !important;
+        background: white !important;
+    }
+}
+
+/* Custom Nutrition Compliance Styles */
+.n-status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+.n-status-badge.rendah {
+    background-color: #fef3c7;
+    color: #d97706;
+}
+.n-status-badge.sesuai {
+    background-color: #d1fae5;
+    color: #059669;
+}
+.n-status-badge.tinggi {
+    background-color: #fee2e2;
+    color: #dc2626;
+}
+
+/* Menu Table Enhancements */
+#nMenuTable th {
+    padding: 10px 8px;
+}
+#nMenuTable td {
+    padding: 12px 8px;
+}
+
+/* Floating Actions hover shadows */
+.active\:scale-95:active {
+    transform: scale(0.95);
+}
