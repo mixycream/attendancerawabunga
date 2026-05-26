@@ -5086,6 +5086,12 @@ function nAddIngredientToMenu() {
             carbs: nPendingIngredient.carbs,
             fat: nPendingIngredient.fat,
             fiber: nPendingIngredient.fiber,
+            kalsium: nPendingIngredient.kalsium || 0,
+            zatBesi: nPendingIngredient.zatBesi || 0,
+            vitA: nPendingIngredient.vitA || 0,
+            vitC: nPendingIngredient.vitC || 0,
+            folat: nPendingIngredient.folat || 0,
+            vitB12: nPendingIngredient.vitB12 || 0,
             bdd: nPendingIngredient.bdd || 100,
             price: nPendingIngredient.price || 0
         });
@@ -5167,6 +5173,12 @@ function nLoadPresetMenu() {
                 carbs: found.carbs,
                 fat: found.fat,
                 fiber: found.fiber,
+                kalsium: found.kalsium || 0,
+                zatBesi: found.zatBesi || 0,
+                vitA: found.vitA || 0,
+                vitC: found.vitC || 0,
+                folat: found.folat || 0,
+                vitB12: found.vitB12 || 0,
                 bdd: found.bdd || 100,
                 price: found.price || 0
             });
