@@ -5511,13 +5511,38 @@ async function nLoadHistoryFromCloud() {
                     <td class="px-4 py-4 text-center"><span class="px-2 py-0.5 rounded-full bg-sky-50 border border-sky-100 text-sky-700 text-[10px] font-bold">${itemCounts} bahan</span></td>
                     <td class="px-4 py-4 text-center text-slate-400 font-semibold">${dateStr}</td>
                     <td class="px-4 py-4 text-center">
-                        <button onclick="nLoadHistoryPlanDirect()" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/50 text-emerald-700 font-bold rounded-lg text-[10px] uppercase transition-all shadow-sm">Muat Menu</button>
+                        <div class="flex items-center justify-center gap-1.5">
+                            <button onclick="nLoadHistoryPlanDirect()" class="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/50 text-emerald-700 font-bold rounded-lg text-[10px] uppercase transition-all shadow-sm active:scale-95">Muat</button>
+                            <button onclick="nDeleteHistoryPlanDirect()" class="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200/50 text-red-700 font-bold rounded-lg text-[10px] uppercase transition-all shadow-sm active:scale-95">Hapus</button>
+                        </div>
                     </td>
                 </tr>
             `;
             
-            // Set action to global
+            // Set actions to global
             window.nLoadHistoryPlanDirect = () => { nLoadPlanData(plan); };
+            window.nDeleteHistoryPlanDirect = async () => {
+                if (!confirm('Hapus rencana menu ini dari cloud?')) return;
+                toggleLoader(true, "Menghapus rencana menu dari cloud...");
+                try {
+                    const payload = { userId: currentUser?.id || '', username: currentUser?.u || '' };
+                    const resp = await callApi('deleteNutritionistPlan', payload);
+                    if (resp.ok && resp.data?.status === 'success') {
+                        showLoaderSuccess("Rencana menu berhasil dihapus");
+                        nLoadHistoryFromCloud();
+                        // Reset active cloud sync badge
+                        const badge = document.getElementById('nSyncBadge');
+                        if (badge) {
+                            badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Belum Tersinkron';
+                            badge.className = 'inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-500 bg-slate-50 border border-slate-200/60 px-3 py-1.5 rounded-full';
+                        }
+                    } else {
+                        throw new Error(resp.data?.message || 'Gagal menghapus');
+                    }
+                } catch (e) {
+                    showLoaderError("Gagal menghapus: " + e.message);
+                }
+            };
         } else {
             tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-slate-400">Tidak ada riwayat rencana tersimpan di cloud.</td></tr>';
         }
