@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyz3Wb8ae7LARULjH2QlFTD50u2MjjboNVthPzcfn8NkspPzYQA-9jMle-xU20cTDTr/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbybWwPWzz8Fel7ffKJe4ycK221t5aXP7mNP2P7Q912DcjuQpgVgW-T6osZjeeNZ2acq/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -5267,9 +5267,23 @@ function submitEditEmployee(e) {
     const div = document.getElementById('editEmpDiv').value;
     const role = document.getElementById('editEmpRole').value;
     const salary = document.getElementById('editEmpSalary').value;
-    let payload = { id: editingEmployeeId, name: name, division: div, salary: salary, role: role };
+    
     const oldEmp = employees.find(e => e.id === editingEmployeeId);
-    if(oldEmp && oldEmp.photo) payload.photo = oldEmp.photo;
+    let finalId = editingEmployeeId;
+    let oldId = null;
+
+    if (oldEmp && oldEmp.division !== div) {
+        // Division changed! Generate a new ID for the new division.
+        oldId = editingEmployeeId;
+        finalId = generateEmployeeId(div);
+    }
+
+    let payload = { id: finalId, name: name, division: div, salary: salary, role: role };
+    if (oldId) {
+        payload.oldId = oldId;
+    }
+
+    if (oldEmp && oldEmp.photo) payload.photo = oldEmp.photo;
 
     if (String(role).toLowerCase() !== 'employee') {
         const uname = document.getElementById('editEmpUsername').value.toLowerCase().trim();
@@ -5281,9 +5295,26 @@ function submitEditEmployee(e) {
         payload.password = '';
     }
 
+    // Update matching frontend logs if the ID changed
+    if (oldId && oldId !== finalId) {
+        logs.forEach(l => {
+            if (String(l.empId) === String(oldId)) {
+                l.empId = finalId;
+            }
+        });
+    }
+
     const empIndex = employees.findIndex(e => e.id === editingEmployeeId);
-    if(empIndex !== -1) { employees[empIndex] = { ...employees[empIndex], ...payload }; refreshUI(); }
-    closeEditEmployee(); postData('addEmployee', payload);
+    if (empIndex !== -1) {
+        // Replace with new employee details including the new ID
+        employees[empIndex] = { ...employees[empIndex], ...payload };
+        // Clean up temporary oldId from the local object
+        delete employees[empIndex].oldId;
+        refreshUI();
+    }
+    
+    closeEditEmployee();
+    postData('addEmployee', payload);
 }
 function openEditEmployee(id) {
     const emp = employees.find(e => e.id === id); if (!emp) return;
