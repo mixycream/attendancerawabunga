@@ -4473,116 +4473,128 @@ function initAdmin() {
 // NUTRITIONIST DASHBOARD - Complete System
 // =============================================
 
-// --- Food Database (per 100g, sumber: TKPI / DKBM Indonesia) ---
-// --- Food Database (per 100g, sumber: TKPI / DKBM Indonesia & Pedoman Gizi) ---
+// --- Food Database (per 100g, BDD standard, TKPI 2020) ---
 const FOOD_DATABASE = [
     // Karbohidrat
-    { name: 'Beras Putih', category: 'karbohidrat', kcal: 360, protein: 6.8, carbs: 79.3, fat: 0.7, fiber: 0.4, bdd: 100, price: 15000 },
-    { name: 'Beras Merah', category: 'karbohidrat', kcal: 352, protein: 7.3, carbs: 76.2, fat: 0.9, fiber: 3.5, bdd: 100, price: 22000 },
-    { name: 'Mie Kering', category: 'karbohidrat', kcal: 337, protein: 7.9, carbs: 70.3, fat: 3.3, fiber: 1.2, bdd: 100, price: 18000 },
-    { name: 'Roti Tawar', category: 'karbohidrat', kcal: 248, protein: 8.0, carbs: 50.0, fat: 1.2, fiber: 2.7, bdd: 100, price: 25000 },
-    { name: 'Kentang', category: 'karbohidrat', kcal: 62, protein: 2.1, carbs: 13.5, fat: 0.2, fiber: 1.8, bdd: 85, price: 20000 },
-    { name: 'Ubi Jalar', category: 'karbohidrat', kcal: 123, protein: 1.8, carbs: 27.9, fat: 0.7, fiber: 3.0, bdd: 86, price: 12000 },
-    { name: 'Jagung Pipil', category: 'karbohidrat', kcal: 150, protein: 4.7, carbs: 28.6, fat: 1.3, fiber: 2.8, bdd: 100, price: 15000 },
-    { name: 'Singkong', category: 'karbohidrat', kcal: 154, protein: 1.0, carbs: 36.8, fat: 0.3, fiber: 1.2, bdd: 75, price: 8000 },
-    { name: 'Oatmeal', category: 'karbohidrat', kcal: 379, protein: 13.2, carbs: 67.7, fat: 6.5, fiber: 10.1, bdd: 100, price: 45000 },
+    { name: 'Beras Putih', category: 'karbohidrat', kcal: 360, protein: 6.8, carbs: 79.3, fat: 0.7, fiber: 0.4, bdd: 100, price: 15000, kalsium: 6, zatBesi: 0.4, vitA: 0, vitC: 0, folat: 8, vitB12: 0 },
+    { name: 'Beras Merah', category: 'karbohidrat', kcal: 352, protein: 7.3, carbs: 76.2, fat: 0.9, fiber: 3.5, bdd: 100, price: 22000, kalsium: 9, zatBesi: 0.8, vitA: 0, vitC: 0, folat: 20, vitB12: 0 },
+    { name: 'Mie Kering', category: 'karbohidrat', kcal: 337, protein: 7.9, carbs: 70.3, fat: 3.3, fiber: 1.2, bdd: 100, price: 18000, kalsium: 14, zatBesi: 1.4, vitA: 0, vitC: 0, folat: 10, vitB12: 0 },
+    { name: 'Roti Tawar', category: 'karbohidrat', kcal: 248, protein: 8.0, carbs: 50.0, fat: 1.2, fiber: 2.7, bdd: 100, price: 25000, kalsium: 50, zatBesi: 1.5, vitA: 0, vitC: 0, folat: 25, vitB12: 0 },
+    { name: 'Kentang', category: 'karbohidrat', kcal: 62, protein: 2.1, carbs: 13.5, fat: 0.2, fiber: 1.8, bdd: 85, price: 20000, kalsium: 11, zatBesi: 0.3, vitA: 0, vitC: 5.9, folat: 10, vitB12: 0 },
+    { name: 'Ubi Jalar', category: 'karbohidrat', kcal: 123, protein: 1.8, carbs: 27.9, fat: 0.7, fiber: 3.0, bdd: 86, price: 12000, kalsium: 30, zatBesi: 0.7, vitA: 60, vitC: 10.5, folat: 11, vitB12: 0 },
+    { name: 'Jagung Pipil', category: 'karbohidrat', kcal: 150, protein: 4.7, carbs: 28.6, fat: 1.3, fiber: 2.8, bdd: 100, price: 15000, kalsium: 6, zatBesi: 0.5, vitA: 11, vitC: 5.5, folat: 42, vitB12: 0 },
+    { name: 'Singkong', category: 'karbohidrat', kcal: 154, protein: 1.0, carbs: 36.8, fat: 0.3, fiber: 1.2, bdd: 75, price: 8000, kalsium: 33, zatBesi: 0.8, vitA: 0, vitC: 31.0, folat: 12, vitB12: 0 },
+    { name: 'Oatmeal', category: 'karbohidrat', kcal: 379, protein: 13.2, carbs: 67.7, fat: 6.5, fiber: 10.1, bdd: 100, price: 45000, kalsium: 54, zatBesi: 4.7, vitA: 0, vitC: 0, folat: 32, vitB12: 0 },
     // Protein Hewani
-    { name: 'Ayam Dada', category: 'protein_hewani', kcal: 164, protein: 31.0, carbs: 0, fat: 3.6, fiber: 0, bdd: 58, price: 42000 },
-    { name: 'Ayam Paha', category: 'protein_hewani', kcal: 209, protein: 26.0, carbs: 0, fat: 10.9, fiber: 0, bdd: 58, price: 38000 },
-    { name: 'Daging Sapi', category: 'protein_hewani', kcal: 250, protein: 26.0, carbs: 0, fat: 15.0, fiber: 0, bdd: 100, price: 125000 },
-    { name: 'Ikan Lele', category: 'protein_hewani', kcal: 90, protein: 18.7, carbs: 0, fat: 1.1, fiber: 0, bdd: 80, price: 26000 },
-    { name: 'Ikan Tongkol', category: 'protein_hewani', kcal: 117, protein: 25.0, carbs: 0, fat: 1.0, fiber: 0, bdd: 90, price: 35000 },
-    { name: 'Ikan Nila', category: 'protein_hewani', kcal: 96, protein: 20.1, carbs: 0, fat: 1.7, fiber: 0, bdd: 80, price: 32000 },
-    { name: 'Telur Ayam', category: 'protein_hewani', kcal: 154, protein: 12.4, carbs: 0.7, fat: 10.8, fiber: 0, bdd: 90, price: 28000 },
-    { name: 'Telur Puyuh', category: 'protein_hewani', kcal: 158, protein: 13.1, carbs: 0.4, fat: 11.1, fiber: 0, bdd: 90, price: 35000 },
-    { name: 'Udang', category: 'protein_hewani', kcal: 91, protein: 21.0, carbs: 0.3, fat: 0.5, fiber: 0, bdd: 68, price: 85000 },
-    { name: 'Ikan Bandeng', category: 'protein_hewani', kcal: 148, protein: 20.0, carbs: 0, fat: 7.0, fiber: 0, bdd: 80, price: 38000 },
+    { name: 'Ayam Dada', category: 'protein_hewani', kcal: 164, protein: 31.0, carbs: 0, fat: 3.6, fiber: 0, bdd: 58, price: 42000, kalsium: 14, zatBesi: 0.9, vitA: 10, vitC: 0, folat: 4, vitB12: 0.3 },
+    { name: 'Ayam Paha', category: 'protein_hewani', kcal: 209, protein: 26.0, carbs: 0, fat: 10.9, fiber: 0, bdd: 58, price: 38000, kalsium: 11, zatBesi: 1.2, vitA: 30, vitC: 0, folat: 6, vitB12: 0.4 },
+    { name: 'Daging Sapi', category: 'protein_hewani', kcal: 250, protein: 26.0, carbs: 0, fat: 15.0, fiber: 0, bdd: 100, price: 125000, kalsium: 11, zatBesi: 2.8, vitA: 0, vitC: 0, folat: 6, vitB12: 2.0 },
+    { name: 'Ikan Lele', category: 'protein_hewani', kcal: 90, protein: 18.7, carbs: 0, fat: 1.1, fiber: 0, bdd: 80, price: 26000, kalsium: 20, zatBesi: 0.3, vitA: 150, vitC: 0, folat: 10, vitB12: 1.8 },
+    { name: 'Ikan Tongkol', category: 'protein_hewani', kcal: 117, protein: 25.0, carbs: 0, fat: 1.0, fiber: 0, bdd: 90, price: 35000, kalsium: 15, zatBesi: 1.5, vitA: 11, vitC: 0, folat: 2, vitB12: 2.2 },
+    { name: 'Ikan Nila', category: 'protein_hewani', kcal: 96, protein: 20.1, carbs: 0, fat: 1.7, fiber: 0, bdd: 80, price: 32000, kalsium: 14, zatBesi: 0.6, vitA: 0, vitC: 0, folat: 4, vitB12: 1.5 },
+    { name: 'Telur Ayam', category: 'protein_hewani', kcal: 154, protein: 12.4, carbs: 0.7, fat: 10.8, fiber: 0, bdd: 90, price: 28000, kalsium: 50, zatBesi: 1.2, vitA: 190, vitC: 0, folat: 44, vitB12: 1.1 },
+    { name: 'Telur Puyuh', category: 'protein_hewani', kcal: 158, protein: 13.1, carbs: 0.4, fat: 11.1, fiber: 0, bdd: 90, price: 35000, kalsium: 64, zatBesi: 3.7, vitA: 156, vitC: 0, folat: 66, vitB12: 1.6 },
+    { name: 'Udang', category: 'protein_hewani', kcal: 91, protein: 21.0, carbs: 0.3, fat: 0.5, fiber: 0, bdd: 68, price: 85000, kalsium: 136, zatBesi: 8.0, vitA: 16, vitC: 0, folat: 8, vitB12: 1.4 },
+    { name: 'Ikan Bandeng', category: 'protein_hewani', kcal: 148, protein: 20.0, carbs: 0, fat: 7.0, fiber: 0, bdd: 80, price: 38000, kalsium: 20, zatBesi: 1.9, vitA: 45, vitC: 0, folat: 3, vitB12: 2.5 },
     // Protein Nabati
-    { name: 'Tahu', category: 'protein_nabati', kcal: 80, protein: 10.9, carbs: 0.8, fat: 4.7, fiber: 0.1, bdd: 100, price: 10000 },
-    { name: 'Tempe', category: 'protein_nabati', kcal: 201, protein: 20.8, carbs: 13.5, fat: 8.8, fiber: 1.4, bdd: 100, price: 15000 },
-    { name: 'Kacang Tanah', category: 'protein_nabati', kcal: 525, protein: 27.9, carbs: 17.4, fat: 42.7, fiber: 2.4, bdd: 100, price: 28000 },
-    { name: 'Kacang Hijau', category: 'protein_nabati', kcal: 323, protein: 22.2, carbs: 56.8, fat: 1.2, fiber: 7.6, bdd: 100, price: 25000 },
-    { name: 'Kacang Kedelai', category: 'protein_nabati', kcal: 381, protein: 34.9, carbs: 24.6, fat: 18.1, fiber: 4.2, bdd: 100, price: 20000 },
-    { name: 'Oncom', category: 'protein_nabati', kcal: 187, protein: 13.0, carbs: 22.6, fat: 6.0, fiber: 0.5, bdd: 100, price: 12000 },
+    { name: 'Tahu', category: 'protein_nabati', kcal: 80, protein: 10.9, carbs: 0.8, fat: 4.7, fiber: 0.1, bdd: 100, price: 10000, kalsium: 223, zatBesi: 3.4, vitA: 0, vitC: 0, folat: 15, vitB12: 0 },
+    { name: 'Tempe', category: 'protein_nabati', kcal: 201, protein: 20.8, carbs: 13.5, fat: 8.8, fiber: 1.4, bdd: 100, price: 15000, kalsium: 111, zatBesi: 2.7, vitA: 0, vitC: 0, folat: 24, vitB12: 0.1 },
+    { name: 'Kacang Tanah', category: 'protein_nabati', kcal: 525, protein: 27.9, carbs: 17.4, fat: 42.7, fiber: 2.4, bdd: 100, price: 28000, kalsium: 93, zatBesi: 4.5, vitA: 0, vitC: 0, folat: 240, vitB12: 0 },
+    { name: 'Kacang Hijau', category: 'protein_nabati', kcal: 323, protein: 22.2, carbs: 56.8, fat: 1.2, fiber: 7.6, bdd: 100, price: 25000, kalsium: 125, zatBesi: 6.7, vitA: 9, vitC: 4.8, folat: 625, vitB12: 0 },
+    { name: 'Kacang Kedelai', category: 'protein_nabati', kcal: 381, protein: 34.9, carbs: 24.6, fat: 18.1, fiber: 4.2, bdd: 100, price: 20000, kalsium: 222, zatBesi: 8.0, vitA: 10, vitC: 0, folat: 375, vitB12: 0 },
+    { name: 'Oncom', category: 'protein_nabati', kcal: 187, protein: 13.0, carbs: 22.6, fat: 6.0, fiber: 0.5, bdd: 100, price: 12000, kalsium: 96, zatBesi: 27.0, vitA: 0, vitC: 0, folat: 18, vitB12: 0 },
     // Sayuran
-    { name: 'Bayam', category: 'sayuran', kcal: 36, protein: 3.5, carbs: 6.5, fat: 0.5, fiber: 2.2, bdd: 71, price: 15000 },
-    { name: 'Kangkung', category: 'sayuran', kcal: 29, protein: 3.0, carbs: 5.4, fat: 0.3, fiber: 2.0, bdd: 70, price: 12000 },
-    { name: 'Wortel', category: 'sayuran', kcal: 42, protein: 1.2, carbs: 9.3, fat: 0.3, fiber: 4.0, bdd: 88, price: 16000 },
-    { name: 'Kol/Kubis', category: 'sayuran', kcal: 24, protein: 1.4, carbs: 4.2, fat: 0.2, fiber: 0.9, bdd: 90, price: 10000 },
-    { name: 'Buncis', category: 'sayuran', kcal: 35, protein: 2.4, carbs: 7.7, fat: 0.2, fiber: 3.2, bdd: 90, price: 18000 },
-    { name: 'Terong', category: 'sayuran', kcal: 24, protein: 1.1, carbs: 5.7, fat: 0.2, fiber: 2.5, bdd: 87, price: 12000 },
-    { name: 'Labu Siam', category: 'sayuran', kcal: 26, protein: 0.6, carbs: 6.7, fat: 0.1, fiber: 0.6, bdd: 83, price: 10000 },
-    { name: 'Tomat', category: 'sayuran', kcal: 20, protein: 1.0, carbs: 4.2, fat: 0.3, fiber: 1.5, bdd: 95, price: 15000 },
-    { name: 'Timun', category: 'sayuran', kcal: 12, protein: 0.7, carbs: 2.7, fat: 0.1, fiber: 0.5, bdd: 97, price: 8000 },
-    { name: 'Sawi Hijau', category: 'sayuran', kcal: 22, protein: 2.3, carbs: 4.0, fat: 0.3, fiber: 1.2, bdd: 85, price: 12000 },
-    { name: 'Daun Singkong', category: 'sayuran', kcal: 73, protein: 6.8, carbs: 13.0, fat: 1.2, fiber: 1.2, bdd: 60, price: 10000 },
+    { name: 'Bayam', category: 'sayuran', kcal: 36, protein: 3.5, carbs: 6.5, fat: 0.5, fiber: 2.2, bdd: 71, price: 15000, kalsium: 99, zatBesi: 2.7, vitA: 469, vitC: 28.0, folat: 194, vitB12: 0 },
+    { name: 'Kangkung', category: 'sayuran', kcal: 29, protein: 3.0, carbs: 5.4, fat: 0.3, fiber: 2.0, bdd: 70, price: 12000, kalsium: 73, zatBesi: 2.5, vitA: 315, vitC: 31.0, folat: 57, vitB12: 0 },
+    { name: 'Wortel', category: 'sayuran', kcal: 42, protein: 1.2, carbs: 9.3, fat: 0.3, fiber: 4.0, bdd: 88, price: 16000, kalsium: 33, zatBesi: 0.3, vitA: 835, vitC: 5.9, folat: 19, vitB12: 0 },
+    { name: 'Kol/Kubis', category: 'sayuran', kcal: 24, protein: 1.4, carbs: 4.2, fat: 0.2, fiber: 0.9, bdd: 90, price: 10000, kalsium: 40, zatBesi: 0.5, vitA: 4, vitC: 36.6, folat: 43, vitB12: 0 },
+    { name: 'Buncis', category: 'sayuran', kcal: 35, protein: 2.4, carbs: 7.7, fat: 0.2, fiber: 3.2, bdd: 90, price: 18000, kalsium: 44, zatBesi: 1.0, vitA: 34, vitC: 12.2, folat: 37, vitB12: 0 },
+    { name: 'Terong', category: 'sayuran', kcal: 24, protein: 1.1, carbs: 5.7, fat: 0.2, fiber: 2.5, bdd: 87, price: 12000, kalsium: 30, zatBesi: 0.4, vitA: 6, vitC: 2.2, folat: 22, vitB12: 0 },
+    { name: 'Labu Siam', category: 'sayuran', kcal: 26, protein: 0.6, carbs: 6.7, fat: 0.1, fiber: 0.6, bdd: 83, price: 10000, kalsium: 14, zatBesi: 0.3, vitA: 0, vitC: 7.7, folat: 9, vitB12: 0 },
+    { name: 'Tomat', category: 'sayuran', kcal: 20, protein: 1.0, carbs: 4.2, fat: 0.3, fiber: 1.5, bdd: 95, price: 15000, kalsium: 5, zatBesi: 0.3, vitA: 42, vitC: 13.7, folat: 15, vitB12: 0 },
+    { name: 'Timun', category: 'sayuran', kcal: 12, protein: 0.7, carbs: 2.7, fat: 0.1, fiber: 0.5, bdd: 97, price: 8000, kalsium: 16, zatBesi: 0.2, vitA: 5, vitC: 2.8, folat: 7, vitB12: 0 },
+    { name: 'Sawi Hijau', category: 'sayuran', kcal: 22, protein: 2.3, carbs: 4.0, fat: 0.3, fiber: 1.2, bdd: 85, price: 12000, kalsium: 105, zatBesi: 1.9, vitA: 260, vitC: 45.0, folat: 60, vitB12: 0 },
+    { name: 'Daun Singkong', category: 'sayuran', kcal: 73, protein: 6.8, carbs: 13.0, fat: 1.2, fiber: 1.2, bdd: 60, price: 10000, kalsium: 165, zatBesi: 2.0, vitA: 360, vitC: 27.0, folat: 110, vitB12: 0 },
     // Buah
-    { name: 'Pisang Ambon', category: 'buah', kcal: 99, protein: 1.2, carbs: 25.8, fat: 0.2, fiber: 0.6, bdd: 75, price: 22000 },
-    { name: 'Pepaya', category: 'buah', kcal: 46, protein: 0.5, carbs: 12.2, fat: 0, fiber: 0.7, bdd: 75, price: 10000 },
-    { name: 'Jeruk Manis', category: 'buah', kcal: 45, protein: 0.9, carbs: 11.2, fat: 0.2, fiber: 0.4, bdd: 72, price: 24000 },
-    { name: 'Semangka', category: 'buah', kcal: 28, protein: 0.5, carbs: 6.9, fat: 0.2, fiber: 0.5, bdd: 46, price: 12000 },
-    { name: 'Melon', category: 'buah', kcal: 34, protein: 0.6, carbs: 7.7, fat: 0.4, fiber: 0.3, bdd: 58, price: 18000 },
-    { name: 'Apel Malang', category: 'buah', kcal: 58, protein: 0.3, carbs: 14.9, fat: 0.4, fiber: 0.7, bdd: 88, price: 25000 },
+    { name: 'Pisang Ambon', category: 'buah', kcal: 99, protein: 1.2, carbs: 25.8, fat: 0.2, fiber: 0.6, bdd: 75, price: 22000, kalsium: 5, zatBesi: 0.3, vitA: 3, vitC: 8.7, folat: 20, vitB12: 0 },
+    { name: 'Pepaya', category: 'buah', kcal: 46, protein: 0.5, carbs: 12.2, fat: 0, fiber: 0.7, bdd: 75, price: 10000, kalsium: 23, zatBesi: 0.1, vitA: 55, vitC: 61.8, folat: 38, vitB12: 0 },
+    { name: 'Jeruk Manis', category: 'buah', kcal: 45, protein: 0.9, carbs: 11.2, fat: 0.2, fiber: 0.4, bdd: 72, price: 24000, kalsium: 40, zatBesi: 0.1, vitA: 11, vitC: 53.2, folat: 30, vitB12: 0 },
+    { name: 'Semangka', category: 'buah', kcal: 28, protein: 0.5, carbs: 6.9, fat: 0.2, fiber: 0.5, bdd: 46, price: 12000, kalsium: 7, zatBesi: 0.2, vitA: 28, vitC: 8.1, folat: 3, vitB12: 0 },
+    { name: 'Melon', category: 'buah', kcal: 34, protein: 0.6, carbs: 7.7, fat: 0.4, fiber: 0.3, bdd: 58, price: 18000, kalsium: 9, zatBesi: 0.2, vitA: 16, vitC: 36.7, folat: 14, vitB12: 0 },
+    { name: 'Apel Malang', category: 'buah', kcal: 58, protein: 0.3, carbs: 14.9, fat: 0.4, fiber: 0.7, bdd: 88, price: 25000, kalsium: 6, zatBesi: 0.1, vitA: 4, vitC: 4.6, folat: 3, vitB12: 0 },
     // Susu & Olahan
-    { name: 'Susu UHT', category: 'susu_olahan', kcal: 61, protein: 3.2, carbs: 4.5, fat: 3.5, fiber: 0, bdd: 100, price: 18000, note: 'per 100ml' },
-    { name: 'Susu Kental Manis', category: 'susu_olahan', kcal: 336, protein: 8.2, carbs: 55, fat: 10, fiber: 0, bdd: 100, price: 32000 },
-    { name: 'Yogurt Plain', category: 'susu_olahan', kcal: 52, protein: 3.5, carbs: 6.0, fat: 1.5, fiber: 0, bdd: 100, price: 45000, note: 'per 100ml' },
+    { name: 'Susu UHT', category: 'susu_olahan', kcal: 61, protein: 3.2, carbs: 4.5, fat: 3.5, fiber: 0, bdd: 100, price: 18000, kalsium: 120, zatBesi: 0.1, vitA: 40, vitC: 1.0, folat: 5, vitB12: 0.4, note: 'per 100ml' },
+    { name: 'Susu Kental Manis', category: 'susu_olahan', kcal: 336, protein: 8.2, carbs: 55, fat: 10, fiber: 0, bdd: 100, price: 32000, kalsium: 275, zatBesi: 0.2, vitA: 95, vitC: 1.0, folat: 10, vitB12: 0.8 },
+    { name: 'Yogurt Plain', category: 'susu_olahan', kcal: 52, protein: 3.5, carbs: 6.0, fat: 1.5, fiber: 0, bdd: 100, price: 45000, kalsium: 110, zatBesi: 0.1, vitA: 25, vitC: 0.5, folat: 7, vitB12: 0.3, note: 'per 100ml' },
     // Bumbu
-    { name: 'Bawang Merah', category: 'bumbu', kcal: 39, protein: 1.5, carbs: 9.2, fat: 0.3, fiber: 1.0, bdd: 90, price: 35000 },
-    { name: 'Bawang Putih', category: 'bumbu', kcal: 95, protein: 4.5, carbs: 23.1, fat: 0.2, fiber: 1.1, bdd: 88, price: 40000 },
-    { name: 'Cabai Merah', category: 'bumbu', kcal: 31, protein: 1.0, carbs: 7.3, fat: 0.3, fiber: 0.4, bdd: 85, price: 45000 },
-    { name: 'Jahe', category: 'bumbu', kcal: 51, protein: 1.5, carbs: 10.1, fat: 1.0, fiber: 2.0, bdd: 85, price: 30000 },
-    { name: 'Kunyit', category: 'bumbu', kcal: 63, protein: 2.0, carbs: 14.7, fat: 1.0, fiber: 2.0, bdd: 85, price: 25000 },
-    { name: 'Gula Pasir', category: 'bumbu', kcal: 364, protein: 0, carbs: 94, fat: 0, fiber: 0, bdd: 100, price: 18000 },
-    { name: 'Garam', category: 'bumbu', kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, bdd: 100, price: 5000 },
+    { name: 'Bawang Merah', category: 'bumbu', kcal: 39, protein: 1.5, carbs: 9.2, fat: 0.3, fiber: 1.0, bdd: 90, price: 35000, kalsium: 36, zatBesi: 0.8, vitA: 0, vitC: 2.0, folat: 19, vitB12: 0 },
+    { name: 'Bawang Putih', category: 'bumbu', kcal: 95, protein: 4.5, carbs: 23.1, fat: 0.2, fiber: 1.1, bdd: 88, price: 40000, kalsium: 29, zatBesi: 1.7, vitA: 0, vitC: 1.2, folat: 3, vitB12: 0 },
+    { name: 'Cabai Merah', category: 'bumbu', kcal: 31, protein: 1.0, carbs: 7.3, fat: 0.3, fiber: 0.4, bdd: 85, price: 45000, kalsium: 29, zatBesi: 1.4, vitA: 90, vitC: 18.0, folat: 10, vitB12: 0 },
+    { name: 'Jahe', category: 'bumbu', kcal: 51, protein: 1.5, carbs: 10.1, fat: 1.0, fiber: 2.0, bdd: 85, price: 30000, kalsium: 21, zatBesi: 1.6, vitA: 0, vitC: 4.0, folat: 8, vitB12: 0 },
+    { name: 'Kunyit', category: 'bumbu', kcal: 63, protein: 2.0, carbs: 14.7, fat: 1.0, fiber: 2.0, bdd: 85, price: 25000, kalsium: 24, zatBesi: 3.5, vitA: 0, vitC: 2.0, folat: 9, vitB12: 0 },
+    { name: 'Gula Pasir', category: 'bumbu', kcal: 364, protein: 0, carbs: 94, fat: 0, fiber: 0, bdd: 100, price: 18000, kalsium: 1, zatBesi: 0.1, vitA: 0, vitC: 0, folat: 0, vitB12: 0 },
+    { name: 'Garam', category: 'bumbu', kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, bdd: 100, price: 5000, kalsium: 0, zatBesi: 0, vitA: 0, vitC: 0, folat: 0, vitB12: 0 },
     // Minyak & Lemak
-    { name: 'Minyak Goreng', category: 'minyak_lemak', kcal: 884, protein: 0, carbs: 0, fat: 100, fiber: 0, bdd: 100, price: 18000 },
-    { name: 'Santan Kelapa', category: 'minyak_lemak', kcal: 122, protein: 1.0, carbs: 2.5, fat: 12.2, fiber: 0, bdd: 100, price: 15000, note: 'per 100ml' },
-    { name: 'Mentega', category: 'minyak_lemak', kcal: 720, protein: 0.5, carbs: 0.4, fat: 81.6, fiber: 0, bdd: 100, price: 65000 },
-    { name: 'Margarin', category: 'minyak_lemak', kcal: 720, protein: 0.6, carbs: 0.4, fat: 81, fiber: 0, bdd: 100, price: 25000 },
-    { name: 'Minyak Kelapa', category: 'minyak_lemak', kcal: 870, protein: 0, carbs: 0, fat: 98, fiber: 0, bdd: 100, price: 30000 }
+    { name: 'Minyak Goreng', category: 'minyak_lemak', kcal: 884, protein: 0, carbs: 0, fat: 100, fiber: 0, bdd: 100, price: 18000, kalsium: 0, zatBesi: 0, vitA: 0, vitC: 0, folat: 0, vitB12: 0 },
+    { name: 'Santan Kelapa', category: 'minyak_lemak', kcal: 122, protein: 1.0, carbs: 2.5, fat: 12.2, fiber: 0, bdd: 100, price: 15000, kalsium: 16, zatBesi: 1.6, vitA: 0, vitC: 2.8, folat: 16, vitB12: 0, note: 'per 100ml' },
+    { name: 'Mentega', category: 'minyak_lemak', kcal: 720, protein: 0.5, carbs: 0.4, fat: 81.6, fiber: 0, bdd: 100, price: 65000, kalsium: 15, zatBesi: 0.1, vitA: 250, vitC: 0, folat: 2, vitB12: 0.1 },
+    { name: 'Margarin', category: 'minyak_lemak', kcal: 720, protein: 0.6, carbs: 0.4, fat: 81, fiber: 0, bdd: 100, price: 25000, kalsium: 20, zatBesi: 0.1, vitA: 300, vitC: 0, folat: 2, vitB12: 0 },
+    { name: 'Minyak Kelapa', category: 'minyak_lemak', kcal: 870, protein: 0, carbs: 0, fat: 98, fiber: 0, bdd: 100, price: 30000, kalsium: 0, zatBesi: 0, vitA: 0, vitC: 0, folat: 0, vitB12: 0 }
 ];
 
-// --- Target Gizi & Harga (Makan Bergizi Gratis - Kemenkes 2024 & AKG 2019) ---
+// --- Target Gizi & Harga (Simplified 3 Unified Categories - B3) ---
 const NUTRITION_TARGETS = {
-    balita: { name: 'Balita (1-3 tahun)', kcal: { min: 275, max: 344 }, protein: { min: 5, max: 6 }, fat: { min: 10, max: 12 }, carbs: { min: 44, max: 54 }, targetCost: 8500 },
-    paud: { name: 'Siswa PAUD/TK (4-6 tahun)', kcal: { min: 280, max: 350 }, protein: { min: 5, max: 6 }, fat: { min: 10, max: 13 }, carbs: { min: 44, max: 55 }, targetCost: 8500 },
-    sd_1_3: { name: 'Siswa SD Kelas 1-3', kcal: { min: 330, max: 413 }, protein: { min: 8, max: 10 }, fat: { min: 11, max: 14 }, carbs: { min: 50, max: 63 }, targetCost: 10000 },
-    sd_4_6: { name: 'Siswa SD Kelas 4-6', kcal: { min: 585, max: 683 }, protein: { min: 16, max: 18 }, fat: { min: 20, max: 23 }, carbs: { min: 87, max: 102 }, targetCost: 15000 },
-    smp: { name: 'Siswa SMP/MTS Sederajat', kcal: { min: 668, max: 779 }, protein: { min: 20, max: 24 }, fat: { min: 23, max: 26 }, carbs: { min: 98, max: 114 }, targetCost: 17000 },
-    sma: { name: 'Siswa SMA/MA Sederajat', kcal: { min: 713, max: 831 }, protein: { min: 21, max: 25 }, fat: { min: 23, max: 27 }, carbs: { min: 105, max: 122.5 }, targetCost: 20000 },
-    ibu_hamil: { name: 'Ibu Hamil', kcal: { min: 738, max: 861 }, protein: { min: 23, max: 27 }, fat: { min: 19, max: 22 }, carbs: { min: 116, max: 135 }, targetCost: 22000 },
-    ibu_menyusui: { name: 'Ibu Menyusui', kcal: { min: 770, max: 898 }, protein: { min: 23, max: 27 }, fat: { min: 19, max: 22 }, carbs: { min: 120, max: 140 }, targetCost: 22000 }
+    balita_sd_1_3: { 
+        name: 'Balita s/d SD Kelas 1-3', 
+        kcal: { min: 275, max: 413 }, 
+        protein: { min: 5, max: 10 }, 
+        fat: { min: 10, max: 14 }, 
+        carbs: { min: 44, max: 63 }, 
+        fiber: { min: 4, max: 6 },
+        kalsium: { min: 165, max: 250 },
+        zatBesi: { min: 2, max: 3 },
+        vitA: { min: 85, max: 125 },
+        vitC: { min: 9, max: 11 },
+        folat: { min: 36, max: 75 },
+        vitB12: { min: 0.3, max: 0.5 },
+        targetCost: 10000 
+    },
+    sd_4_6_sma: { 
+        name: 'SD Kelas 4-6 s/d SMA/MA', 
+        kcal: { min: 585, max: 831 }, 
+        protein: { min: 16, max: 25 }, 
+        fat: { min: 20, max: 27 }, 
+        carbs: { min: 87, max: 122.5 }, 
+        fiber: { min: 8, max: 10 },
+        kalsium: { min: 360, max: 420 },
+        zatBesi: { min: 2, max: 3 },
+        vitA: { min: 180, max: 228 },
+        vitC: { min: 15, max: 29 },
+        folat: { min: 120, max: 140 },
+        vitB12: { min: 1.1, max: 1.4 },
+        targetCost: 16000 
+    },
+    bumil_busui: { 
+        name: 'Ibu Hamil & Menyusui (Busui)', 
+        kcal: { min: 738, max: 898 }, 
+        protein: { min: 23, max: 27 }, 
+        fat: { min: 19, max: 22 }, 
+        carbs: { min: 116, max: 140 }, 
+        fiber: { min: 10, max: 13 },
+        kalsium: { min: 360, max: 420 },
+        zatBesi: { min: 5, max: 15 },
+        vitA: { min: 270, max: 333 },
+        vitC: { min: 26, max: 42 },
+        folat: { min: 150, max: 210 },
+        vitB12: { min: 1.4, max: 1.75 },
+        targetCost: 22000 
+    }
 };
 
-// --- Preset Menu Resmi (Pedoman Standar Gizi PDF) ---
+// --- Preset Menu Resmi disederhanakan ---
 const PRESET_CYCLE_MENUS = {
-    balita: {
-        menuName: 'Menu Bola Daging Balita',
-        ingredients: [
-            { name: 'Beras Putih', grams: 40 },
-            { name: 'Daging Sapi', grams: 35 },
-            { name: 'Telur Ayam', grams: 15 },
-            { name: 'Tempe', grams: 12.5 },
-            { name: 'Buncis', grams: 25 },
-            { name: 'Melon', grams: 190 },
-            { name: 'Minyak Goreng', grams: 5 }
-        ]
-    },
-    paud: {
-        menuName: 'Nasi Goreng Ayam PAUD/TK',
-        ingredients: [
-            { name: 'Beras Putih', grams: 40 },
-            { name: 'Ayam Dada', grams: 40 },
-            { name: 'Tahu', grams: 27.5 },
-            { name: 'Wortel', grams: 25 },
-            { name: 'Jeruk Manis', grams: 110 },
-            { name: 'Minyak Goreng', grams: 5 },
-            { name: 'Susu UHT', grams: 200 }
-        ]
-    },
-    sd_1_3: {
-        menuName: 'Menu Sehat SD Kelas 1-3',
+    balita_sd_1_3: {
+        menuName: 'Menu Sehat Balita - SD Kelas 1-3',
         ingredients: [
             { name: 'Beras Putih', grams: 50 },
             { name: 'Ayam Dada', grams: 40 },
@@ -4593,8 +4605,8 @@ const PRESET_CYCLE_MENUS = {
             { name: 'Susu UHT', grams: 200 }
         ]
     },
-    sd_4_6: {
-        menuName: 'Ikan Asam Manis SD Kelas 4-6',
+    sd_4_6_sma: {
+        menuName: 'Ikan Asam Manis SD 4-6 s/d SMA',
         ingredients: [
             { name: 'Beras Putih', grams: 87.5 },
             { name: 'Ikan Tongkol', grams: 60 },
@@ -4605,45 +4617,8 @@ const PRESET_CYCLE_MENUS = {
             { name: 'Susu UHT', grams: 200 }
         ]
     },
-    smp: {
-        menuName: 'Daging Semur SMP/MTS',
-        ingredients: [
-            { name: 'Beras Putih', grams: 100 },
-            { name: 'Daging Sapi', grams: 52.5 },
-            { name: 'Tahu', grams: 110 },
-            { name: 'Labu Siam', grams: 50 },
-            { name: 'Pepaya', grams: 110 },
-            { name: 'Minyak Goreng', grams: 7.5 },
-            { name: 'Susu UHT', grams: 200 }
-        ]
-    },
-    sma: {
-        menuName: 'Ayam Lengkuas SMA/MA',
-        ingredients: [
-            { name: 'Beras Putih', grams: 100 },
-            { name: 'Ayam Dada', grams: 80 },
-            { name: 'Tempe', grams: 50 },
-            { name: 'Wortel', grams: 50 },
-            { name: 'Kol/Kubis', grams: 50 },
-            { name: 'Semangka', grams: 180 },
-            { name: 'Minyak Goreng', grams: 7.5 },
-            { name: 'Susu UHT', grams: 200 }
-        ]
-    },
-    ibu_hamil: {
-        menuName: 'Sate Lilit Tenggiri Ibu Hamil',
-        ingredients: [
-            { name: 'Beras Putih', grams: 125 },
-            { name: 'Ikan Tongkol', grams: 80 },
-            { name: 'Tahu', grams: 110 },
-            { name: 'Kangkung', grams: 100 },
-            { name: 'Pisang Ambon', grams: 50 },
-            { name: 'Minyak Goreng', grams: 7.5 },
-            { name: 'Susu UHT', grams: 200 }
-        ]
-    },
-    ibu_menyusui: {
-        menuName: 'Sate Lilit Tenggiri Ibu Menyusui',
+    bumil_busui: {
+        menuName: 'Sate Lilit Tenggiri Bumil & Busui',
         ingredients: [
             { name: 'Beras Putih', grams: 125 },
             { name: 'Ikan Tongkol', grams: 80 },
@@ -4683,10 +4658,54 @@ let nMenuIngredients = []; // [{name, category, grams, kcal, protein, carbs, fat
 let nSelectedCategory = 'semua';
 let nPendingIngredient = null;
 let nNutritionChartInstance = null;
+let nGiziFilterState = {
+    kcal: true, protein: true, fat: true, carbs: true, fiber: true,
+    kalsium: false, zatBesi: false, vitA: false, vitC: false, folat: false, vitB12: false
+};
+
+function nOnGiziFilterChange() {
+    const keys = Object.keys(nGiziFilterState);
+    keys.forEach(k => {
+        const chk = document.getElementById('chk-' + k);
+        if (chk) {
+            nGiziFilterState[k] = chk.checked;
+        }
+    });
+    localStorage.setItem('mbg_gizi_filter_state', JSON.stringify(nGiziFilterState));
+    nRecalcPlanner();
+}
+
+function nToggleGiziFilter() {
+    const keys = Object.keys(nGiziFilterState);
+    const allChecked = keys.every(k => nGiziFilterState[k]);
+    keys.forEach(k => {
+        const chk = document.getElementById('chk-' + k);
+        if (chk) {
+            chk.checked = !allChecked;
+            nGiziFilterState[k] = !allChecked;
+        }
+    });
+    localStorage.setItem('mbg_gizi_filter_state', JSON.stringify(nGiziFilterState));
+    nRecalcPlanner();
+}
+
+function nLoadGiziFilterState() {
+    try {
+        const raw = localStorage.getItem('mbg_gizi_filter_state');
+        if (raw) {
+            nGiziFilterState = JSON.parse(raw);
+            Object.keys(nGiziFilterState).forEach(k => {
+                const chk = document.getElementById('chk-' + k);
+                if (chk) chk.checked = nGiziFilterState[k];
+            });
+        }
+    } catch (e) {}
+}
 
 function initNutritionist() {
     // Load custom foods from local storage
     nLoadCustomFoods();
+    nLoadGiziFilterState();
 
     if (!isLoginInProgress) {
         toggleLoader(true, "Mempersiapkan Ahli Gizi Page...");
@@ -4806,7 +4825,7 @@ function nRenderOverview() {
     // Focus text
     const focusEl = document.getElementById('nFocusText');
     const focusDesc = document.getElementById('nFocusDesc');
-    const sasaranSel = document.getElementById('nTargetGroup')?.value || 'sd_1_3';
+    const sasaranSel = document.getElementById('nTargetGroup')?.value || 'balita_sd_1_3';
     const sasaranName = NUTRITION_TARGETS[sasaranSel]?.name || 'Sasaran';
     
     if (nMenuIngredients.length > 0) {
@@ -4850,26 +4869,51 @@ function nRenderNutritionChart() {
     const ctx = document.getElementById('nNutritionChart');
     if (!ctx) return;
     
-    const totals = { protein: 0, carbs: 0, fat: 0, fiber: 0, kcal: 0 };
+    const totals = { 
+        kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0,
+        kalsium: 0, zatBesi: 0, vitA: 0, vitC: 0, folat: 0, vitB12: 0 
+    };
     nMenuIngredients.forEach(i => {
         const m = i.grams / 100;
+        totals.kcal += i.kcal * m;
         totals.protein += i.protein * m;
         totals.carbs += i.carbs * m;
         totals.fat += i.fat * m;
         totals.fiber += i.fiber * m;
-        totals.kcal += i.kcal * m;
+        totals.kalsium += (i.kalsium || 0) * m;
+        totals.zatBesi += (i.zatBesi || 0) * m;
+        totals.vitA += (i.vitA || 0) * m;
+        totals.vitC += (i.vitC || 0) * m;
+        totals.folat += (i.folat || 0) * m;
+        totals.vitB12 += (i.vitB12 || 0) * m;
     });
 
     if (nNutritionChartInstance) nNutritionChartInstance.destroy();
 
+    const allMetrics = [
+        { key: 'kcal', label: 'Kalori (kkal)', val: totals.kcal, color: '#10b981' },
+        { key: 'protein', label: 'Protein (g)', val: totals.protein, color: '#0ea5e9' },
+        { key: 'carbs', label: 'Karbo (g)', val: totals.carbs, color: '#f59e0b' },
+        { key: 'fat', label: 'Lemak (g)', val: totals.fat, color: '#ef4444' },
+        { key: 'fiber', label: 'Serat (g)', val: totals.fiber, color: '#8b5cf6' },
+        { key: 'kalsium', label: 'Kalsium (mg)', val: totals.kalsium, color: '#6366f1' },
+        { key: 'zatBesi', label: 'Zat Besi (mg)', val: totals.zatBesi, color: '#14b8a6' },
+        { key: 'vitA', label: 'Vit A (mcg)', val: totals.vitA, color: '#eab308' },
+        { key: 'vitC', label: 'Vit C (mg)', val: totals.vitC, color: '#ec4899' },
+        { key: 'folat', label: 'Folat (mcg)', val: totals.folat, color: '#06b6d4' },
+        { key: 'vitB12', label: 'Vit B12 (mcg)', val: totals.vitB12, color: '#a855f7' }
+    ];
+
+    const activeMetrics = allMetrics.filter(m => nGiziFilterState[m.key] === true);
+
     nNutritionChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: ['Kalori (kkal)', 'Protein (g)', 'Karbo (g)', 'Lemak (g)', 'Serat (g)'],
+            labels: activeMetrics.map(m => m.label),
             datasets: [{
                 label: 'Kandungan Aktual per Porsi',
-                data: [totals.kcal.toFixed(0), totals.protein.toFixed(1), totals.carbs.toFixed(1), totals.fat.toFixed(1), totals.fiber.toFixed(1)],
-                backgroundColor: ['#10b981', '#0ea5e9', '#f59e0b', '#ef4444', '#8b5cf6'],
+                data: activeMetrics.map(m => parseFloat(m.val.toFixed(1))),
+                backgroundColor: activeMetrics.map(m => m.color),
                 borderRadius: 8,
                 borderSkipped: false,
                 barPercentage: 0.5
@@ -5193,7 +5237,10 @@ function nRecalcPlanner() {
     }
     
     // Calculate nutrition per portion
-    const totals = { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
+    const totals = { 
+        kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0,
+        kalsium: 0, zatBesi: 0, vitA: 0, vitC: 0, folat: 0, vitB12: 0 
+    };
     nMenuIngredients.forEach(i => {
         const m = i.grams / 100;
         totals.kcal += i.kcal * m;
@@ -5201,11 +5248,17 @@ function nRecalcPlanner() {
         totals.carbs += i.carbs * m;
         totals.fat += i.fat * m;
         totals.fiber += i.fiber * m;
+        totals.kalsium += (i.kalsium || 0) * m;
+        totals.zatBesi += (i.zatBesi || 0) * m;
+        totals.vitA += (i.vitA || 0) * m;
+        totals.vitC += (i.vitC || 0) * m;
+        totals.folat += (i.folat || 0) * m;
+        totals.vitB12 += (i.vitB12 || 0) * m;
     });
     
     // Get targets
-    const sasaranSel = document.getElementById('nTargetGroup')?.value || 'sd_1_3';
-    const target = NUTRITION_TARGETS[sasaranSel] || NUTRITION_TARGETS.sd_1_3;
+    const sasaranSel = document.getElementById('nTargetGroup')?.value || 'balita_sd_1_3';
+    const target = NUTRITION_TARGETS[sasaranSel] || NUTRITION_TARGETS.balita_sd_1_3;
     
     const sasaranBadge = document.getElementById('nSasaranBadge');
     if (sasaranBadge) sasaranBadge.textContent = target.name;
@@ -5216,35 +5269,48 @@ function nRecalcPlanner() {
             { key: 'protein', label: 'Zat Pembangun / Protein', value: totals.protein.toFixed(1), unit: 'g', tMin: target.protein.min, tMax: target.protein.max, color: 'bg-sky-500' },
             { key: 'fat', label: 'Zat Energi Cadangan / Lemak', value: totals.fat.toFixed(1), unit: 'g', tMin: target.fat.min, tMax: target.fat.max, color: 'bg-red-500' },
             { key: 'carbs', label: 'Zat Pengatur / Karbohidrat', value: totals.carbs.toFixed(1), unit: 'g', tMin: target.carbs.min, tMax: target.carbs.max, color: 'bg-amber-500' },
-            { key: 'fiber', label: 'Serat Pangan', value: totals.fiber.toFixed(1), unit: 'g', tMin: 4, tMax: 8, color: 'bg-violet-500' }
+            { key: 'fiber', label: 'Serat Pangan', value: totals.fiber.toFixed(1), unit: 'g', tMin: target.fiber.min, tMax: target.fiber.max, color: 'bg-violet-500' },
+            { key: 'kalsium', label: 'Kalsium', value: totals.kalsium.toFixed(1), unit: 'mg', tMin: target.kalsium.min, tMax: target.kalsium.max, color: 'bg-indigo-500' },
+            { key: 'zatBesi', label: 'Zat Besi', value: totals.zatBesi.toFixed(1), unit: 'mg', tMin: target.zatBesi.min, tMax: target.zatBesi.max, color: 'bg-teal-500' },
+            { key: 'vitA', label: 'Vitamin A', value: totals.vitA.toFixed(1), unit: 'mcg', tMin: target.vitA.min, tMax: target.vitA.max, color: 'bg-yellow-500' },
+            { key: 'vitC', label: 'Vitamin C', value: totals.vitC.toFixed(1), unit: 'mg', tMin: target.vitC.min, tMax: target.vitC.max, color: 'bg-pink-500' },
+            { key: 'folat', label: 'Folat', value: totals.folat.toFixed(1), unit: 'mcg', tMin: target.folat.min, tMax: target.folat.max, color: 'bg-cyan-500' },
+            { key: 'vitB12', label: 'Vitamin B12', value: totals.vitB12.toFixed(1), unit: 'mcg', tMin: target.vitB12.min, tMax: target.vitB12.max, color: 'bg-purple-500' }
         ];
         
-        calcEl.innerHTML = metrics.map(m => {
-            const actualVal = parseFloat(m.value);
-            let statusText = 'Sesuai';
-            let badgeClass = 'sesuai';
-            if (actualVal < m.tMin) { statusText = 'Rendah'; badgeClass = 'rendah'; }
-            else if (actualVal > m.tMax) { statusText = 'Tinggi'; badgeClass = 'tinggi'; }
-            
-            // Progress percentage capped at 100
-            const pct = Math.min((actualVal / m.tMax) * 100, 100);
-            
-            return `<div>
-                <div class="flex justify-between items-center mb-1">
-                    <div>
-                        <span class="text-[11px] font-bold text-slate-700">${m.label}</span>
-                        <span class="text-[9px] text-slate-400 font-semibold ml-1.5">(Target ${m.tMin}-${m.tMax} ${m.unit})</span>
+        // Filter out items that are not checked in filter panel
+        const activeMetrics = metrics.filter(m => nGiziFilterState[m.key] === true);
+        
+        if (activeMetrics.length === 0) {
+            calcEl.innerHTML = '<div class="text-center text-slate-400 py-6 font-semibold text-xs"><i class="fas fa-eye-slash text-lg mb-1 block"></i>Tidak ada zat gizi yang dipilih untuk ditampilkan.</div>';
+        } else {
+            calcEl.innerHTML = activeMetrics.map(m => {
+                const actualVal = parseFloat(m.value);
+                let statusText = 'Sesuai';
+                let badgeClass = 'sesuai';
+                if (actualVal < m.tMin) { statusText = 'Rendah'; badgeClass = 'rendah'; }
+                else if (actualVal > m.tMax) { statusText = 'Tinggi'; badgeClass = 'tinggi'; }
+                
+                // Progress percentage capped at 100
+                const pct = Math.min((actualVal / m.tMax) * 100, 100);
+                
+                return `<div>
+                    <div class="flex justify-between items-center mb-1">
+                        <div>
+                            <span class="text-[11px] font-bold text-slate-700">${m.label}</span>
+                            <span class="text-[9px] text-slate-400 font-semibold ml-1.5">(Target ${m.tMin}-${m.tMax} ${m.unit})</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-black text-slate-800">${m.value} ${m.unit}</span>
+                            <span class="n-status-badge ${badgeClass}">${statusText}</span>
+                        </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-black text-slate-800">${m.value} ${m.unit}</span>
-                        <span class="n-status-badge ${badgeClass}">${statusText}</span>
+                    <div class="n-nutrition-bar">
+                        <div class="n-nutrition-bar-fill ${m.color}" style="width: ${pct}%"></div>
                     </div>
-                </div>
-                <div class="n-nutrition-bar">
-                    <div class="n-nutrition-bar-fill ${m.color}" style="width: ${pct}%"></div>
-                </div>
-            </div>`;
-        }).join('');
+                </div>`;
+            }).join('');
+        }
     }
     
     // Calculate costing & budget comparison
@@ -5338,7 +5404,7 @@ function nResetPlanner() {
     const budgetEl = document.getElementById('nTargetBudget');
     if (budgetEl) budgetEl.value = 12000;
     const sasaranEl = document.getElementById('nTargetGroup');
-    if (sasaranEl) sasaranEl.value = 'sd_1_3';
+    if (sasaranEl) sasaranEl.value = 'balita_sd_1_3';
     
     nRecalcPlanner();
     nSavePlannerState();
@@ -5354,7 +5420,7 @@ function nSavePlannerState() {
         reserve: document.getElementById('nReserve')?.value || '10',
         targetBudget: document.getElementById('nTargetBudget')?.value || '12000',
         session: document.getElementById('nSession')?.value || 'siang',
-        sasaran: document.getElementById('nTargetGroup')?.value || 'sd_1_3',
+        sasaran: document.getElementById('nTargetGroup')?.value || 'balita_sd_1_3',
         savedAt: new Date().toISOString()
     };
     localStorage.setItem('mbg_nutrition_plan', JSON.stringify(state));
@@ -5393,7 +5459,7 @@ async function nSavePlannerToCloud() {
         portions: document.getElementById('nPortions')?.value || '250',
         reserve: document.getElementById('nReserve')?.value || '10',
         targetBudget: document.getElementById('nTargetBudget')?.value || '12000',
-        sasaran: document.getElementById('nTargetGroup')?.value || 'sd_1_3',
+        sasaran: document.getElementById('nTargetGroup')?.value || 'balita_sd_1_3',
         ingredients: nMenuIngredients,
         savedAt: new Date().toISOString()
     };
@@ -5569,6 +5635,15 @@ function nSaveCustomFood() {
     const carbs = parseFloat(document.getElementById('nModalCarbs').value) || 0;
     const fat = parseFloat(document.getElementById('nModalFat').value) || 0;
     const fiber = parseFloat(document.getElementById('nModalFiber').value) || 0;
+    
+    // New parameters
+    const kalsium = parseFloat(document.getElementById('nModalKalsium')?.value) || 0;
+    const zatBesi = parseFloat(document.getElementById('nModalZatBesi')?.value) || 0;
+    const vitA = parseFloat(document.getElementById('nModalVitA')?.value) || 0;
+    const vitC = parseFloat(document.getElementById('nModalVitC')?.value) || 0;
+    const folat = parseFloat(document.getElementById('nModalFolat')?.value) || 0;
+    const vitB12 = parseFloat(document.getElementById('nModalVitB12')?.value) || 0;
+    
     const price = parseFloat(document.getElementById('nModalPrice').value) || 0;
     
     if (!name) {
@@ -5583,7 +5658,10 @@ function nSaveCustomFood() {
         return;
     }
     
-    const newFood = { name, category, kcal, protein, carbs, fat, fiber, bdd, price };
+    const newFood = { 
+        name, category, kcal, protein, carbs, fat, fiber, bdd, price,
+        kalsium, zatBesi, vitA, vitC, folat, vitB12 
+    };
     
     // Push and save
     FOOD_DATABASE.push(newFood);
@@ -5598,6 +5676,15 @@ function nSaveCustomFood() {
     document.getElementById('nModalCarbs').value = '10';
     document.getElementById('nModalFat').value = '2';
     document.getElementById('nModalFiber').value = '0';
+    
+    // Reset new fields
+    if (document.getElementById('nModalKalsium')) document.getElementById('nModalKalsium').value = '0';
+    if (document.getElementById('nModalZatBesi')) document.getElementById('nModalZatBesi').value = '0';
+    if (document.getElementById('nModalVitA')) document.getElementById('nModalVitA').value = '0';
+    if (document.getElementById('nModalVitC')) document.getElementById('nModalVitC').value = '0';
+    if (document.getElementById('nModalFolat')) document.getElementById('nModalFolat').value = '0';
+    if (document.getElementById('nModalVitB12')) document.getElementById('nModalVitB12').value = '0';
+    
     document.getElementById('nModalPrice').value = '30000';
     
     nCloseCustomFoodModal();
@@ -5664,7 +5751,10 @@ function nPrintMealPlan() {
     document.getElementById('npRealPerPortion').textContent = 'Rp ' + Math.round(realPortionCost).toLocaleString('id-ID') + ' / porsi';
     
     // Populate Nutrition Analysis Table
-    const actualTotals = { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
+    const actualTotals = { 
+        kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0,
+        kalsium: 0, zatBesi: 0, vitA: 0, vitC: 0, folat: 0, vitB12: 0 
+    };
     nMenuIngredients.forEach(i => {
         const m = i.grams / 100;
         actualTotals.kcal += i.kcal * m;
@@ -5672,19 +5762,31 @@ function nPrintMealPlan() {
         actualTotals.carbs += i.carbs * m;
         actualTotals.fat += i.fat * m;
         actualTotals.fiber += i.fiber * m;
+        actualTotals.kalsium += (i.kalsium || 0) * m;
+        actualTotals.zatBesi += (i.zatBesi || 0) * m;
+        actualTotals.vitA += (i.vitA || 0) * m;
+        actualTotals.vitC += (i.vitC || 0) * m;
+        actualTotals.folat += (i.folat || 0) * m;
+        actualTotals.vitB12 += (i.vitB12 || 0) * m;
     });
     
-    const targetSet = NUTRITION_TARGETS[targetGroupVal] || NUTRITION_TARGETS.sd_1_3;
+    const targetSet = NUTRITION_TARGETS[targetGroupVal] || NUTRITION_TARGETS.balita_sd_1_3;
     const giziMetrics = [
-        { name: 'Energi / Kalori', actual: actualTotals.kcal.toFixed(0) + ' kkal', target: `${targetSet.kcal.min} - ${targetSet.kcal.max} kkal`, actualVal: actualTotals.kcal, min: targetSet.kcal.min, max: targetSet.kcal.max },
-        { name: 'Protein', actual: actualTotals.protein.toFixed(1) + ' g', target: `${targetSet.protein.min} - ${targetSet.protein.max} g`, actualVal: actualTotals.protein, min: targetSet.protein.min, max: targetSet.protein.max },
-        { name: 'Lemak', actual: actualTotals.fat.toFixed(1) + ' g', target: `${targetSet.fat.min} - ${targetSet.fat.max} g`, actualVal: actualTotals.fat, min: targetSet.fat.min, max: targetSet.fat.max },
-        { name: 'Karbohidrat', actual: actualTotals.carbs.toFixed(1) + ' g', target: `${targetSet.carbs.min} - ${targetSet.carbs.max} g`, actualVal: actualTotals.carbs, min: targetSet.carbs.min, max: targetSet.carbs.max },
-        { name: 'Serat Pangan', actual: actualTotals.fiber.toFixed(1) + ' g', target: '4 - 8 g', actualVal: actualTotals.fiber, min: 4, max: 8 }
+        { key: 'kcal', name: 'Energi / Kalori', actual: actualTotals.kcal.toFixed(0) + ' kkal', target: `${targetSet.kcal.min} - ${targetSet.kcal.max} kkal`, actualVal: actualTotals.kcal, min: targetSet.kcal.min, max: targetSet.kcal.max },
+        { key: 'protein', name: 'Protein', actual: actualTotals.protein.toFixed(1) + ' g', target: `${targetSet.protein.min} - ${targetSet.protein.max} g`, actualVal: actualTotals.protein, min: targetSet.protein.min, max: targetSet.protein.max },
+        { key: 'fat', name: 'Lemak', actual: actualTotals.fat.toFixed(1) + ' g', target: `${targetSet.fat.min} - ${targetSet.fat.max} g`, actualVal: actualTotals.fat, min: targetSet.fat.min, max: targetSet.fat.max },
+        { key: 'carbs', name: 'Karbohidrat', actual: actualTotals.carbs.toFixed(1) + ' g', target: `${targetSet.carbs.min} - ${targetSet.carbs.max} g`, actualVal: actualTotals.carbs, min: targetSet.carbs.min, max: targetSet.carbs.max },
+        { key: 'fiber', name: 'Serat Pangan', actual: actualTotals.fiber.toFixed(1) + ' g', target: `${targetSet.fiber.min} - ${targetSet.fiber.max} g`, actualVal: actualTotals.fiber, min: targetSet.fiber.min, max: targetSet.fiber.max },
+        { key: 'kalsium', name: 'Kalsium', actual: actualTotals.kalsium.toFixed(1) + ' mg', target: `${targetSet.kalsium.min} - ${targetSet.kalsium.max} mg`, actualVal: actualTotals.kalsium, min: targetSet.kalsium.min, max: targetSet.kalsium.max },
+        { key: 'zatBesi', name: 'Zat Besi', actual: actualTotals.zatBesi.toFixed(1) + ' mg', target: `${targetSet.zatBesi.min} - ${targetSet.zatBesi.max} mg`, actualVal: actualTotals.zatBesi, min: targetSet.zatBesi.min, max: targetSet.zatBesi.max },
+        { key: 'vitA', name: 'Vitamin A', actual: actualTotals.vitA.toFixed(1) + ' mcg', target: `${targetSet.vitA.min} - ${targetSet.vitA.max} mcg`, actualVal: actualTotals.vitA, min: targetSet.vitA.min, max: targetSet.vitA.max },
+        { key: 'vitC', name: 'Vitamin C', actual: actualTotals.vitC.toFixed(1) + ' mg', target: `${targetSet.vitC.min} - ${targetSet.vitC.max} mg`, actualVal: actualTotals.vitC, min: targetSet.vitC.min, max: targetSet.vitC.max },
+        { key: 'folat', name: 'Folat', actual: actualTotals.folat.toFixed(1) + ' mcg', target: `${targetSet.folat.min} - ${targetSet.folat.max} mcg`, actualVal: actualTotals.folat, min: targetSet.folat.min, max: targetSet.folat.max },
+        { key: 'vitB12', name: 'Vitamin B12', actual: actualTotals.vitB12.toFixed(1) + ' mcg', target: `${targetSet.vitB12.min} - ${targetSet.vitB12.max} mcg`, actualVal: actualTotals.vitB12, min: targetSet.vitB12.min, max: targetSet.vitB12.max }
     ];
     
     const tbodyNut = document.getElementById('npNutritionBody');
-    tbodyNut.innerHTML = giziMetrics.map(m => {
+    tbodyNut.innerHTML = giziMetrics.filter(m => nGiziFilterState[m.key] === true).map(m => {
         let status = 'SESUAI STANDAR';
         let statusColor = '#047857';
         if (m.actualVal < m.min) { status = 'RENDAH'; statusColor = '#d97706'; }
