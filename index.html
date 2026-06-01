@@ -40,9 +40,136 @@
 </head>
 <body class="text-slate-800 h-screen overflow-hidden flex flex-col clay-bg font-sans antialiased selection:bg-blue-600 selection:text-white">
 
+    <!-- PRELOADER SCREEN (Minimalist Premium & Elegant - Stripe/Apple Style) -->
+    <style>
+        @keyframes spin-slow {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+            animation: spin-slow 3s linear infinite;
+        }
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 0.65; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.03); }
+        }
+        .animate-pulse-slow {
+            animation: pulse-slow 2.8s ease-in-out infinite;
+        }
+        /* Classy exit transition combining fade, slight shrink, and blur */
+        .preloader-hidden {
+            opacity: 0 !important;
+            transform: scale(0.98) !important;
+            filter: blur(8px) !important;
+            pointer-events: none !important;
+        }
+        /* BGN Logo Elegant White Outline for Dark Mode & Light Mode */
+        .bgn-logo-outline {
+            filter: drop-shadow(1px 0px 0px #fff) drop-shadow(-1px 0px 0px #fff) drop-shadow(0px 1px 0px #fff) drop-shadow(0px -1px 0px #fff) drop-shadow(1px 1px 0px #fff) drop-shadow(-1px -1px 0px #fff) drop-shadow(1px -1px 0px #fff) drop-shadow(-1px 1px 0px #fff);
+            transition: filter 0.3s ease;
+        }
+    </style>
+
+    <div id="appPreloader" class="fixed inset-0 z-[400] flex flex-col items-center justify-center bg-[#090d16] transition-all duration-700 ease-out">
+        <!-- Ambient Background Glows (Slow & Gentle) -->
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+            <div class="absolute top-[20%] left-[20%] w-[350px] h-[350px] rounded-full bg-indigo-500/5 blur-[100px] animate-pulse" style="animation-duration: 10s;"></div>
+            <div class="absolute bottom-[20%] right-[20%] w-[300px] h-[300px] rounded-full bg-violet-500/5 blur-[90px] animate-pulse" style="animation-duration: 8s;"></div>
+        </div>
+
+        <div class="relative z-10 flex flex-col items-center gap-7 max-w-sm w-full px-6">
+            <!-- Center Ring Orbit & Pulsing Fingerprint Badge -->
+            <div class="relative w-24 h-24 flex items-center justify-center">
+                <!-- Outer Spin Ring -->
+                <div class="absolute inset-0 rounded-full border border-white/5 border-t-indigo-500/80 animate-spin-slow"></div>
+                
+                <!-- Center Glass Capsule -->
+                <div class="relative w-16 h-16 rounded-full bg-slate-950/40 backdrop-blur-md flex items-center justify-center border border-white/[0.06] shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+                    <i class="fas fa-fingerprint text-2xl text-indigo-400 animate-pulse-slow"></i>
+                </div>
+            </div>
+
+            <!-- Preloader Branding -->
+            <div class="text-center space-y-1.5 mt-2">
+                <h2 class="text-xl font-extrabold tracking-[0.25em] text-white flex items-center justify-center gap-2">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 via-indigo-300 to-indigo-100 font-extrabold">CLOUD MBG</span>
+                </h2>
+                <p class="text-[9px] uppercase tracking-[0.3em] font-medium text-slate-500">Payroll & Attendance System</p>
+            </div>
+
+            <!-- Slim Progress Bar & Status Text -->
+            <div class="w-full max-w-[200px] space-y-3 mt-4">
+                <div class="w-full h-[2px] rounded-full bg-white/[0.04] overflow-hidden relative">
+                    <div id="preloaderProgressBar" class="h-full rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-400 transition-all duration-300 ease-out" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between items-center text-[9px] font-mono text-slate-400 uppercase tracking-widest px-0.5">
+                    <span id="preloaderStatusText">Securing Connection...</span>
+                    <span id="preloaderPercent" class="font-bold text-indigo-400">0%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Micro-Metrics Footer (Visually Silent & Highly Professional) -->
+        <div class="absolute bottom-8 flex gap-6 text-[9px] font-mono tracking-widest text-slate-600 uppercase font-medium select-none pointer-events-none">
+            <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500/80 animate-ping"></span> Connection: Secured</span>
+            <span>•</span>
+            <span>SSL: AES_256_GCM</span>
+            <span>•</span>
+            <span>Version: 2.8.4</span>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const preloader = document.getElementById('appPreloader');
+            const percentText = document.getElementById('preloaderPercent');
+            const bar = document.getElementById('preloaderProgressBar');
+            const statusText = document.getElementById('preloaderStatusText');
+
+            const steps = [
+                { pct: 20, text: "Securing connection..." },
+                { pct: 45, text: "Authenticating session..." },
+                { pct: 70, text: "Loading payroll database..." },
+                { pct: 90, text: "Synchronizing shift logs..." },
+                { pct: 100, text: "System ready" }
+            ];
+
+            let currentPct = 0;
+            let stepIdx = 0;
+
+            function updateProgress() {
+                if (currentPct >= 100) {
+                    clearInterval(interval);
+                    // Sleek dismiss transition
+                    setTimeout(() => {
+                        preloader.classList.add('preloader-hidden');
+                        // Remove from DOM to release resources
+                        setTimeout(() => preloader.remove(), 800);
+                    }, 400); // Brief hold at 100% for satisfying visual closure
+                    return;
+                }
+
+                const target = steps[stepIdx].pct;
+                statusText.innerText = steps[stepIdx].text;
+
+                if (currentPct < target) {
+                    currentPct += Math.floor(Math.random() * 4) + 1; // Clean dynamic speed
+                    if (currentPct > target) currentPct = target;
+                } else {
+                    stepIdx = Math.min(steps.length - 1, stepIdx + 1);
+                }
+
+                percentText.innerText = currentPct + "%";
+                bar.style.width = currentPct + "%";
+            }
+
+            const interval = setInterval(updateProgress, 25); // Very snappy, continuous, and responsive tick rate
+        })();
+    </script>
+
     <!-- GLOBAL LOADER -->
     <!-- CLAY CLOUD UPLOAD LOADER -->
-    <div id="globalLoader" class="fixed inset-0 z-[300] bg-white/60 dark:bg-slate-900/70 backdrop-blur-none flex flex-col items-center justify-center hidden transition-all duration-500 opacity-0 scale-95">
+    <div id="globalLoader" class="fixed inset-0 z-[300] bg-[#f8fafc]/96 dark:bg-[#090d16]/96 backdrop-blur-lg flex flex-col items-center justify-center hidden transition-all duration-500 opacity-0 scale-95">
         <!-- Loading State -->
         <div id="loaderContent" class="flex flex-col items-center gap-6">
             <!-- Animated Cloud Icon with Pulse -->
@@ -60,9 +187,9 @@
             </div>
             
             <!-- Status Text -->
-            <div class="text-center max-w-xs">
-                <p class="text-sm font-bold text-slate-700 dark:text-slate-300 tracking-wide" id="loaderText">Menghubungkan...</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 animate-pulse">Harap tunggu sebentar</p>
+            <div class="text-center max-w-xs space-y-1">
+                <p class="text-base font-black text-slate-950 dark:text-white tracking-wide" id="loaderText">Menghubungkan...</p>
+                <p class="text-xs font-bold text-slate-600 dark:text-slate-300 animate-pulse">Harap tunggu sebentar</p>
             </div>
             
             <!-- Progress Bar -->
@@ -84,9 +211,9 @@
             </div>
             
             <!-- Success Text -->
-            <div class="text-center">
-                <p class="text-sm font-bold text-emerald-700 dark:text-emerald-400 tracking-wide">Berhasil!</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1" id="loaderSuccessMsg">Data telah disimpan</p>
+            <div class="text-center space-y-1">
+                <p class="text-base font-black text-emerald-800 dark:text-emerald-300 tracking-wide">Berhasil!</p>
+                <p class="text-xs font-bold text-slate-700 dark:text-slate-200" id="loaderSuccessMsg">Data telah disimpan</p>
             </div>
         </div>
     </div>
@@ -503,7 +630,7 @@
 
     <!-- ACTIVE WORKERS MODAL -->
     <div id="activeWorkersModal" class="fixed inset-0 z-[240] bg-slate-900/40 backdrop-blur-sm hidden flex items-end md:items-center justify-center transition-opacity duration-300 opacity-0">
-        <div class="clay-modal w-full md:max-w-lg md:rounded-[2rem] rounded-t-[2rem] max-h-[85vh] flex flex-col overflow-hidden animate-slide-up">
+        <div class="clay-modal w-full md:max-w-lg md:rounded-2xl rounded-t-2xl max-h-[85vh] flex flex-col overflow-hidden animate-slide-up">
             <div class="p-6 border-b border-slate-100/50 clay-bg sticky top-0 z-10 flex justify-between items-start">
                 <div>
                     <h3 class="font-bold text-lg text-slate-800" id="activeModalTitle">Relawan Bekerja</h3>
@@ -530,11 +657,680 @@
     </div>
 
     <!-- APP CONTAINER -->
-    <div id="app" class="flex-1 flex flex-col h-full relative">
-        
-        <!-- 1. LOGIN SCREEN (Cosmic Atmosphere) -->
-        <div id="loginView" class="absolute inset-0 z-50 flex items-center justify-center p-4 md:p-6 transition-all duration-500 login-container min-h-screen">
-            <!-- Cosmic Background -->
+    <div id="app" class="flex-1 flex flex-col h-full relative">        <!-- ==================== LANDING PAGE (Google Antigravity Style - Rebranded to Cloud MBG) ==================== -->
+        <div id="landingView" class="absolute inset-0 z-40 flex flex-col w-full h-full overflow-y-auto bg-[#f8fafc] text-slate-800 dark:bg-[#090d16] dark:text-white scroll-smooth relative transition-all duration-500">
+            <!-- Hero Particles Canvas (Interactive 3D Sphere in Background) -->
+            <canvas id="heroCanvasParticles" class="absolute top-0 left-0 w-full h-[650px] md:h-[750px] pointer-events-none z-0 opacity-40 dark:opacity-30"></canvas>
+
+            <!-- Sticky Premium Header -->
+            <header class="sticky top-0 w-full z-50 backdrop-blur-md border-b border-slate-200/50 dark:border-white/5 bg-white/70 dark:bg-[#090d16]/75 px-6 py-4 flex items-center justify-between transition-colors duration-300">
+                <div class="flex items-center gap-3">
+                    <!-- BGN Logo Outlined Transparant -->
+                    <img src="https://sipgn-sipsmo-web.bgn.go.id/main/media/logos/BGN_logo_dark.png" alt="BGN" class="h-8 object-contain select-none bgn-logo-outline">
+                    <span class="text-slate-300 dark:text-slate-700">|</span>
+                    <!-- SVG Cloud MBG Logo -->
+                    <div class="flex items-center gap-2 select-none">
+                        <svg class="h-8 w-8 text-indigo-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" fill="url(#cloudGrad)" />
+                            <path d="M12 9v6M9 11v2M15 11v2" stroke="white" stroke-width="1.8" stroke-linecap="round" />
+                            <defs>
+                                <linearGradient id="cloudGrad" x1="0" y1="0" x2="24" y2="20" gradientUnits="userSpaceOnUse">
+                                    <stop offset="0%" stop-color="#6366f1" />
+                                    <stop offset="100%" stop-color="#a855f7" />
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                        <span class="font-extrabold text-sm tracking-[0.1em] text-slate-900 dark:text-white uppercase font-sans">CLOUD <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-violet-500">MBG</span></span>
+                    </div>
+                </div>
+
+                <!-- Nav Links Desktop -->
+                <nav class="hidden md:flex items-center gap-8 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <a href="#landingView" class="hover:text-indigo-500 dark:hover:text-white transition">Beranda</a>
+                    <a href="#mengenai" class="hover:text-indigo-500 dark:hover:text-white transition">Tentang</a>
+                    <a href="#fitur" class="hover:text-indigo-500 dark:hover:text-white transition">Fitur Utama</a>
+                    <a href="#pricing" class="hidden hover:text-indigo-500 dark:hover:text-white transition">Paket Harga</a>
+                    <a href="#testimoni" class="hover:text-indigo-500 dark:hover:text-white transition">Testimoni</a>
+                    <a href="#kontak" class="hover:text-indigo-500 dark:hover:text-white transition">Kontak</a>
+                </nav>
+
+                <!-- CTA Button -->
+                <div class="flex items-center gap-3">
+                    <!-- Dark Mode Toggle -->
+                    <button onclick="toggleDarkMode()" class="p-2.5 rounded-full border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 transition-all duration-300 active:scale-95 flex items-center justify-center" title="Toggle Dark Mode">
+                        <i class="fas fa-moon dark:hidden text-xs"></i>
+                        <i class="fas fa-sun hidden dark:block text-xs"></i>
+                    </button>
+                    <button onclick="showLoginScreen()" class="px-5 py-2.5 rounded-full text-xs font-bold bg-slate-900 text-white dark:bg-white dark:text-slate-950 hover:opacity-90 active:scale-95 transition shadow-md shadow-indigo-500/5">
+                        Masuk Sistem
+                    </button>
+                </div>
+            </header>
+
+            <!-- Hero Section -->
+            <section class="relative z-10 flex flex-col items-center justify-center text-center px-6 pt-24 pb-20 md:pt-32 md:pb-28 max-w-4xl mx-auto w-full">
+                <!-- Branding Mini Capsule -->
+                <div class="inline-flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-4 py-1.5 text-xs text-indigo-600 dark:text-indigo-300 font-bold tracking-wider uppercase mb-8 select-none">
+                    <i class="fas fa-cloud text-[10px]"></i> Cloud MBG
+                </div>
+
+                <!-- Main Typist Headline -->
+                <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight md:leading-[1.1] min-h-[140px] md:min-h-[190px]">
+                    Experience liftoff with<br>
+                    <span id="typistElement" class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-400 select-all"></span><span class="text-indigo-500 animate-pulse font-light">|</span>
+                </h1>
+
+                <!-- Subtext -->
+                <p class="text-slate-500 dark:text-slate-400 max-w-2xl text-sm md:text-base leading-relaxed mt-6">
+                    Platform manajemen operasional, geofencing absensi waktu nyata, dan perhitungan rekap gaji otomatis berstandar korporat modern. Cepat, transparan, aman, dan dirancang untuk performa tanpa kendala.
+                </p>
+
+                <!-- Dual CTA Action Buttons -->
+                <div class="flex flex-col sm:flex-row gap-4 mt-10 w-full justify-center px-4">
+                    <button onclick="showLoginScreen()" class="px-8 py-4 rounded-full bg-slate-950 text-white hover:bg-slate-900 dark:bg-white dark:hover:bg-slate-100 dark:text-slate-950 font-bold text-sm transition shadow-lg shadow-slate-950/10 dark:shadow-white/5 active:scale-95 flex items-center justify-center gap-2">
+                        <i class="fas fa-sign-in-alt text-xs opacity-75"></i> Masuk Sistem
+                    </button>
+                    <button onclick="startAbsenMandiri()" class="px-8 py-4 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-sm transition shadow-lg shadow-emerald-500/30 active:scale-95 flex items-center justify-center gap-2 border border-white/10">
+                        <i class="fas fa-fingerprint"></i> Absen Relawan
+                    </button>
+                </div>
+            </section>
+
+            <!-- Mengenai Section -->
+            <section id="mengenai" class="relative z-10 py-20 px-6 max-w-5xl mx-auto border-t border-slate-200/50 dark:border-white/5 w-full scroll-mt-24">
+                <div class="grid md:grid-cols-12 gap-10 items-center">
+                    <div class="md:col-span-5 space-y-4">
+                        <div class="text-xs font-bold text-indigo-500 dark:text-indigo-400 tracking-widest uppercase">Mengenai Portal</div>
+                        <h2 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">Penggajian & Kehadiran Terpadu</h2>
+                        <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
+                            Cloud MBG mengintegrasikan rekap absensi harian dengan sistem perhitungan gaji otomatis, disesuaikan langsung dengan struktur divisi khusus seperti Koki (Cook), Penjaga Gudang, hingga Relawan Lapangan.
+                        </p>
+                        <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
+                            Dibangun di atas REST API berkecepatan tinggi, sistem menjamin konsistensi data antara rekapitulasi lapangan dengan laporan keuangan dashboard.
+                        </p>
+                    </div>
+                    <div class="md:col-span-7 grid grid-cols-2 gap-4">
+                        <div class="p-6 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200/50 dark:border-white/5 space-y-2 shadow-sm">
+                            <div class="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 text-sm font-bold"><i class="fas fa-shield-halved"></i></div>
+                            <h4 class="font-extrabold text-sm text-slate-800 dark:text-white">Akurasi Audit Tinggi</h4>
+                            <p class="text-[11px] text-slate-400">Verifikasi ganda berbasis GPS Geofence dan swafoto biometrik kamera.</p>
+                        </div>
+                        <div class="p-6 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200/50 dark:border-white/5 space-y-2 shadow-sm">
+                            <div class="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 text-sm font-bold"><i class="fas fa-bolt"></i></div>
+                            <h4 class="font-extrabold text-sm text-slate-800 dark:text-white">Instan & Otomatis</h4>
+                            <p class="text-[11px] text-slate-400">Gaji harian, upah lembur, dan denda terlambat dihitung secara detik nyata.</p>
+                        </div>
+                        <div class="p-6 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200/50 dark:border-white/5 space-y-2 shadow-sm">
+                            <div class="w-8 h-8 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 text-sm font-bold"><i class="fas fa-folder-open"></i></div>
+                            <h4 class="font-extrabold text-sm text-slate-800 dark:text-white">Ekspor Data Instan</h4>
+                            <p class="text-[11px] text-slate-400">Unduh lembar Excel, slip gaji cetak PDF harian, serta foto selfie dalam file ZIP.</p>
+                        </div>
+                        <div class="p-6 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200/50 dark:border-white/5 space-y-2 shadow-sm">
+                            <div class="w-8 h-8 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-500 text-sm font-bold"><i class="fas fa-wifi"></i></div>
+                            <h4 class="font-extrabold text-sm text-slate-800 dark:text-white">Akses Offline Terjamin</h4>
+                            <p class="text-[11px] text-slate-400">Pencatatan data absensi aman di memori lokal saat koneksi internet terputus.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Fitur Section -->
+            <section id="fitur" class="relative z-10 py-20 px-6 max-w-5xl mx-auto border-t border-slate-200/50 dark:border-white/5 w-full scroll-mt-24">
+                <div class="text-center max-w-2xl mx-auto space-y-4 mb-16">
+                    <div class="text-xs font-bold text-indigo-500 dark:text-indigo-400 tracking-widest uppercase">Fitur Unggulan</div>
+                    <h2 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Didesain Untuk Transparansi Penuh</h2>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm">
+                        Cloud MBG dikemas dengan fitur-fitur modular yang memotong birokrasi absensi manual secara aman dan bebas repot.
+                    </p>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-6">
+                    <!-- Card 1 -->
+                    <div class="p-8 rounded-2xl bg-white dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/5 space-y-4 shadow-sm flex flex-col justify-between hover:scale-[1.02] transition-transform duration-300">
+                        <div class="space-y-4">
+                            <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 text-lg"><i class="fas fa-qrcode"></i></div>
+                            <h3 class="font-extrabold text-lg text-slate-800 dark:text-white">Absen Mandiri QR</h3>
+                            <p class="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">
+                                Relawan cukup memindai QR Code pribadi mereka di depan tablet SPPG, disusul dengan verifikasi selfie kamera secara instan.
+                            </p>
+                        </div>
+                        <div class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest pt-4">Tuntas Dalam 3 Detik</div>
+                    </div>
+                    <!-- Card 2 -->
+                    <div class="p-8 rounded-2xl bg-white dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/5 space-y-4 shadow-sm flex flex-col justify-between hover:scale-[1.02] transition-transform duration-300">
+                        <div class="space-y-4">
+                            <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 text-lg"><i class="fas fa-map-location-dot"></i></div>
+                            <h3 class="font-extrabold text-lg text-slate-800 dark:text-white">Dynamic Geofencing</h3>
+                            <p class="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">
+                                Mengunci titik koordinat absensi secara ketat. Menolak log masuk jika relawan berada di luar wilayah resmi SPPG Rawa Bunga.
+                            </p>
+                        </div>
+                        <div class="text-[10px] font-bold text-indigo-500 uppercase tracking-widest pt-4">Presisi Koordinat GPS</div>
+                    </div>
+                    <!-- Card 3 -->
+                    <div class="p-8 rounded-2xl bg-white dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/5 space-y-4 shadow-sm flex flex-col justify-between hover:scale-[1.02] transition-transform duration-300">
+                        <div class="space-y-4">
+                            <div class="w-10 h-10 rounded-2xl bg-violet-500/10 flex items-center justify-center text-violet-500 text-lg"><i class="fas fa-receipt"></i></div>
+                            <h3 class="font-extrabold text-lg text-slate-800 dark:text-white">Auto Rekap & Lembur</h3>
+                            <p class="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">
+                                Jam masuk, denda terlambat secara berkala, dan akumulasi upah lembur harian otomatis dihitung bersih di setiap akhir bulan.
+                            </p>
+                        </div>
+                        <div class="text-[10px] font-bold text-violet-500 uppercase tracking-widest pt-4">Bebas Pajak & Kesalahan Hitung</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Pricelist Section (NEW) -->
+            <section id="pricing" class="hidden relative z-10 py-20 px-6 max-w-5xl mx-auto border-t border-slate-200/50 dark:border-white/5 w-full scroll-mt-24">
+                <div class="text-center max-w-2xl mx-auto space-y-4 mb-8">
+                    <div class="text-xs font-bold text-indigo-500 dark:text-indigo-400 tracking-widest uppercase">Paket Berlangganan</div>
+                    <h2 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Harga Fleksibel Untuk Semua Kebutuhan</h2>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm">
+                        Pilih paket yang paling cocok untuk tim Anda. Hemat lebih banyak dengan opsi pembayaran tahunan!
+                    </p>
+                </div>
+
+                <!-- Billing Cycle Switch -->
+                <div class="flex items-center justify-center gap-4 mb-16">
+                    <span class="text-xs font-bold text-slate-400 dark:text-slate-500 select-none uppercase tracking-wider">Bulanan</span>
+                    <button onclick="togglePricingPeriod()" id="pricingSwitchBtn" class="w-12 h-6 rounded-full bg-indigo-600 p-0.5 relative transition-colors duration-300 active:scale-90 flex items-center shadow-inner">
+                        <span id="pricingSwitchCircle" class="w-5 h-5 rounded-full bg-white shadow-md transform translate-x-0 transition-transform duration-300"></span>
+                    </button>
+                    <span class="text-xs font-bold text-slate-800 dark:text-white select-none flex items-center gap-2 uppercase tracking-wider">
+                        Tahunan
+                        <span class="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[9px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-widest">Hemat 20%</span>
+                    </span>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-6 items-stretch">
+                    <!-- Paket A -->
+                    <div class="p-8 rounded-2xl bg-white dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/5 space-y-6 shadow-sm flex flex-col justify-between hover:scale-[1.01] transition-all">
+                        <div class="space-y-6">
+                            <div>
+                                <h4 class="font-extrabold text-sm text-slate-500 dark:text-indigo-400 uppercase tracking-widest">Paket A</h4>
+                                <p class="text-xs text-slate-400 mt-1">Esensial Absensi Relawan</p>
+                            </div>
+                            <div class="flex items-baseline gap-1">
+                                <span id="pricePlanA" class="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Rp 149.000</span>
+                                <span class="text-xs font-bold text-slate-400">/bln</span>
+                            </div>
+                            <p id="subPlanA" class="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-wider">Tagihan Bulanan</p>
+                            <hr class="border-slate-100 dark:border-white/5">
+                            <ul class="text-xs text-slate-500 dark:text-slate-400 space-y-3">
+                                <li class="flex items-center gap-2.5"><i class="fas fa-check text-indigo-500 text-[10px]"></i> Absen QR & Selfie Mandiri</li>
+                                <li class="flex items-center gap-2.5"><i class="fas fa-check text-indigo-500 text-[10px]"></i> Rekap Gaji Bulanan Otomatis</li>
+                                <li class="flex items-center gap-2.5"><i class="fas fa-check text-indigo-500 text-[10px]"></i> Pengumuman Portal SPPG</li>
+                                <li class="flex items-center gap-2.5 opacity-30"><i class="fas fa-times text-slate-400 text-[10px]"></i> Fitur Absen Manual Admin</li>
+                                <li class="flex items-center gap-2.5 opacity-30"><i class="fas fa-times text-slate-400 text-[10px]"></i> Fitur Security & Page AG</li>
+                            </ul>
+                        </div>
+                        <div class="pt-6">
+                            <a id="btnOrderPlanA" href="https://wa.me/6281414142726?text=Halo%20AFKxEnjoyCreamID,%20saya%20tertarik%20untuk%20berlangganan%20Cloud%20MBG%20*Paket%20A*%20(Bulanan)%20dengan%20harga%20Rp%20149.000/bulan.%20Mohon%20info%20selengkapnya!" target="_blank" class="block w-full py-3.5 rounded-xl bg-slate-900 text-white dark:bg-white/5 dark:hover:bg-white/10 dark:text-white font-bold text-xs text-center transition active:scale-95 shadow-sm">
+                                Pesan Sekarang
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Paket B (BEST SELLER) -->
+                    <div class="p-8 rounded-2xl bg-white dark:bg-white/[0.01] border-2 border-indigo-500/50 dark:border-indigo-400/50 space-y-6 shadow-xl shadow-indigo-500/5 flex flex-col justify-between hover:scale-[1.01] transition-all relative">
+                        <div class="absolute top-0 right-6 -translate-y-1/2 bg-gradient-to-r from-indigo-500 to-violet-600 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-lg shadow-indigo-500/25 select-none">
+                            BEST SELLER
+                        </div>
+                        <div class="space-y-6">
+                            <div>
+                                <h4 class="font-extrabold text-sm text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Paket B</h4>
+                                <p class="text-xs text-slate-400 mt-1">Operasional Lapangan Lengkap</p>
+                            </div>
+                            <div class="flex items-baseline gap-1">
+                                <span id="pricePlanB" class="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Rp 299.000</span>
+                                <span class="text-xs font-bold text-slate-400">/bln</span>
+                            </div>
+                            <p id="subPlanB" class="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-wider">Tagihan Bulanan</p>
+                            <hr class="border-indigo-100 dark:border-white/5">
+                            <ul class="text-xs text-slate-500 dark:text-slate-400 space-y-3">
+                                <li class="flex items-center gap-2.5"><i class="fas fa-check text-indigo-500 text-[10px]"></i> Semua Fitur Paket A</li>
+                                <li class="flex items-center gap-2.5"><i class="fas fa-check text-indigo-500 text-[10px]"></i> Fitur Absen Manual oleh Admin</li>
+                                <li class="flex items-center gap-2.5"><i class="fas fa-check text-indigo-500 text-[10px]"></i> Fitur Shift Security</li>
+                                <li class="flex items-center gap-2.5"><i class="fas fa-check text-indigo-500 text-[10px]"></i> Halaman Khusus Ahli Gizi (Page AG)</li>
+                                <li class="flex items-center gap-2.5 opacity-30"><i class="fas fa-times text-slate-400 text-[10px]"></i> Fitur Page Gudang & Akuntan</li>
+                            </ul>
+                        </div>
+                        <div class="pt-6">
+                            <a id="btnOrderPlanB" href="https://wa.me/6281414142726?text=Halo%20AFKxEnjoyCreamID,%20saya%20tertarik%20untuk%20berlangganan%20Cloud%20MBG%20*Paket%20B*%20(Bulanan%20-%20Best%20Seller)%20dengan%20harga%20Rp%20299.000/bulan.%20Mohon%20info%20selengkapnya!" target="_blank" class="block w-full py-4 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:opacity-95 font-bold text-xs text-center transition active:scale-95 shadow-md shadow-indigo-500/25">
+                                Pesan Sekarang
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Paket C -->
+                    <div class="p-8 rounded-2xl bg-white dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/5 space-y-6 shadow-sm flex flex-col justify-between hover:scale-[1.01] transition-all">
+                        <div class="space-y-6">
+                            <div>
+                                <h4 class="font-extrabold text-sm text-slate-500 dark:text-indigo-400 uppercase tracking-widest">Paket C</h4>
+                                <p class="text-xs text-slate-400 mt-1">Manajemen & Finansial Penuh</p>
+                            </div>
+                            <div class="flex items-baseline gap-1">
+                                <span id="pricePlanC" class="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Rp 499.000</span>
+                                <span class="text-xs font-bold text-slate-400">/bln</span>
+                            </div>
+                            <p id="subPlanC" class="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-wider">Tagihan Bulanan</p>
+                            <hr class="border-slate-100 dark:border-white/5">
+                            <ul class="text-xs text-slate-500 dark:text-slate-400 space-y-3">
+                                <li class="flex items-center gap-2.5"><i class="fas fa-check text-indigo-500 text-[10px]"></i> Semua Fitur Paket B</li>
+                                <li class="flex items-center gap-2.5"><i class="fas fa-check text-indigo-500 text-[10px]"></i> Halaman Khusus Gudang (Warehouse)</li>
+                                <li class="flex items-center gap-2.5"><i class="fas fa-check text-indigo-500 text-[10px]"></i> Halaman Akuntan (Manage Gaji)</li>
+                                <li class="flex items-center gap-2.5"><i class="fas fa-check text-indigo-500 text-[10px]"></i> Rekap Data Excel/ZIP Tanpa Batas</li>
+                                <li class="flex items-center gap-2.5"><i class="fas fa-check text-indigo-500 text-[10px]"></i> Proteksi Geofencing Kritis</li>
+                            </ul>
+                        </div>
+                        <div class="pt-6">
+                            <a id="btnOrderPlanC" href="https://wa.me/6281414142726?text=Halo%20AFKxEnjoyCreamID,%20saya%20tertarik%20untuk%20berlangganan%20Cloud%20MBG%20*Paket%20C*%20(Bulanan)%20dengan%20harga%20Rp%20499.000/bulan.%20Mohon%20info%20selengkapnya!" target="_blank" class="block w-full py-3.5 rounded-xl bg-slate-900 text-white dark:bg-white/5 dark:hover:bg-white/10 dark:text-white font-bold text-xs text-center transition active:scale-95 shadow-sm">
+                                Pesan Sekarang
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Testimoni Section -->
+            <section id="testimoni" class="relative z-10 py-20 px-6 max-w-5xl mx-auto border-t border-slate-200/50 dark:border-white/5 w-full scroll-mt-24">
+                <div class="text-center max-w-2xl mx-auto space-y-4 mb-16">
+                    <div class="text-xs font-bold text-indigo-500 dark:text-indigo-400 tracking-widest uppercase">Ulasan Rekan Kerja</div>
+                    <h2 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Testimonial Keandalan Sistem</h2>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-8">
+                    <!-- Testi 1 -->
+                    <div class="p-8 rounded-2xl bg-white dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/5 space-y-6 shadow-sm relative">
+                        <div class="text-amber-500 flex gap-1"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></div>
+                        <p class="text-slate-600 dark:text-slate-400 text-sm leading-relaxed italic">
+                            "Proses rekapitulasi data lembur relawan dan denda keterlambatan yang dulu memakan waktu berhari-hari kini terintegrasi penuh. Hanya butuh satu klik untuk mengunduh rekap bulanan secara rapi!"
+                        </p>
+                        <div class="flex items-center gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
+                            <div class="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center font-bold text-indigo-500 text-sm">AK</div>
+                            <div>
+                                <h4 class="font-bold text-sm text-slate-800 dark:text-white">Akuntan Pelaksana</h4>
+                                <p class="text-[10px] text-slate-400">SPPG Rawa Bunga 1</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Testi 2 -->
+                    <div class="p-8 rounded-2xl bg-white dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/5 space-y-6 shadow-sm relative">
+                        <div class="text-amber-500 flex gap-1"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></div>
+                        <p class="text-slate-600 dark:text-slate-400 text-sm leading-relaxed italic">
+                            "Absen swafoto di depan tablet mempermudah pengawasan koki dan helper di dapur. Jam masuk shift terverifikasi dengan akurat, meminimalisir manipulasi absensi sama sekali."
+                        </p>
+                        <div class="flex items-center gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
+                            <div class="w-10 h-10 rounded-full bg-violet-500/20 flex items-center justify-center font-bold text-violet-500 text-sm">HC</div>
+                            <div>
+                                <h4 class="font-bold text-sm text-slate-800 dark:text-white">Head Chef Lapangan</h4>
+                                <p class="text-[10px] text-slate-400">Tim Dapur SPPG 1</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Kontak & Footer Section -->
+            <footer id="kontak" class="relative z-10 py-16 px-6 border-t border-slate-200/50 dark:border-white/5 w-full bg-slate-50 dark:bg-slate-950/30 scroll-mt-24">
+                <div class="max-w-5xl mx-auto grid md:grid-cols-4 gap-8 mb-12">
+                    <div class="space-y-4 md:col-span-1">
+                        <!-- SVG Cloud MBG Logo Footer -->
+                        <div class="flex items-center gap-2 select-none mb-3">
+                            <svg class="h-8 w-8 text-indigo-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" fill="url(#cloudGradFooter)" />
+                                <path d="M12 9v6M9 11v2M15 11v2" stroke="white" stroke-width="1.8" stroke-linecap="round" />
+                                <defs>
+                                    <linearGradient id="cloudGradFooter" x1="0" y1="0" x2="24" y2="20" gradientUnits="userSpaceOnUse">
+                                        <stop offset="0%" stop-color="#6366f1" />
+                                        <stop offset="100%" stop-color="#a855f7" />
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                            <span class="font-extrabold text-sm tracking-[0.1em] text-slate-900 dark:text-white uppercase font-sans">CLOUD <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-violet-500">MBG</span></span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 leading-relaxed">
+                            Mewujudkan tata kelola absensi nirlaba yang berkelas, modern, cepat, dan transparan melalui teknologi digital terdepan.
+                        </p>
+                    </div>
+                    <div class="space-y-3">
+                        <h4 class="font-extrabold text-xs text-slate-800 dark:text-white uppercase tracking-widest">Tautan Cepat</h4>
+                        <ul class="text-[11px] text-slate-400 space-y-2 font-semibold">
+                            <li><a href="#landingView" class="hover:text-indigo-500 transition">Beranda</a></li>
+                            <li><a href="#mengenai" class="hover:text-indigo-500 transition">Mengenai Portal</a></li>
+                            <li><a href="#fitur" class="hover:text-indigo-500 transition">Fitur Unggulan</a></li>
+                            <li class="hidden"><a href="#pricing" class="hover:text-indigo-500 transition">Paket Harga</a></li>
+                        </ul>
+                    </div>
+                    <div class="space-y-3">
+                        <h4 class="font-extrabold text-xs text-slate-800 dark:text-white uppercase tracking-widest">Tim Pengembang</h4>
+                        <p class="text-[11px] text-slate-400 leading-relaxed font-semibold">
+                            <strong>AFKxEnjoyCreamID</strong><br>
+                            Sistem Manajemen Operasional<br>
+                            Absensi & Penggajian SPPG
+                        </p>
+                    </div>
+                    <div class="space-y-3">
+                        <h4 class="font-extrabold text-xs text-slate-800 dark:text-white uppercase tracking-widest">Kontak Support</h4>
+                        <p class="text-[11px] text-slate-400 space-y-1.5 font-semibold">
+                            <i class="fas fa-envelope text-indigo-500 text-[10px] mr-1.5"></i> enjoycreamid@gmail.com<br>
+                            <i class="fas fa-phone text-indigo-500 text-[10px] mr-1.5"></i> 0814-1414-2726<br>
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="max-w-5xl mx-auto pt-8 border-t border-slate-200/50 dark:border-white/5 flex flex-col sm:flex-row justify-between items-center text-[10px] text-slate-400 gap-4">
+                    <div>Sistem Manajemen Operasional © 2026 • @EnjoyCreamID. All Rights Reserved.</div>
+                    <div class="flex gap-4 font-bold">
+                        <a href="javascript:void(0)" onclick="openPrivacyModal()" class="hover:text-indigo-500">Kebijakan Privasi</a>
+                        <span>•</span>
+                        <a href="javascript:void(0)" onclick="openTermsModal()" class="hover:text-indigo-500">Ketentuan Layanan</a>
+                    </div>
+                </div>
+            </footer>
+
+            <!-- LANDING PAGE SCRIPTS (Typist, 3D Constellation Sphere, Pricing & Modals) -->
+            <script>
+                // 1. TYPIST ANIMATION (Type, Hold, Erase, Repeat)
+                (function() {
+                    const typist = document.getElementById('typistElement');
+                    if(!typist) return;
+                    const words = [
+                        "automated payroll & salary calculations.",
+                        "seamless geofencing & GPS verification.",
+                        "instant PDF salary slips & ZIP records.",
+                        "real-time dashboard analytics.",
+                        "zero-bug corporate stability."
+                    ];
+                    let wordIdx = 0;
+                    let charIdx = 0;
+                    let isDeleting = false;
+                    let delay = 80;
+
+                    function type() {
+                        const currentWord = words[wordIdx];
+                        if (isDeleting) {
+                            typist.innerText = currentWord.substring(0, charIdx - 1);
+                            charIdx--;
+                            delay = 30;
+                        } else {
+                            typist.innerText = currentWord.substring(0, charIdx + 1);
+                            charIdx++;
+                            delay = 80;
+                        }
+
+                        if (!isDeleting && charIdx === currentWord.length) {
+                            isDeleting = true;
+                            delay = 2200; // Hold full sentence
+                        } else if (isDeleting && charIdx === 0) {
+                            isDeleting = false;
+                            wordIdx = (wordIdx + 1) % words.length;
+                            delay = 300; // Switch pause
+                        }
+
+                        setTimeout(type, delay);
+                    }
+                    setTimeout(type, 1000);
+                })();
+
+                // 2. 3D PARTICLE CONSTELLATION SPHERE
+                (function() {
+                    const canvas = document.getElementById('heroCanvasParticles');
+                    if(!canvas) return;
+                    const ctx = canvas.getContext('2d');
+                    let width = canvas.width = canvas.offsetWidth;
+                    let height = canvas.height = canvas.offsetHeight;
+
+                    window.addEventListener('resize', () => {
+                        width = canvas.width = canvas.offsetWidth;
+                        height = canvas.height = canvas.offsetHeight;
+                    });
+
+                    const particles = [];
+                    const numParticles = 160;
+                    const radiusSphere = Math.min(width, height) * 0.35;
+
+                    // Distribute particles uniformly in a 3D sphere
+                    for (let i = 0; i < numParticles; i++) {
+                        const theta = Math.acos((Math.random() * 2) - 1);
+                        const phi = Math.random() * Math.PI * 2;
+                        particles.push({
+                            x3d: Math.sin(theta) * Math.cos(phi) * radiusSphere,
+                            y3d: Math.sin(theta) * Math.sin(phi) * radiusSphere,
+                            z3d: Math.cos(theta) * radiusSphere,
+                            color: Math.random() > 0.4 ? '#6366f1' : '#10b981' // Indigo / Emerald glow
+                        });
+                    }
+
+                    let angleX = 0.001;
+                    let angleY = 0.0015;
+                    let targetAngleX = 0.001;
+                    let targetAngleY = 0.0015;
+
+                    document.addEventListener('mousemove', (e) => {
+                        const dx = (e.clientX - window.innerWidth / 2) / (window.innerWidth / 2);
+                        const dy = (e.clientY - window.innerHeight / 2) / (window.innerHeight / 2);
+                        targetAngleY = dx * 0.004;
+                        targetAngleX = dy * 0.004;
+                    });
+
+                    function rotateX(p, angle) {
+                        const cos = Math.cos(angle);
+                        const sin = Math.sin(angle);
+                        const y = p.y3d * cos - p.z3d * sin;
+                        const z = p.y3d * sin + p.z3d * cos;
+                        p.y3d = y;
+                        p.z3d = z;
+                    }
+
+                    function rotateY(p, angle) {
+                        const cos = Math.cos(angle);
+                        const sin = Math.sin(angle);
+                        const x = p.x3d * cos - p.z3d * sin;
+                        const z = p.x3d * sin + p.z3d * cos;
+                        p.x3d = x;
+                        p.z3d = z;
+                    }
+
+                    function animate() {
+                        ctx.clearRect(0, 0, width, height);
+
+                        angleX += (targetAngleX - angleX) * 0.05;
+                        angleY += (targetAngleY - angleY) * 0.05;
+
+                        const projected = [];
+                        for (let i = 0; i < numParticles; i++) {
+                            const p = particles[i];
+                            rotateX(p, angleX);
+                            rotateY(p, angleY);
+
+                            const fov = 400;
+                            const scale = fov / (fov + p.z3d);
+                            const x2d = (p.x3d * scale) + width / 2;
+                            const y2d = (p.y3d * scale) + height / 2;
+
+                            projected.push({
+                                x: x2d,
+                                y: y2d,
+                                z: p.z3d,
+                                scale: scale,
+                                color: p.color
+                            });
+                        }
+
+                        const isDark = document.documentElement.classList.contains('dark');
+                        const lineColor = isDark ? 'rgba(99, 102, 241, 0.07)' : 'rgba(99, 102, 241, 0.04)';
+                        ctx.strokeStyle = lineColor;
+                        ctx.lineWidth = 0.5;
+
+                        // Draw constellations lines between close particles
+                        for (let i = 0; i < numParticles; i++) {
+                            const p1 = projected[i];
+                            for (let j = i + 1; j < numParticles; j++) {
+                                const p2 = projected[j];
+                                const dx = p1.x - p2.x;
+                                const dy = p1.y - p2.y;
+                                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                                if (dist < 85) {
+                                    ctx.beginPath();
+                                    ctx.moveTo(p1.x, p1.y);
+                                    ctx.lineTo(p2.x, p2.y);
+                                    ctx.stroke();
+                                }
+                            }
+                        }
+
+                        // Draw projected particle spheres
+                        for (let i = 0; i < numParticles; i++) {
+                            const p = projected[i];
+                            const alpha = Math.max(0.1, (p.z + radiusSphere) / (radiusSphere * 2));
+                            ctx.fillStyle = p.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
+                            ctx.beginPath();
+                            ctx.arc(p.x, p.y, Math.max(0.6, p.scale * 1.6), 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+
+                        requestAnimationFrame(animate);
+                    }
+
+                    requestAnimationFrame(animate);
+                })();
+
+                // 3. PRICING period TOGGLE SWITCH (Bulanan / Tahunan dengan Diskon 20%)
+                let isAnnualPricing = false;
+                function togglePricingPeriod() {
+                    isAnnualPricing = !isAnnualPricing;
+                    const circle = document.getElementById('pricingSwitchCircle');
+                    const btn = document.getElementById('pricingSwitchBtn');
+                    
+                    if (isAnnualPricing) {
+                        circle.classList.add('translate-x-6');
+                        circle.classList.remove('translate-x-0');
+                        btn.classList.add('bg-violet-600');
+                        btn.classList.remove('bg-indigo-600');
+                    } else {
+                        circle.classList.remove('translate-x-6');
+                        circle.classList.add('translate-x-0');
+                        btn.classList.add('bg-indigo-600');
+                        btn.classList.remove('bg-violet-600');
+                    }
+                    updatePricingDisplay();
+                }
+
+                function updatePricingDisplay() {
+                    const prices = {
+                        a: isAnnualPricing ? { text: "Rp 119.000", period: "/bln", sub: "Tagihan Tahunan (Hemat 20%)" } : { text: "Rp 149.000", period: "/bln", sub: "Tagihan Bulanan" },
+                        b: isAnnualPricing ? { text: "Rp 239.000", period: "/bln", sub: "Tagihan Tahunan (Hemat 20%)" } : { text: "Rp 299.000", period: "/bln", sub: "Tagihan Bulanan" },
+                        c: isAnnualPricing ? { text: "Rp 399.000", period: "/bln", sub: "Tagihan Tahunan (Hemat 20%)" } : { text: "Rp 499.000", period: "/bln", sub: "Tagihan Bulanan" }
+                    };
+
+                    // Dynamic element updates with slight opacity fade
+                    const elements = [
+                        { el: document.getElementById('pricePlanA'), text: prices.a.text },
+                        { el: document.getElementById('subPlanA'), text: prices.a.sub },
+                        { el: document.getElementById('pricePlanB'), text: prices.b.text },
+                        { el: document.getElementById('subPlanB'), text: prices.b.sub },
+                        { el: document.getElementById('pricePlanC'), text: prices.c.text },
+                        { el: document.getElementById('subPlanC'), text: prices.c.sub }
+                    ];
+
+                    elements.forEach(item => {
+                        if (item.el) {
+                            item.el.classList.add('opacity-40');
+                            setTimeout(() => {
+                                item.el.innerText = item.text;
+                                item.el.classList.remove('opacity-40');
+                            }, 150);
+                        }
+                    });
+
+                    // Update WhatsApp links
+                    const waNumber = "6281414142726";
+                    const textA = isAnnualPricing 
+                        ? "Halo AFKxEnjoyCreamID, saya tertarik untuk berlangganan Cloud MBG *Paket A* (Tahunan) dengan harga Rp 119.000/bulan (Hemat 20%). Mohon info selengkapnya!" 
+                        : "Halo AFKxEnjoyCreamID, saya tertarik untuk berlangganan Cloud MBG *Paket A* (Bulanan) dengan harga Rp 149.000/bulan. Mohon info selengkapnya!";
+                    const textB = isAnnualPricing 
+                        ? "Halo AFKxEnjoyCreamID, saya tertarik untuk berlangganan Cloud MBG *Paket B* (Tahunan - Best Seller) dengan harga Rp 239.000/bulan (Hemat 20%). Mohon info selengkapnya!" 
+                        : "Halo AFKxEnjoyCreamID, saya tertarik untuk berlangganan Cloud MBG *Paket B* (Bulanan - Best Seller) dengan harga Rp 299.000/bulan. Mohon info selengkapnya!";
+                    const textC = isAnnualPricing 
+                        ? "Halo AFKxEnjoyCreamID, saya tertarik untuk berlangganan Cloud MBG *Paket C* (Tahunan) dengan harga Rp 399.000/bulan (Hemat 20%). Mohon info selengkapnya!" 
+                        : "Halo AFKxEnjoyCreamID, saya tertarik untuk berlangganan Cloud MBG *Paket C* (Bulanan) dengan harga Rp 499.000/bulan. Mohon info selengkapnya!";
+
+                    const linkA = document.getElementById('btnOrderPlanA'); if (linkA) linkA.href = `https://wa.me/${waNumber}?text=${encodeURIComponent(textA)}`;
+                    const linkB = document.getElementById('btnOrderPlanB'); if (linkB) linkB.href = `https://wa.me/${waNumber}?text=${encodeURIComponent(textB)}`;
+                    const linkC = document.getElementById('btnOrderPlanC'); if (linkC) linkC.href = `https://wa.me/${waNumber}?text=${encodeURIComponent(textC)}`;
+                }
+
+                // 4. TRANSITION UTILITIES
+                function showLoginScreen() {
+                    const landing = document.getElementById('landingView');
+                    const login = document.getElementById('loginView');
+                    landing.classList.add('opacity-0', 'scale-98');
+                    setTimeout(() => {
+                        landing.classList.add('hidden');
+                        login.classList.remove('hidden');
+                        setTimeout(() => {
+                            login.classList.remove('opacity-0', 'pointer-events-none');
+                        }, 50);
+                    }, 300);
+                }
+
+                function showLandingView() {
+                    const landing = document.getElementById('landingView');
+                    const login = document.getElementById('loginView');
+                    login.classList.add('opacity-0', 'pointer-events-none');
+                    setTimeout(() => {
+                        login.classList.add('hidden');
+                        landing.classList.remove('hidden');
+                        setTimeout(() => {
+                            landing.classList.remove('opacity-0', 'scale-98');
+                        }, 50);
+                    }, 300);
+                }
+
+                function openPrivacyModal() {
+                    const modal = document.getElementById('privacyModal');
+                    if (modal) {
+                        modal.classList.remove('hidden');
+                        setTimeout(() => {
+                            modal.classList.remove('opacity-0');
+                            modal.querySelector('.clay-modal')?.classList.remove('scale-95');
+                        }, 10);
+                    }
+                }
+                function closePrivacyModal() {
+                    const modal = document.getElementById('privacyModal');
+                    if (modal) {
+                        modal.classList.add('opacity-0');
+                        modal.querySelector('.clay-modal')?.classList.add('scale-95');
+                        setTimeout(() => modal.classList.add('hidden'), 300);
+                    }
+                }
+                function openTermsModal() {
+                    const modal = document.getElementById('termsModal');
+                    if (modal) {
+                        modal.classList.remove('hidden');
+                        setTimeout(() => {
+                            modal.classList.remove('opacity-0');
+                            modal.querySelector('.clay-modal')?.classList.remove('scale-95');
+                        }, 10);
+                    }
+                }
+                function closeTermsModal() {
+                    const modal = document.getElementById('termsModal');
+                    if (modal) {
+                        modal.classList.add('opacity-0');
+                        modal.querySelector('.clay-modal')?.classList.add('scale-95');
+                        setTimeout(() => modal.classList.add('hidden'), 300);
+                    }
+                }
+            </script>
+        </div> <!-- /landingView -->
+
+        <!-- LOGIN VIEW -->
+        <div id="loginView" class="login-container relative min-h-screen flex items-center justify-center p-4 md:p-6 overflow-hidden hidden transition-all duration-500">
             <div class="cosmic-bg"></div>
             
             <!-- Animated Particles Canvas -->
@@ -588,18 +1384,22 @@
                     <div class="absolute inset-0 bg-gradient-to-tr from-blue-900/20 to-transparent pointer-events-none"></div>
                     
                     <div class="relative z-10 flex items-center gap-4">
-                        <div class="w-20 h-20 rounded-2xl overflow-hidden bg-white/15 flex items-center justify-center p-2 ring-2 ring-white/20 backdrop-blur-sm">
-                            <img src="/yayasankaryarasanusantara.png" alt="Yayasan" class="w-full h-full object-contain">
+                        <div class="w-20 h-20 rounded-2xl overflow-hidden bg-white/15 flex items-center justify-center p-3 ring-2 ring-white/20 backdrop-blur-sm">
+                            <!-- SVG Cloud MBG Logo -->
+                            <svg class="w-full h-full text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" fill="white" />
+                                <path d="M12 9v6M9 11v2M15 11v2" stroke="#6366f1" stroke-width="1.8" stroke-linecap="round" />
+                            </svg>
                         </div>
                         <div class="text-left">
-                            <h3 class="font-extrabold text-lg">Yayasan Karya Rasa</h3>
+                            <h3 class="font-extrabold text-lg">CLOUD MBG</h3>
                             <p class="text-xs text-blue-100">Sistem Absensi Relawan</p>
                         </div>
                     </div>
 
                     <div class="relative z-10 max-w-xs text-left">
                         <p class="eyebrow-text">Akses Sistem</p>
-                        <h2 class="headline-main">SPPG RAWA BUNGA 1</h2>
+                        <h2 class="headline-main">Absensi & Penggajian SPPG</h2>
                         <p class="body-text">Kelola Kehadiran Relawan dengan teknologi modern. Verifikasi foto, GPS, dan rekap gaji otomatis.</p>
                     </div>
 
@@ -644,9 +1444,21 @@
                     
                     <div class="w-full max-w-md relative z-10">
                         <div class="flex items-center justify-between mb-8">
-                            <img src="https://sipgn-sipsmo-web.bgn.go.id/main/media/logos/BGN_logo_dark.png" alt="BGN" class="h-10">
-                            <span class="text-xs font-semibold text-blue-600">v1.0</span>
+                            <div class="bg-white px-3 py-1.5 rounded-2xl flex items-center justify-center shadow-sm border border-slate-200/50 dark:border-white/5">
+                                <img src="https://sipgn-sipsmo-web.bgn.go.id/main/media/logos/BGN_logo_dark.png" alt="BGN" class="h-7 object-contain select-none bgn-logo-outline">
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <!-- Dark Mode Toggle -->
+                                <button type="button" onclick="toggleDarkMode()" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 transition active:scale-95 flex items-center justify-center" title="Toggle Dark Mode">
+                                    <i class="fas fa-moon dark:hidden text-xs"></i>
+                                    <i class="fas fa-sun hidden dark:block text-xs"></i>
+                                </button>
+                                <span class="text-xs font-semibold text-blue-600">v1.0</span>
+                            </div>
                         </div>
+                        <button type="button" onclick="showLandingView()" class="inline-flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-500 dark:hover:text-white transition mb-6 group active:scale-95">
+                            <i class="fas fa-arrow-left group-hover:-translate-x-1 transition-transform"></i> Kembali ke Beranda
+                        </button>
 
                         <h1 class="text-3xl font-bold text-slate-800">Selamat Datang</h1>
                         <p class="text-sm text-slate-500 mt-2">Masuk untuk mengakses sistem manajemen operasional</p>
@@ -707,7 +1519,7 @@
                         </div>
 
                         <div class="mt-8 pt-6 border-t border-slate-200 text-center text-xs text-slate-400">
-                            Sistem Manajemen Operasional © 2026 • Yayasan Karya Rasa Nusantara
+                            Sistem Manajemen Operasional © 2026 • Cloud MBG
                         </div>
                     </div>
                 </div>
@@ -719,13 +1531,23 @@
             <!-- Sidebar Desktop -->
             <aside id="sidebar" class="fixed inset-y-0 left-0 w-72 clay-sidebar flex flex-col z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300">
                 <div class="h-24 flex items-center px-8">
-                    <div class="flex items-center gap-3 text-slate-800">
-                        <div class="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden">
-                            <img src="/yayasankaryarasanusantara.png" alt="Yayasan logo" class="w-full h-full object-contain">
+                    <div class="flex items-center gap-3 text-slate-800 dark:text-white">
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-500/10 p-1.5 border border-indigo-500/20 shadow-sm">
+                            <!-- SVG Cloud MBG Logo -->
+                            <svg class="w-full h-full text-indigo-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" fill="url(#cloudGradSidebar)" />
+                                <path d="M12 9v6M9 11v2M15 11v2" stroke="white" stroke-width="1.8" stroke-linecap="round" />
+                                <defs>
+                                    <linearGradient id="cloudGradSidebar" x1="0" y1="0" x2="24" y2="20" gradientUnits="userSpaceOnUse">
+                                        <stop offset="0%" stop-color="#6366f1" />
+                                        <stop offset="100%" stop-color="#a855f7" />
+                                    </linearGradient>
+                                </defs>
+                            </svg>
                         </div>
                         <div>
-                            <h1 class="font-bold text-lg leading-tight">Admin Panel</h1>
-                            <p class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Manager Mode</p>
+                            <h1 class="font-bold text-base leading-tight font-sans">Cloud MBG</h1>
+                            <p class="text-[9px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-wider">Manager Mode</p>
                         </div>
                     </div>
                 </div>
@@ -809,7 +1631,7 @@
                             </div>
                             
                             <!-- Card Hadir (Clickable) -->
-                            <div onclick="showPresentVolunteers()" class="cursor-pointer bg-gradient-to-br from-indigo-500 to-purple-600 p-6 rounded-[2rem] shadow-lg shadow-indigo-500/30 text-white relative overflow-hidden group hover:scale-[1.02] transition-transform active:scale-95 animate-clay-float">
+                            <div onclick="showPresentVolunteers()" class="cursor-pointer bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-700 p-6 rounded-2xl shadow-lg shadow-indigo-500/15 text-white relative overflow-hidden group hover:scale-[1.01] transition-transform active:scale-95 hover:shadow-indigo-500/25 animate-clay-float">
                                 <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/20 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
                                 <div class="relative h-full flex flex-col justify-between">
                                     <div>
@@ -892,7 +1714,7 @@
                         </div>
 
                         <!-- LOGS TABLE -->
-                        <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+                        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                             <div class="p-6 border-b border-slate-50 flex justify-between items-center bg-white sticky left-0">
                                 <div>
                                     <h3 class="font-bold text-slate-800 text-sm md:text-base">Aktivitas Terbaru</h3>
@@ -1013,7 +1835,7 @@
                         </div>
 
                         <!-- TABLE KARYAWAN -->
-                        <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+                        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                             <div class="p-6 border-b border-slate-50 flex justify-between items-center bg-white sticky left-0">
                                 <h3 class="font-bold text-slate-800">Daftar Relawan</h3>
                                 <select onchange="handleSort('employees', this.value)" class="bg-slate-50 border border-slate-200 text-slate-600 text-xs rounded-lg px-3 py-2 outline-none focus:border-blue-600 cursor-pointer">
@@ -1042,7 +1864,7 @@
 
                     <!-- TAB: ABSEN MANUAL -->
                     <div id="tab-manual_attendance" class="hidden animate-fade-in space-y-6">
-                        <div class="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-slate-100">
+                        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
                             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                                 <div>
                                     <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2"><i class="fas fa-calendar-check text-blue-600"></i> Absen Manual</h3>
@@ -1186,7 +2008,7 @@
                         </div>
 
                         <!-- Riwayat Absen Manual -->
-                        <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+                        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                             <div class="p-6 border-b border-slate-50">
                                 <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i class="fas fa-history text-slate-400"></i> Riwayat Absen Manual Terakhir</h3>
                             </div>
@@ -1209,7 +2031,7 @@
 
                     <!-- TAB PELANGGARAN (Keterlambatan & Pulang Awal) -->
                     <div id="tab-violations" class="hidden animate-fade-in space-y-6">
-                        <div class="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-slate-100">
+                        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
                             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                                 <div>
                                     <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2"><i class="fas fa-exclamation-circle text-red-500"></i> Pelanggaran Kehadiran</h3>
@@ -1282,7 +2104,7 @@
                     </div>
 
                     <div id="tab-salaries" class="hidden animate-fade-in space-y-6">
-                         <div class="flex flex-col md:flex-row justify-between items-center bg-blue-700 p-6 rounded-[2rem] shadow-lg shadow-blue-600/20 text-white no-print">
+                         <div class="flex flex-col md:flex-row justify-between items-center bg-blue-700 p-6 rounded-2xl shadow-lg shadow-blue-600/20 text-white no-print">
                             <div class="mb-4 md:mb-0">
                                 <h2 class="text-xl font-bold">Laporan Penggajian</h2>
                                 <p class="text-blue-100 text-xs mt-1">Otomatis hitung kehadiran & lembur (>8 Jam)</p>
@@ -1293,7 +2115,7 @@
                         </div>
                         
                         <!-- TABLE GAJI -->
-                        <div class="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden" id="printAreaSalary">
+                        <div class="bg-white p-6 md:p-8 rounded-2xl border border-slate-100 shadow-sm overflow-hidden" id="printAreaSalary">
                             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 no-print">
                                 <h3 class="font-bold text-slate-800 text-lg">Tabel Rekap Gaji</h3>
                                 <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
@@ -1315,17 +2137,21 @@
                                 <table style="width:100%; border-collapse:collapse; margin-bottom:0;">
                                     <tr>
                                         <td style="width:80px; vertical-align:middle; padding:0;">
-                                            <img src="/yayasankaryarasanusantara.png" alt="Yayasan" style="width:70px; height:70px; object-fit:contain;">
+                                            <!-- SVG Cloud MBG Logo for print -->
+                                            <svg style="width:65px; height:65px; text-decoration:none;" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" fill="#6366f1" />
+                                                <path d="M12 9v6M9 11v2M15 11v2" stroke="white" stroke-width="1.8" stroke-linecap="round" />
+                                            </svg>
                                         </td>
                                         <td style="text-align:center; vertical-align:middle; padding:0 10px;">
-                                            <p style="font-size:11px; margin:0; letter-spacing:1px; color:#555;">YAYASAN KARYA RASA NUSANTARA</p>
+                                            <p style="font-size:11px; margin:0; letter-spacing:1px; color:#555; font-weight:800;">CLOUD MBG</p>
                                             <h2 style="font-size:18px; font-weight:800; margin:2px 0; letter-spacing:2px; color:#111;">SATUAN PELAYANAN PENYEDIAAN GIZI NASIONAL</h2>
                                             <p style="font-size:13px; font-weight:600; margin:0; color:#333;">SPPG RAWA BUNGA 1</p>
                                             <p style="font-size:10px; margin:4px 0 0; color:#777;">Jl. Masjid Jatinegara No.25, RT.10/RW.7, Rw. Bunga, Kec. Jatinegara, DKI Jakarta 13350</p>
-                                            <p style="font-size:10px; margin:2px 0 0; color:#777;">Telp: 085883595850 | Email: nusantarakaryarasa@gmail.com</p>
+                                            <p style="font-size:10px; margin:2px 0 0; color:#777;">Telp: 0814-1414-2726 | Email: enjoycreamid@gmail.com</p>
                                         </td>
                                         <td style="width:80px; vertical-align:middle; padding:0; text-align:right;">
-                                            <img src="https://sipgn-sipsmo-web.bgn.go.id/main/media/logos/BGN_logo_dark.png" alt="BGN" style="width:70px; height:70px; object-fit:contain;">
+                                            <img src="https://sipgn-sipsmo-web.bgn.go.id/main/media/logos/BGN_logo_dark.png" alt="BGN" style="width:70px; height:70px; object-fit:contain;" class="bgn-logo-outline">
                                         </td>
                                     </tr>
                                 </table>
@@ -1433,7 +2259,7 @@
                                         <td style="width:33%; text-align:center; vertical-align:top; padding:0 12px;">
                                             <p style="font-size:11px; color:#555; margin:0 0 60px;">Menyetujui,</p>
                                             <p style="font-size:12px; font-weight:700; margin:0; border-bottom:1px solid #333; display:inline-block; padding-bottom:2px;">Apriani Raharti, S.Sos.</p>
-                                            <p style="font-size:10px; color:#777; margin:4px 0 0;">Ketua Yayasan Karya Rasa Nusantara</p>
+                                            <p style="font-size:10px; color:#777; margin:4px 0 0;">Ketua SPPG Cloud MBG</p>
                                         </td>
                                     </tr>
                                 </table>
@@ -1449,7 +2275,7 @@
                     <!-- TAB PENGUMUMAN -->
                     <div id="tab-pengumuman" class="hidden animate-fade-in space-y-6">
                         <!-- Header -->
-                        <div class="flex flex-col md:flex-row justify-between items-center bg-indigo-700 p-6 rounded-[2rem] shadow-lg shadow-indigo-600/20 text-white no-print">
+                        <div class="flex flex-col md:flex-row justify-between items-center bg-indigo-700 p-6 rounded-2xl shadow-lg shadow-indigo-600/20 text-white no-print">
                             <div class="mb-4 md:mb-0">
                                 <h2 class="text-xl font-bold flex items-center gap-2"><i class="fas fa-bullhorn"></i> Surat Pengumuman</h2>
                                 <p class="text-indigo-200 text-xs mt-1">Cetak laporan kehadiran resmi dengan kop surat</p>
@@ -1460,7 +2286,7 @@
                         </div>
 
                         <!-- FORM PENGATURAN SURAT -->
-                        <div class="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm no-print">
+                        <div class="bg-white p-6 md:p-8 rounded-2xl border border-slate-100 shadow-sm no-print">
                             <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><i class="fas fa-sliders-h text-indigo-500"></i> Pengaturan Surat</h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <!-- Periode -->
@@ -1566,23 +2392,27 @@
                         </div>
 
                         <!-- PRINT AREA PENGUMUMAN -->
-                        <div class="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden" id="printAreaPengumuman">
+                        <div class="bg-white p-6 md:p-8 rounded-2xl border border-slate-100 shadow-sm overflow-hidden" id="printAreaPengumuman">
                             <!-- KOP SURAT -->
                             <div class="hidden print-only" id="kopSuratPengumuman">
                                 <table style="width:100%; border-collapse:collapse; margin-bottom:0;">
                                     <tr>
                                         <td style="width:80px; vertical-align:middle; padding:0;">
-                                            <img src="/yayasankaryarasanusantara.png" alt="Yayasan" style="width:70px; height:70px; object-fit:contain;">
+                                            <!-- SVG Cloud MBG Logo for print -->
+                                            <svg style="width:65px; height:65px; text-decoration:none;" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" fill="#6366f1" />
+                                                <path d="M12 9v6M9 11v2M15 11v2" stroke="white" stroke-width="1.8" stroke-linecap="round" />
+                                            </svg>
                                         </td>
                                         <td style="text-align:center; vertical-align:middle; padding:0 10px;">
-                                            <p style="font-size:11px; margin:0; letter-spacing:1px; color:#555;">YAYASAN KARYA RASA NUSANTARA</p>
+                                            <p style="font-size:11px; margin:0; letter-spacing:1px; color:#555; font-weight:800;">CLOUD MBG</p>
                                             <h2 style="font-size:18px; font-weight:800; margin:2px 0; letter-spacing:2px; color:#111;">SATUAN PELAYANAN PENYEDIAAN GIZI NASIONAL</h2>
                                             <p style="font-size:13px; font-weight:600; margin:0; color:#333;">SPPG RAWA BUNGA 1</p>
                                             <p style="font-size:10px; margin:4px 0 0; color:#777;">Jl. Masjid Jatinegara No.25, RT.10/RW.7, Rw. Bunga, Kec. Jatinegara, DKI Jakarta 13350</p>
-                                            <p style="font-size:10px; margin:2px 0 0; color:#777;">Telp: 085883595850 | Email: nusantarakaryarasa@gmail.com</p>
+                                            <p style="font-size:10px; margin:2px 0 0; color:#777;">Telp: 0814-1414-2726 | Email: enjoycreamid@gmail.com</p>
                                         </td>
                                         <td style="width:80px; vertical-align:middle; padding:0; text-align:right;">
-                                            <img src="https://sipgn-sipsmo-web.bgn.go.id/main/media/logos/BGN_logo_dark.png" alt="BGN" style="width:70px; height:70px; object-fit:contain;">
+                                            <img src="https://sipgn-sipsmo-web.bgn.go.id/main/media/logos/BGN_logo_dark.png" alt="BGN" style="width:70px; height:70px; object-fit:contain;" class="bgn-logo-outline">
                                         </td>
                                     </tr>
                                 </table>
@@ -1660,7 +2490,7 @@
                     <!-- TAB SETTINGS -->
                     <div id="tab-settings" class="hidden animate-fade-in space-y-6">
                         <!-- Header -->
-                        <div class="flex flex-col md:flex-row justify-between items-center bg-slate-800 p-6 rounded-[2rem] shadow-lg shadow-slate-800/20 text-white">
+                        <div class="flex flex-col md:flex-row justify-between items-center bg-slate-800 p-6 rounded-2xl shadow-lg shadow-slate-800/20 text-white">
                             <div class="mb-4 md:mb-0">
                                 <h2 class="text-xl font-bold flex items-center gap-2"><i class="fas fa-cog"></i> Pengaturan</h2>
                                 <p class="text-slate-300 text-xs mt-1">Kelola fitur & preferensi sistem absensi</p>
@@ -1960,7 +2790,7 @@
                     
                     <!-- Scanner Animation Overlay -->
                     <div class="absolute inset-0 p-10 flex items-center justify-center pointer-events-none">
-                         <div class="w-full h-full border-2 border-white/30 rounded-[2rem] relative">
+                         <div class="w-full h-full border-2 border-white/30 rounded-2xl relative">
                             <div class="absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 border-blue-500 rounded-tl-2xl"></div>
                             <div class="absolute top-0 right-0 w-12 h-12 border-t-4 border-r-4 border-blue-500 rounded-tr-2xl"></div>
                             <div class="absolute bottom-0 left-0 w-12 h-12 border-b-4 border-l-4 border-blue-500 rounded-bl-2xl"></div>
@@ -1985,7 +2815,7 @@
             <div id="secPage2" class="hidden flex-1 flex flex-col bg-slate-900 overflow-y-auto">
                 <!-- Profile Header - Reduced top padding from pt-48 to pt-32 -->
                 <div class="pt-32 px-6 pb-6">
-                    <div class="bg-slate-800/50 border border-white/5 p-5 rounded-[2rem] flex items-center gap-5 backdrop-blur-sm shadow-xl">
+                    <div class="bg-slate-800/50 border border-white/5 p-5 rounded-2xl flex items-center gap-5 backdrop-blur-sm shadow-xl">
                         <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center text-2xl text-white shadow-lg shadow-blue-600/20 shrink-0">
                             <i class="fas fa-user-check"></i>
                         </div>
@@ -2123,7 +2953,7 @@
                 <div class="relative w-full max-w-sm aspect-square bg-black rounded-[3rem] overflow-hidden shadow-2xl shadow-black/50 border-[6px] border-slate-800 dark:border-slate-800 group mb-6">
                     <video id="volScanVideo" autoplay playsinline class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition duration-500"></video>
                     <div class="absolute inset-0 p-10 flex items-center justify-center pointer-events-none">
-                        <div class="w-full h-full border-2 border-white/30 rounded-[2rem] relative">
+                        <div class="w-full h-full border-2 border-white/30 rounded-2xl relative">
                             <div class="absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 border-emerald-500 rounded-tl-2xl"></div>
                             <div class="absolute top-0 right-0 w-12 h-12 border-t-4 border-r-4 border-emerald-500 rounded-tr-2xl"></div>
                             <div class="absolute bottom-0 left-0 w-12 h-12 border-b-4 border-l-4 border-emerald-500 rounded-bl-2xl"></div>
@@ -2758,11 +3588,15 @@
         <div id="nPrintArea" class="hidden">
             <!-- Kop Surat SPPG -->
             <div style="display: flex; align-items: center; justify-content: center; gap: 20px; border-bottom: 3px double #334155; padding-bottom: 15px; margin-bottom: 20px;">
-                <img src="yayasankaryarasanusantara.png" alt="Logo" style="height: 60px;">
+                <!-- SVG Cloud MBG Logo for print -->
+                <svg style="width:60px; height:60px;" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" fill="#6366f1" />
+                    <path d="M12 9v6M9 11v2M15 11v2" stroke="white" stroke-width="1.8" stroke-linecap="round" />
+                </svg>
                 <div style="text-align: center;">
                     <h2 style="font-size: 16px; font-weight: 800; margin: 0; color: #0f172a; text-transform: uppercase;">Satuan Pelayanan Penyediaan Gizi Nasional (SPPG)</h2>
-                    <h3 style="font-size: 18px; font-weight: 900; margin: 3px 0; color: #059669; text-transform: uppercase;">Yayasan Karya Rasa Nusantara</h3>
-                    <p style="font-size: 10px; color: #64748b; margin: 0; font-weight: 500;">Unit Rawa Bunga · E-mail: gizi.sp@karyarasa.or.id · Laporan Resmi Perencanaan Gizi</p>
+                    <h3 style="font-size: 18px; font-weight: 900; margin: 3px 0; color: #4f46e5; text-transform: uppercase;">Cloud MBG</h3>
+                    <p style="font-size: 10px; color: #64748b; margin: 0; font-weight: 500;">Unit Rawa Bunga · E-mail: enjoycreamid@gmail.com · Laporan Resmi Perencanaan Gizi</p>
                 </div>
             </div>
 
@@ -2885,7 +3719,7 @@
                 <button onclick="logout()" class="px-4 py-2 rounded-full bg-red-500/20 hover:bg-red-500 text-white border border-red-400/20 text-sm font-bold transition-all">Keluar</button>
             </div>
             <div class="relative z-10 flex-1 p-6 md:p-8">
-                <div class="max-w-4xl rounded-[2rem] border border-white/10 bg-white/5 backdrop-blur-md p-6 md:p-8">
+                <div class="max-w-4xl rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-6 md:p-8">
                     <div class="text-sm text-slate-300 leading-relaxed">Role ini sudah aktif untuk login dan dibuat dari admin web. Placeholder ini disiapkan supaya akun khusus seperti Akuntan, Gudang, Ka SPPG, dan Yayasan tidak masuk ke dashboard admin. Tahap berikutnya kita bisa isi modul khusus sesuai kebutuhan operasional masing-masing.</div>
                     <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div class="rounded-2xl bg-black/20 border border-white/10 p-4">
@@ -2902,6 +3736,98 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRIVACY POLICY MODAL -->
+    <div id="privacyModal" class="fixed inset-0 z-[320] bg-slate-950/60 backdrop-blur-md hidden flex items-center justify-center p-4 transition-all duration-300 opacity-0">
+        <div class="clay-modal w-full max-w-2xl rounded-3xl max-h-[85vh] flex flex-col overflow-hidden animate-slide-up transform scale-95 transition-all duration-300">
+            <div class="p-6 border-b border-slate-100/50 dark:border-white/5 clay-bg sticky top-0 z-10 flex justify-between items-start">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500"><i class="fas fa-user-shield text-sm"></i></div>
+                    <div>
+                        <h3 class="font-extrabold text-base text-slate-800 dark:text-white font-sans">Kebijakan Privasi</h3>
+                        <p class="text-[10px] text-slate-400">Terakhir diperbarui: 1 Juni 2026</p>
+                    </div>
+                </div>
+                <button onclick="closePrivacyModal()" class="w-8 h-8 rounded-full bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10 flex items-center justify-center transition flex-shrink-0 ml-4"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6 space-y-4 text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-sans scrollbar-thin">
+                <p>Selamat datang di <strong>Cloud MBG</strong>. Kami sangat berkomitmen untuk melindungi privasi dan keamanan data pribadi Anda, khususnya bagi para relawan dan staf lapangan SPPG.</p>
+                
+                <h4 class="font-extrabold text-slate-800 dark:text-white uppercase tracking-wider text-[10px] pt-2">1. Informasi Yang Kami Kumpulkan</h4>
+                <p>Untuk memastikan keandalan absensi dan kepatuhan geofencing, sistem kami mengumpulkan data berikut:</p>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li><strong>Data Biometrik & Swafoto:</strong> Kami meminta akses kamera perangkat untuk mengambil foto verifikasi wajah Anda saat melakukan check-in dan check-out mandiri.</li>
+                    <li><strong>Data Lokasi Geografis (GPS):</strong> Kami melacak lokasi GPS real-time Anda saat melakukan absensi untuk memastikan bahwa Anda berada di area resmi SPPG.</li>
+                    <li><strong>Data Akun:</strong> Nama lengkap, username login, kata sandi yang dienkripsi secara aman, serta peran/divisi Anda dalam organisasi.</li>
+                </ul>
+
+                <h4 class="font-extrabold text-slate-800 dark:text-white uppercase tracking-wider text-[10px] pt-2">2. Bagaimana Kami Menggunakan Informasi Anda</h4>
+                <p>Data yang dikumpulkan digunakan secara eksklusif untuk:</p>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>Memverifikasi kehadiran fisik relawan di lapangan.</li>
+                    <li>Menghitung jam kerja, denda keterlambatan, dan upah lembur secara akurat dan transparan.</li>
+                    <li>Menghasilkan slip gaji bulanan serta laporan rekapitulasi audit internal bagi manajemen SPPG dan Badan Gizi Nasional (BGN).</li>
+                </ul>
+
+                <h4 class="font-extrabold text-slate-800 dark:text-white uppercase tracking-wider text-[10px] pt-2">3. Penyimpanan & Perlindungan Data</h4>
+                <p>Data kehadiran dan swafoto disimpan di server cloud basis data kami yang terenkripsi dan aman menggunakan Google Apps Script & Sheets backend. Kami membatasi akses administratif hanya kepada personel berwenang yang telah disetujui (seperti Akuntan Pelaksana dan Ka SPPG). Kami tidak membagikan atau menjual data Anda kepada pihak ketiga.</p>
+
+                <h4 class="font-extrabold text-slate-800 dark:text-white uppercase tracking-wider text-[10px] pt-2">4. Hak Pengguna</h4>
+                <p>Anda memiliki hak untuk melihat data kehadiran historis Anda di portal relawan dan meminta koreksi data melalui administrator/koordinator lapangan jika terjadi kesalahan rekapitulasi.</p>
+
+                <h4 class="font-extrabold text-slate-800 dark:text-white uppercase tracking-wider text-[10px] pt-2">5. Hubungi Kami</h4>
+                <p>Jika Anda memiliki pertanyaan tentang Kebijakan Privasi ini, silakan hubungi tim pengembang kami di <strong>enjoycreamid@gmail.com</strong>.</p>
+            </div>
+            <div class="p-4 border-t border-slate-100/50 dark:border-white/5 clay-bg text-right">
+                <button onclick="closePrivacyModal()" class="px-5 py-2.5 rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-950 font-bold text-xs hover:opacity-90 active:scale-95 transition shadow-md">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TERMS OF SERVICE MODAL -->
+    <div id="termsModal" class="fixed inset-0 z-[320] bg-slate-950/60 backdrop-blur-md hidden flex items-center justify-center p-4 transition-all duration-300 opacity-0">
+        <div class="clay-modal w-full max-w-2xl rounded-3xl max-h-[85vh] flex flex-col overflow-hidden animate-slide-up transform scale-95 transition-all duration-300">
+            <div class="p-6 border-b border-slate-100/50 dark:border-white/5 clay-bg sticky top-0 z-10 flex justify-between items-start">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-500"><i class="fas fa-file-signature text-sm"></i></div>
+                    <div>
+                        <h3 class="font-extrabold text-base text-slate-800 dark:text-white font-sans">Ketentuan Layanan</h3>
+                        <p class="text-[10px] text-slate-400">Terakhir diperbarui: 1 Juni 2026</p>
+                    </div>
+                </div>
+                <button onclick="closeTermsModal()" class="w-8 h-8 rounded-full bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10 flex items-center justify-center transition flex-shrink-0 ml-4"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6 space-y-4 text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-sans scrollbar-thin">
+                <p>Selamat datang di <strong>Cloud MBG</strong>. Dengan mengakses dan menggunakan sistem absensi dan manajemen operasional kami, Anda menyetujui untuk mematuhi dan terikat oleh syarat dan ketentuan berikut.</p>
+                
+                <h4 class="font-extrabold text-slate-800 dark:text-white uppercase tracking-wider text-[10px] pt-2">1. Ketentuan Penggunaan Akun</h4>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>Akun login Anda bersifat personal dan sangat dilarang untuk dibagikan kepada pihak lain.</li>
+                    <li>Anda bertanggung jawab penuh atas kerahasiaan kata sandi Anda dan setiap aktivitas yang terjadi di bawah akun Anda.</li>
+                    <li>Setiap pelanggaran keamanan akun harus segera dilaporkan kepada koordinator SPPG.</li>
+                </ul>
+
+                <h4 class="font-extrabold text-slate-800 dark:text-white uppercase tracking-wider text-[10px] pt-2">2. Integritas Data & Absensi Kehadiran</h4>
+                <p>Sistem Cloud MBG dirancang untuk memastikan akurasi data absensi tingkat tinggi. Demi menjaga keadilan dan transparansi:</p>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li><strong>Dilarang Keras Memanipulasi Lokasi (Fake GPS):</strong> Penggunaan perangkat lunak pemalsu lokasi GPS saat check-in/check-out adalah pelanggaran berat. Tindakan ini akan memicu peringatan otomatis dan dapat berakibat pada penonaktifan akun secara permanen.</li>
+                    <li><strong>Absensi Swafoto Asli:</strong> Foto check-in/check-out harus merupakan swafoto wajah asli relawan yang bersangkutan secara real-time. Memfoto foto cetak atau manipulasi visual lainnya tidak diperbolehkan.</li>
+                </ul>
+
+                <h4 class="font-extrabold text-slate-800 dark:text-white uppercase tracking-wider text-[10px] pt-2">3. Langganan & Kebijakan Pembayaran</h4>
+                <p>Penggunaan komersial sistem Cloud MBG didasarkan pada paket berlangganan Paket A, Paket B, dan Paket C dengan harga bulanan atau tahunan yang disepakati melalui order resmi WhatsApp ke pengembang resmi (<strong>AFKxEnjoyCreamID</strong>). Penangguhan langganan akan membatasi akses dashboard admin secara otomatis.</p>
+
+                <h4 class="font-extrabold text-slate-800 dark:text-white uppercase tracking-wider text-[10px] pt-2">4. Batasan Tanggung Jawab</h4>
+                <p>Kami berusaha keras memberikan uptime sistem absensi 99.9% tanpa kendala. Namun, kami tidak bertanggung jawab atas kegagalan absensi akibat hilangnya koneksi internet lokal lapangan, kerusakan kamera perangkat pengguna, atau kegagalan perangkat keras mandiri lainnya. Tim pengembang akan memberikan bantuan teknis berkala melalui email support resmi.</p>
+
+                <h4 class="font-extrabold text-slate-800 dark:text-white uppercase tracking-wider text-[10px] pt-2">5. Perubahan Ketentuan Layanan</h4>
+                <p>Kami berhak untuk mengubah atau memperbarui Ketentuan Layanan ini sewaktu-waktu. Perubahan akan diumumkan secara resmi melalui portal dashboard admin.</p>
+            </div>
+            <div class="p-4 border-t border-slate-100/50 dark:border-white/5 clay-bg text-right">
+                <button onclick="closeTermsModal()" class="px-5 py-2.5 rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-950 font-bold text-xs hover:opacity-90 active:scale-95 transition shadow-md">Tutup</button>
             </div>
         </div>
     </div>

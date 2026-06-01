@@ -242,6 +242,8 @@ window.onload = () => {
                     return;
                 }
                 document.getElementById('loginView').classList.add('hidden');
+                const landingView = document.getElementById('landingView');
+                if (landingView) landingView.classList.add('hidden');
                 fetchData(true);
                 initSecurity();
                 startSessionTimer();
@@ -251,6 +253,8 @@ window.onload = () => {
             });
         } else {
             document.getElementById('loginView').classList.add('hidden');
+            const landingView = document.getElementById('landingView');
+            if (landingView) landingView.classList.add('hidden');
             fetchData(true);
             if (currentUser.role === 'nutritionist') initNutritionist();
             else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(currentUser.role)) initSpecialRoleDashboard();
@@ -3203,10 +3207,20 @@ async function autoClockOutForgotten() {
 
             const lastIN = empLogs[0];
 
-            // BUG FIX #3: Cek duplikat di sisi client — jika sudah ada OUT di hari yang sama, skip
+            // Tentukan outTime & outDate: jika clock-in sangat malam (outTime <= lastIN.time), set OUT pada keesokan harinya
+            const shift = appConfig.shifts?.[emp.division];
+            let outTime = shift ? shift.end : '17:00';
+            let outDate = lastIN.date;
+            if (outTime <= lastIN.time) {
+                const d = new Date(lastIN.date + 'T00:00:00');
+                d.setDate(d.getDate() + 1);
+                outDate = getLocalDateStr(d);
+            }
+
+            // Cek duplikat di sisi client — jika sudah ada OUT di tanggal outDate, skip
             const alreadyHasOUT = logs.some(l =>
                 String(l.empId) === String(emp.id) &&
-                l.date === lastIN.date &&
+                l.date === outDate &&
                 l.type === 'OUT'
             );
             if (alreadyHasOUT) return null;
@@ -3215,12 +3229,12 @@ async function autoClockOutForgotten() {
             const diffHours = (now - inTime) / 3600000;
 
             const div = (emp.division || '').toLowerCase();
-            const isCook = div === 'cook';
+            const isCook = div.includes('cook'); // Support Helper Cook, Cook, dll.
             const maxHours = isCook ? 13 : 12;
 
             if (diffHours < maxHours) return null;
 
-            return { emp, lastIN, diffHours };
+            return { emp, lastIN, outDate, outTime, diffHours };
         }).filter(Boolean);
 
         if (stuckWorkers.length === 0) return;
@@ -3228,10 +3242,7 @@ async function autoClockOutForgotten() {
         console.log(`[AutoClockOut] ${stuckWorkers.length} relawan lupa OUT:`, stuckWorkers.map(w => w.emp.name));
 
         let successCount = 0;
-        for (const { emp, lastIN } of stuckWorkers) {
-            const shift = appConfig.shifts?.[emp.division];
-            let outTime = shift ? shift.end : '17:00';
-            const outDate = lastIN.date;
+        for (const { emp, lastIN, outDate, outTime } of stuckWorkers) {
             const location = lastIN.location || '';
 
             // BUG FIX #3: Double-check di sisi client sebelum kirim ke server
@@ -5858,7 +5869,7 @@ function renderSpecialRoleDashboard() {
     const roleLabel = ROLE_LABELS[currentRole] || currentRole;
     eyebrow.innerText = `${roleLabel} Panel`;
     title.innerText = `Dashboard ${roleLabel}`;
-    desc.innerText = `Halaman awal ${roleLabel} untuk operasional SPPG Yayasan. Modul detail akan ditambahkan berikutnya.`;
+    desc.innerText = `Halaman awal ${roleLabel} untuk operasional SPPG Cloud MBG. Modul detail akan ditambahkan berikutnya.`;
     label.innerText = roleLabel;
     userName.innerText = currentUser?.name || '-';
     division.innerText = currentUser?.division || '-';
@@ -6894,6 +6905,8 @@ async function startAbsenMandiri() {
 
     // Sembunyikan login, tampilkan volunteer layout
     document.getElementById('loginView').classList.add('hidden');
+    const landingView = document.getElementById('landingView');
+    if (landingView) landingView.classList.add('hidden');
     initVolunteer();
 }
 
@@ -6910,7 +6923,12 @@ function volExitToLogin() {
         if (volGpsWatchId) { navigator.geolocation.clearWatch(volGpsWatchId); volGpsWatchId = null; }
         volLocationLocked = false;
         document.getElementById('volunteerLayout').classList.add('hidden');
-        document.getElementById('loginView').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+        const landingView = document.getElementById('landingView');
+        if (landingView) {
+            landingView.classList.remove('hidden', 'opacity-0', 'scale-98');
+        } else {
+            document.getElementById('loginView').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+        }
     } else {
         // Mode login biasa, panggil logout standar
         logout();
