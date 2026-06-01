@@ -80,6 +80,46 @@
             filter: blur(8px) !important;
             pointer-events: none !important;
         }
+        
+        /* Premium Scroll Reveal Entrance Animations */
+        .reveal-element {
+            opacity: 0 !important;
+            transform: translateY(40px) scale(0.98) !important;
+            filter: blur(4px) !important;
+            transition: opacity 800ms cubic-bezier(0.16, 1, 0.3, 1), transform 800ms cubic-bezier(0.16, 1, 0.3, 1), filter 800ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+            will-change: opacity, transform, filter;
+        }
+        .reveal-left {
+            opacity: 0 !important;
+            transform: translateX(-40px) !important;
+            filter: blur(4px) !important;
+            transition: opacity 800ms cubic-bezier(0.16, 1, 0.3, 1), transform 800ms cubic-bezier(0.16, 1, 0.3, 1), filter 800ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+            will-change: opacity, transform, filter;
+        }
+        .reveal-right {
+            opacity: 0 !important;
+            transform: translateX(40px) !important;
+            filter: blur(4px) !important;
+            transition: opacity 800ms cubic-bezier(0.16, 1, 0.3, 1), transform 800ms cubic-bezier(0.16, 1, 0.3, 1), filter 800ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+            will-change: opacity, transform, filter;
+        }
+        .reveal-scale {
+            opacity: 0 !important;
+            transform: scale(0.93) !important;
+            filter: blur(4px) !important;
+            transition: opacity 800ms cubic-bezier(0.16, 1, 0.3, 1), transform 800ms cubic-bezier(0.16, 1, 0.3, 1), filter 800ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+            will-change: opacity, transform, filter;
+        }
+        
+        /* Active revealed states */
+        .reveal-element.revealed,
+        .reveal-left.revealed,
+        .reveal-right.revealed,
+        .reveal-scale.revealed {
+            opacity: 1 !important;
+            transform: translate(0) scale(1) !important;
+            filter: blur(0) !important;
+        }
     </style>
 
     <div id="appPreloader" class="fixed inset-0 z-[400] flex flex-col items-center justify-center bg-[#090d16] transition-all duration-700 ease-out">
@@ -751,7 +791,7 @@
             <!-- Mengenai Section -->
             <section id="mengenai" class="relative z-10 py-20 px-6 max-w-5xl mx-auto border-t border-slate-200/50 dark:border-white/5 w-full scroll-mt-24">
                 <div class="grid md:grid-cols-12 gap-10 items-center">
-                    <div class="md:col-span-5 space-y-4">
+                    <div class="md:col-span-5 space-y-4 reveal-left">
                         <div class="text-xs font-bold text-indigo-500 dark:text-indigo-400 tracking-widest uppercase">Mengenai Portal</div>
                         <h2 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">Penggajian & Kehadiran Terpadu</h2>
                         <p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
@@ -762,22 +802,22 @@
                         </p>
                     </div>
                     <div class="md:col-span-7 grid grid-cols-2 gap-4">
-                        <div class="p-6 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200/50 dark:border-white/5 space-y-2 shadow-sm">
+                        <div class="p-6 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200/50 dark:border-white/5 space-y-2 shadow-sm reveal-scale" data-delay="0">
                             <div class="w-8 h-8 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 text-sm font-bold"><i class="fas fa-shield-halved"></i></div>
                             <h4 class="font-extrabold text-sm text-slate-800 dark:text-white">Akurasi Audit Tinggi</h4>
                             <p class="text-[11px] text-slate-400">Verifikasi ganda berbasis GPS Geofence dan swafoto biometrik kamera.</p>
                         </div>
-                        <div class="p-6 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200/50 dark:border-white/5 space-y-2 shadow-sm">
+                        <div class="p-6 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200/50 dark:border-white/5 space-y-2 shadow-sm reveal-scale" data-delay="150">
                             <div class="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 text-sm font-bold"><i class="fas fa-bolt"></i></div>
                             <h4 class="font-extrabold text-sm text-slate-800 dark:text-white">Instan & Otomatis</h4>
                             <p class="text-[11px] text-slate-400">Gaji harian, upah lembur, dan denda terlambat dihitung secara detik nyata.</p>
                         </div>
-                        <div class="p-6 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200/50 dark:border-white/5 space-y-2 shadow-sm">
+                        <div class="p-6 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200/50 dark:border-white/5 space-y-2 shadow-sm reveal-scale" data-delay="300">
                             <div class="w-8 h-8 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 text-sm font-bold"><i class="fas fa-folder-open"></i></div>
                             <h4 class="font-extrabold text-sm text-slate-800 dark:text-white">Ekspor Data Instan</h4>
                             <p class="text-[11px] text-slate-400">Unduh lembar Excel, slip gaji cetak PDF harian, serta foto selfie dalam file ZIP.</p>
                         </div>
-                        <div class="p-6 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200/50 dark:border-white/5 space-y-2 shadow-sm">
+                        <div class="p-6 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200/50 dark:border-white/5 space-y-2 shadow-sm reveal-scale" data-delay="450">
                             <div class="w-8 h-8 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-500 text-sm font-bold"><i class="fas fa-wifi"></i></div>
                             <h4 class="font-extrabold text-sm text-slate-800 dark:text-white">Akses Offline Terjamin</h4>
                             <p class="text-[11px] text-slate-400">Pencatatan data absensi aman di memori lokal saat koneksi internet terputus.</p>
@@ -788,7 +828,7 @@
 
             <!-- Fitur Section -->
             <section id="fitur" class="relative z-10 py-20 px-6 max-w-5xl mx-auto border-t border-slate-200/50 dark:border-white/5 w-full scroll-mt-24">
-                <div class="text-center max-w-2xl mx-auto space-y-4 mb-16">
+                <div class="text-center max-w-2xl mx-auto space-y-4 mb-16 reveal-element">
                     <div class="text-xs font-bold text-indigo-500 dark:text-indigo-400 tracking-widest uppercase">Fitur Unggulan</div>
                     <h2 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Didesain Untuk Transparansi Penuh</h2>
                     <p class="text-slate-500 dark:text-slate-400 text-sm">
@@ -798,7 +838,7 @@
 
                 <div class="grid md:grid-cols-3 gap-6">
                     <!-- Card 1 -->
-                    <div class="p-8 rounded-2xl bg-white dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/5 space-y-4 shadow-sm flex flex-col justify-between hover:scale-[1.02] transition-transform duration-300">
+                    <div class="p-8 rounded-2xl bg-white dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/5 space-y-4 shadow-sm flex flex-col justify-between hover:scale-[1.02] transition-transform duration-300 reveal-element" data-delay="0">
                         <div class="space-y-4">
                             <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 text-lg"><i class="fas fa-qrcode"></i></div>
                             <h3 class="font-extrabold text-lg text-slate-800 dark:text-white">Absen Mandiri QR</h3>
@@ -809,7 +849,7 @@
                         <div class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest pt-4">Tuntas Dalam 3 Detik</div>
                     </div>
                     <!-- Card 2 -->
-                    <div class="p-8 rounded-2xl bg-white dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/5 space-y-4 shadow-sm flex flex-col justify-between hover:scale-[1.02] transition-transform duration-300">
+                    <div class="p-8 rounded-2xl bg-white dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/5 space-y-4 shadow-sm flex flex-col justify-between hover:scale-[1.02] transition-transform duration-300 reveal-element" data-delay="150">
                         <div class="space-y-4">
                             <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 text-lg"><i class="fas fa-map-location-dot"></i></div>
                             <h3 class="font-extrabold text-lg text-slate-800 dark:text-white">Dynamic Geofencing</h3>
@@ -820,7 +860,7 @@
                         <div class="text-[10px] font-bold text-indigo-500 uppercase tracking-widest pt-4">Presisi Koordinat GPS</div>
                     </div>
                     <!-- Card 3 -->
-                    <div class="p-8 rounded-2xl bg-white dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/5 space-y-4 shadow-sm flex flex-col justify-between hover:scale-[1.02] transition-transform duration-300">
+                    <div class="p-8 rounded-2xl bg-white dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/5 space-y-4 shadow-sm flex flex-col justify-between hover:scale-[1.02] transition-transform duration-300 reveal-element" data-delay="300">
                         <div class="space-y-4">
                             <div class="w-10 h-10 rounded-2xl bg-violet-500/10 flex items-center justify-center text-violet-500 text-lg"><i class="fas fa-receipt"></i></div>
                             <h3 class="font-extrabold text-lg text-slate-800 dark:text-white">Auto Rekap & Lembur</h3>
@@ -947,14 +987,14 @@
 
             <!-- Testimoni Section -->
             <section id="testimoni" class="relative z-10 py-20 px-6 max-w-5xl mx-auto border-t border-slate-200/50 dark:border-white/5 w-full scroll-mt-24">
-                <div class="text-center max-w-2xl mx-auto space-y-4 mb-16">
+                <div class="text-center max-w-2xl mx-auto space-y-4 mb-16 reveal-element">
                     <div class="text-xs font-bold text-indigo-500 dark:text-indigo-400 tracking-widest uppercase">Ulasan Rekan Kerja</div>
                     <h2 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Testimonial Keandalan Sistem</h2>
                 </div>
 
                 <div class="grid md:grid-cols-2 gap-8">
                     <!-- Testi 1 -->
-                    <div class="p-8 rounded-2xl bg-white dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/5 space-y-6 shadow-sm relative">
+                    <div class="p-8 rounded-2xl bg-white dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/5 space-y-6 shadow-sm relative reveal-left" data-delay="0">
                         <div class="text-amber-500 flex gap-1"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></div>
                         <p class="text-slate-600 dark:text-slate-400 text-sm leading-relaxed italic">
                             "Proses rekapitulasi data lembur relawan dan denda keterlambatan yang dulu memakan waktu berhari-hari kini terintegrasi penuh. Hanya butuh satu klik untuk mengunduh rekap bulanan secara rapi!"
@@ -968,7 +1008,7 @@
                         </div>
                     </div>
                     <!-- Testi 2 -->
-                    <div class="p-8 rounded-2xl bg-white dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/5 space-y-6 shadow-sm relative">
+                    <div class="p-8 rounded-2xl bg-white dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/5 space-y-6 shadow-sm relative reveal-right" data-delay="150">
                         <div class="text-amber-500 flex gap-1"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></div>
                         <p class="text-slate-600 dark:text-slate-400 text-sm leading-relaxed italic">
                             "Absen swafoto di depan tablet mempermudah pengawasan koki dan helper di dapur. Jam masuk shift terverifikasi dengan akurat, meminimalisir manipulasi absensi sama sekali."
@@ -987,7 +1027,7 @@
             <!-- Kontak & Footer Section -->
             <footer id="kontak" class="relative z-10 py-16 px-6 border-t border-slate-200/50 dark:border-white/5 w-full bg-slate-50 dark:bg-slate-950/30 scroll-mt-24">
                 <div class="max-w-5xl mx-auto grid md:grid-cols-4 gap-8 mb-12">
-                    <div class="space-y-4 md:col-span-1">
+                    <div class="space-y-4 md:col-span-1 reveal-element" data-delay="0">
                         <!-- SVG Cloud MBG Logo Footer -->
                         <div class="flex items-center gap-2 select-none mb-3">
                             <svg class="h-8 w-8 text-indigo-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1006,7 +1046,7 @@
                             Mewujudkan tata kelola absensi nirlaba yang berkelas, modern, cepat, dan transparan melalui teknologi digital terdepan.
                         </p>
                     </div>
-                    <div class="space-y-3">
+                    <div class="space-y-3 reveal-element" data-delay="100">
                         <h4 class="font-extrabold text-xs text-slate-800 dark:text-white uppercase tracking-widest">Tautan Cepat</h4>
                         <ul class="text-[11px] text-slate-400 space-y-2 font-semibold">
                             <li><a href="#landingView" class="hover:text-indigo-500 transition">Beranda</a></li>
@@ -1015,7 +1055,7 @@
                             <li class="hidden"><a href="#pricing" class="hover:text-indigo-500 transition">Paket Harga</a></li>
                         </ul>
                     </div>
-                    <div class="space-y-3">
+                    <div class="space-y-3 reveal-element" data-delay="200">
                         <h4 class="font-extrabold text-xs text-slate-800 dark:text-white uppercase tracking-widest">Tim Pengembang</h4>
                         <p class="text-[11px] text-slate-400 leading-relaxed font-semibold">
                             <strong>AFKxEnjoyCreamID</strong><br>
@@ -1023,7 +1063,7 @@
                             Absensi & Penggajian SPPG
                         </p>
                     </div>
-                    <div class="space-y-3">
+                    <div class="space-y-3 reveal-element" data-delay="300">
                         <h4 class="font-extrabold text-xs text-slate-800 dark:text-white uppercase tracking-widest">Kontak Support</h4>
                         <p class="text-[11px] text-slate-400 space-y-1.5 font-semibold">
                             <i class="fas fa-envelope text-indigo-500 text-[10px] mr-1.5"></i> enjoycreamid@gmail.com<br>
@@ -1032,7 +1072,7 @@
                     </div>
                 </div>
                 
-                <div class="max-w-5xl mx-auto pt-8 border-t border-slate-200/50 dark:border-white/5 flex flex-col sm:flex-row justify-between items-center text-[10px] text-slate-400 gap-4">
+                <div class="max-w-5xl mx-auto pt-8 border-t border-slate-200/50 dark:border-white/5 flex flex-col sm:flex-row justify-between items-center text-[10px] text-slate-400 gap-4 reveal-element" data-delay="200">
                     <div>Sistem Manajemen Operasional © 2026 • @EnjoyCreamID. All Rights Reserved.</div>
                     <div class="flex gap-4 font-bold">
                         <a href="javascript:void(0)" onclick="openPrivacyModal()" class="hover:text-indigo-500">Kebijakan Privasi</a>
@@ -1344,14 +1384,13 @@
         </div> <!-- /landingView -->
 
         <!-- LOGIN VIEW -->
-        <div id="loginView" class="transition-view view-hidden login-container absolute inset-0 z-40 flex flex-col items-center p-4 md:p-6 overflow-y-auto py-8 hidden">
-            <div class="cosmic-bg"></div>
+        <div id="loginView" class="transition-view view-hidden login-container absolute inset-0 z-40 overflow-y-auto hidden">
+            <!-- Cosmic Background & Particles (fixed to viewport for premium parallax feel) -->
+            <div class="cosmic-bg fixed inset-0 pointer-events-none"></div>
+            <canvas id="particleCanvas" class="fixed inset-0 pointer-events-none"></canvas>
             
-            <!-- Animated Particles Canvas -->
-            <canvas id="particleCanvas" class="absolute inset-0 pointer-events-none"></canvas>
-            
-            <!-- Floating Bokeh Lights -->
-            <div class="absolute inset-0 pointer-events-none overflow-hidden">
+            <!-- Floating Bokeh Lights (fixed) -->
+            <div class="fixed inset-0 pointer-events-none overflow-hidden">
                 <div class="bokeh bokeh-1"></div>
                 <div class="bokeh bokeh-2"></div>
                 <div class="bokeh bokeh-3"></div>
@@ -1359,8 +1398,8 @@
                 <div class="bokeh bokeh-5"></div>
             </div>
 
-            <!-- Geometric Constellations -->
-            <div class="absolute inset-0 pointer-events-none constellations">
+            <!-- Geometric Constellations (fixed) -->
+            <div class="fixed inset-0 pointer-events-none constellations">
                 <svg class="constellation-svg" viewBox="0 0 1920 1080">
                     <g class="constellation" stroke="rgba(59, 130, 246, 0.3)" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="200" y1="150" x2="350" y2="280"/>
@@ -1390,8 +1429,10 @@
                 </svg>
             </div>
 
-            <!-- Login Card -->
-            <div class="w-full max-w-4xl rounded-3xl overflow-hidden relative animate-slide-up grid md:grid-cols-2 login-card my-auto" id="loginCard">
+            <!-- Inner Centering & Scrolling Content Wrapper -->
+            <div class="min-h-full w-full flex flex-col items-center justify-center p-4 md:p-6 py-10 md:py-16 relative z-10">
+                <!-- Login Card -->
+                <div class="w-full max-w-4xl rounded-3xl overflow-hidden relative animate-slide-up grid md:grid-cols-2 login-card my-auto" id="loginCard">
                 <!-- LEFT: Brand / Branding -->
                 <div class="hidden md:flex flex-col items-center justify-center gap-6 bg-gradient-to-b from-indigo-900 via-indigo-800 to-slate-900 text-white p-10 relative overflow-hidden login-branding-bg">
                     <!-- Gradient Overlay -->
@@ -1538,6 +1579,7 @@
                     </div>
                 </div>
             </div>
+        </div>
         </div>
 
         <!-- 2. ADMIN DASHBOARD -->

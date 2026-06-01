@@ -266,6 +266,9 @@ window.onload = () => {
     
     const savedRate = localStorage.getItem('mbg_overtime_rate');
     if(savedRate) appConfig.overtimeRate = parseInt(savedRate);
+    
+    // Initialize premium entrance scroll-reveal animations
+    initScrollReveal();
 };
 
 // Populate remembered username if exists
@@ -7184,4 +7187,37 @@ function renderPaginationNumbers(currentPage, totalPages) {
     }
     
     container.innerHTML = html;
+}
+
+// --- Premium Scroll Reveal Observer ---
+function initScrollReveal() {
+    if (!('IntersectionObserver' in window)) {
+        // Fallback for extremely legacy browsers
+        document.querySelectorAll('.reveal-element, .reveal-left, .reveal-right, .reveal-scale').forEach(el => {
+            el.classList.add('revealed');
+        });
+        return;
+    }
+
+    const revealCallback = (entries, observer) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const delay = parseInt(entry.target.getAttribute('data-delay') || '0');
+                setTimeout(() => {
+                    entry.target.classList.add('revealed');
+                }, delay);
+                observer.unobserve(entry.target);
+            }
+        });
+    };
+
+    const revealObserver = new IntersectionObserver(revealCallback, {
+        root: null, // viewport
+        rootMargin: '0px 0px -80px 0px', // trigger slightly before entering viewport
+        threshold: 0.05
+    });
+
+    document.querySelectorAll('.reveal-element, .reveal-left, .reveal-right, .reveal-scale').forEach(el => {
+        revealObserver.observe(el);
+    });
 }

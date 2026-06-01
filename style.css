@@ -1060,7 +1060,7 @@ html.dark .clay-modal {
     #loginView .bg-white { border-radius: 1rem; padding: 1rem; }
     .floating-bubble-1, .floating-bubble-2 { display: none; }
     .login-card {
-        margin: 1rem 0;
+        margin: 1.5rem auto 3rem auto !important; /* Force concrete margins to override my-auto and enable scrolling space at the bottom */
         max-width: 100%;
         border-radius: 20px !important;
     }
@@ -1310,7 +1310,7 @@ html.dark table tbody tr:hover { background-color: rgba(255, 255, 255, 0.015) !i
 
 /* Cosmic Background Layers */
 .cosmic-bg {
-    position: absolute;
+    position: fixed;
     inset: 0;
     width: 100%;
     height: 100%;
