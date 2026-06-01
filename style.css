@@ -7,15 +7,15 @@
 
 /* Claymorphism Theme Variables */
 :root {
-    /* Base Colors - Soft Pastels */
-    --clay-bg: #e8eef5;
-    --clay-bg-light: #f5f8fc;
-    --clay-bg-dark: #d4dce8;
+    /* Base Colors - Sleek Light Slate & White */
+    --clay-bg: #f8fafc;
+    --clay-bg-light: #ffffff;
+    --clay-bg-dark: #f1f5f9;
     
     /* Primary Colors */
-    --clay-primary: #6366f1;
-    --clay-primary-light: #818cf8;
-    --clay-primary-dark: #4f46e5;
+    --clay-primary: #4f46e5;
+    --clay-primary-light: #6366f1;
+    --clay-primary-dark: #3730a3;
     
     /* Accent Colors */
     --clay-accent-green: #10b981;
@@ -23,31 +23,31 @@
     --clay-accent-orange: #f59e0b;
     --clay-accent-blue: #3b82f6;
     
-    /* Shadow Colors */
-    --clay-shadow-light: rgba(255, 255, 255, 0.8);
-    --clay-shadow-dark: rgba(163, 177, 198, 0.6);
-    --clay-shadow-primary: rgba(99, 102, 241, 0.35);
+    /* Shadow Colors - Extremely Soft and Professional */
+    --clay-shadow-light: rgba(255, 255, 255, 0.95);
+    --clay-shadow-dark: rgba(15, 23, 42, 0.05);
+    --clay-shadow-primary: rgba(79, 70, 229, 0.12);
     
-    /* Border & Highlight */
-    --clay-border: rgba(255, 255, 255, 0.6);
-    --clay-highlight: rgba(255, 255, 255, 0.5);
+    /* Border & Highlight - Sleek and Thin */
+    --clay-border: rgba(15, 23, 42, 0.04);
+    --clay-highlight: rgba(255, 255, 255, 0.7);
     
-    /* Border Radius */
-    --clay-radius-sm: 12px;
-    --clay-radius-md: 20px;
-    --clay-radius-lg: 28px;
-    --clay-radius-xl: 36px;
+    /* Border Radius - Crisper & More Modern */
+    --clay-radius-sm: 8px;
+    --clay-radius-md: 14px;
+    --clay-radius-lg: 20px;
+    --clay-radius-xl: 28px;
     
     /* Spacing */
-    --clay-inset: 6px;
+    --clay-inset: 4px;
 }
 
 /* Dark Mode Claymorphism */
 html.dark {
-    /* Base Colors - Dark Theme */
-    --clay-bg: #0f172a;
-    --clay-bg-light: #1e293b;
-    --clay-bg-dark: #020617;
+    /* Base Colors - Dark Theme (Deep cosmic navy) */
+    --clay-bg: #090d16;
+    --clay-bg-light: #111827;
+    --clay-bg-dark: #05080e;
     
     /* Primary Colors - Dark Mode */
     --clay-primary: #818cf8;
@@ -60,14 +60,14 @@ html.dark {
     --clay-accent-orange: #fbbf24;
     --clay-accent-blue: #60a5fa;
     
-    /* Shadow Colors - Dark Mode */
-    --clay-shadow-light: rgba(255, 255, 255, 0.03);
-    --clay-shadow-dark: rgba(0, 0, 0, 0.5);
-    --clay-shadow-primary: rgba(129, 140, 248, 0.3);
+    /* Shadow Colors - Dark Mode (Deep contrast) */
+    --clay-shadow-light: rgba(255, 255, 255, 0.01);
+    --clay-shadow-dark: rgba(0, 0, 0, 0.45);
+    --clay-shadow-primary: rgba(129, 140, 248, 0.15);
     
-    /* Border & Highlight - Dark Mode */
-    --clay-border: rgba(255, 255, 255, 0.06);
-    --clay-highlight: rgba(255, 255, 255, 0.08);
+    /* Border & Highlight - Dark Mode (Thin and crisp) */
+    --clay-border: rgba(255, 255, 255, 0.05);
+    --clay-highlight: rgba(255, 255, 255, 0.03);
     
     /* Text Colors - Dark Mode */
     --clay-text-primary: #f1f5f9;
@@ -85,22 +85,22 @@ html.dark .text-slate-300 { color: var(--clay-text-muted) !important; }
 
 /* Dark Mode Specific Components */
 html.dark .clay-card {
-    background: linear-gradient(145deg, #1e293b, #0f172a);
+    background: linear-gradient(145deg, var(--clay-bg-light), var(--clay-bg));
 }
 
 html.dark .clay-inset {
-    background: #0f172a;
+    background: var(--clay-bg-dark);
     box-shadow: 
-        inset 4px 4px 8px rgba(0, 0, 0, 0.4),
-        inset -4px -4px 8px rgba(255, 255, 255, 0.03);
+        inset 4px 4px 8px rgba(0, 0, 0, 0.5),
+        inset -4px -4px 8px rgba(255, 255, 255, 0.02);
 }
 
 html.dark .clay-input {
-    background: #0f172a;
-    color: #f1f5f9;
+    background: var(--clay-bg-dark);
+    color: var(--clay-text-primary);
     box-shadow: 
-        inset 4px 4px 8px rgba(0, 0, 0, 0.4),
-        inset -4px -4px 8px rgba(255, 255, 255, 0.03);
+        inset 4px 4px 8px rgba(0, 0, 0, 0.5),
+        inset -4px -4px 8px rgba(255, 255, 255, 0.02);
 }
 
 html.dark .clay-input::placeholder {
@@ -108,26 +108,26 @@ html.dark .clay-input::placeholder {
 }
 
 html.dark .clay-sidebar {
-    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    background: linear-gradient(180deg, var(--clay-bg-light) 0%, var(--clay-bg) 100%);
 }
 
 html.dark .clay-nav-item {
-    color: #64748b;
+    color: var(--clay-text-secondary);
 }
 
 html.dark .clay-nav-item:hover {
-    background: linear-gradient(145deg, #1e293b, #0f172a);
+    background: linear-gradient(145deg, var(--clay-bg-light), var(--clay-bg));
     color: var(--clay-primary);
 }
 
 html.dark .clay-nav-item.active {
-    background: linear-gradient(145deg, #818cf8, #6366f1);
+    background: linear-gradient(145deg, var(--clay-primary-light), var(--clay-primary));
     color: white;
 }
 
 html.dark .clay-btn {
-    background: linear-gradient(145deg, #1e293b, #0f172a);
-    color: #94a3b8;
+    background: linear-gradient(145deg, var(--clay-bg-light), var(--clay-bg));
+    color: var(--clay-text-secondary);
 }
 
 html.dark .clay-btn:hover {
@@ -142,19 +142,18 @@ html.dark .clay-btn:hover {
 #loginView {
     background: radial-gradient(ellipse at 50% 30%, #1a3a52 0%, #0a1428 40%, #000000 100%);
     position: relative;
-    overflow: hidden;
+    overflow-y: auto;
     min-height: 100vh;
     width: 100%;
 }
 
 /* Login Card */
 .login-card {
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(245, 248, 252, 0.9));
+    background: transparent;
     box-shadow: 
-        20px 20px 40px rgba(0, 0, 0, 0.3),
-        -20px -20px 40px rgba(255, 255, 255, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+        0 20px 40px rgba(0, 0, 0, 0.2),
+        0 0 50px rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.03);
     backdrop-filter: blur(10px);
 }
 
@@ -218,12 +217,12 @@ html.dark #loginView {
 }
 
 html.dark .login-card {
-    background: linear-gradient(145deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.9));
+    background: transparent;
     box-shadow: 
         20px 20px 40px rgba(0, 0, 0, 0.5),
         -20px -20px 40px rgba(255, 255, 255, 0.03),
         inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.06);
     backdrop-filter: blur(10px);
 }
 
@@ -426,6 +425,9 @@ body {
     -webkit-tap-highlight-color: transparent;
     font-family: 'Plus Jakarta Sans', sans-serif;
     background: var(--clay-bg) !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
 }
 
 /* ============================================
@@ -437,78 +439,78 @@ body {
     background: linear-gradient(145deg, var(--clay-bg-light), var(--clay-bg));
     border-radius: var(--clay-radius-lg);
     box-shadow: 
-        8px 8px 16px var(--clay-shadow-dark),
-        -8px -8px 16px var(--clay-shadow-light),
+        4px 4px 10px var(--clay-shadow-dark),
+        -4px -4px 10px var(--clay-shadow-light),
         inset 0 1px 0 var(--clay-highlight);
     border: 1px solid var(--clay-border);
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .clay-card:hover {
-    transform: translateY(-4px);
+    transform: translateY(-2px);
     box-shadow: 
-        12px 12px 24px var(--clay-shadow-dark),
-        -12px -12px 24px var(--clay-shadow-light),
+        6px 10px 20px var(--clay-shadow-dark),
+        -6px -6px 15px var(--clay-shadow-light),
         inset 0 1px 0 var(--clay-highlight);
 }
 
-/* Pressed/Inset Claymorphism */
+/* Pressed/Inset Claymorphism - Highly Cleaned */
 .clay-inset {
-    background: var(--clay-bg);
+    background: var(--clay-bg-dark);
     border-radius: var(--clay-radius-md);
     box-shadow: 
-        inset 6px 6px 12px var(--clay-shadow-dark),
-        inset -6px -6px 12px var(--clay-shadow-light);
+        inset 2px 2px 5px var(--clay-shadow-dark),
+        inset -2px -2px 5px var(--clay-shadow-light);
     border: 1px solid var(--clay-border);
 }
 
-/* Button - 3D Soft UI */
+/* Button - Sleek Soft 3D UI */
 .clay-btn {
     background: linear-gradient(145deg, var(--clay-bg-light), var(--clay-bg));
     border-radius: var(--clay-radius-md);
     box-shadow: 
-        6px 6px 12px var(--clay-shadow-dark),
-        -6px -6px 12px var(--clay-shadow-light),
+        3px 3px 8px var(--clay-shadow-dark),
+        -3px -3px 8px var(--clay-shadow-light),
         inset 0 1px 0 var(--clay-highlight);
     border: 1px solid var(--clay-border);
     color: #475569;
     font-weight: 600;
-    transition: all 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     cursor: pointer;
 }
 
 .clay-btn:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1.5px);
     box-shadow: 
-        8px 8px 16px var(--clay-shadow-dark),
-        -8px -8px 16px var(--clay-shadow-light),
+        4px 6px 12px var(--clay-shadow-dark),
+        -4px -4px 10px var(--clay-shadow-light),
         inset 0 1px 0 var(--clay-highlight);
 }
 
 .clay-btn:active {
-    transform: translateY(1px);
+    transform: translateY(0.5px);
     box-shadow: 
-        inset 4px 4px 8px var(--clay-shadow-dark),
-        inset -4px -4px 8px var(--clay-shadow-light);
+        inset 2px 2px 4px var(--clay-shadow-dark),
+        inset -2px -2px 4px var(--clay-shadow-light);
 }
 
-/* Primary Button */
+/* Primary Button - Sleek Premium Glow */
 .clay-btn-primary {
     background: linear-gradient(145deg, var(--clay-primary-light), var(--clay-primary));
     color: white;
     box-shadow: 
-        6px 6px 12px var(--clay-shadow-primary),
-        -4px -4px 10px rgba(255, 255, 255, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+        3px 3px 8px var(--clay-shadow-primary),
+        -2px -2px 6px rgba(255, 255, 255, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .clay-btn-primary:hover {
     background: linear-gradient(145deg, var(--clay-primary), var(--clay-primary-dark));
     box-shadow: 
-        8px 8px 16px var(--clay-shadow-primary),
-        -6px -6px 12px rgba(255, 255, 255, 0.4),
-        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+        4px 6px 12px var(--clay-shadow-primary),
+        -3px -3px 8px rgba(255, 255, 255, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 /* Success Button */
@@ -516,10 +518,10 @@ body {
     background: linear-gradient(145deg, #34d399, #10b981);
     color: white;
     box-shadow: 
-        6px 6px 12px rgba(16, 185, 129, 0.35),
-        -4px -4px 10px rgba(255, 255, 255, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+        3px 3px 8px rgba(16, 185, 129, 0.15),
+        -2px -2px 6px rgba(255, 255, 255, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Danger Button */
@@ -527,33 +529,33 @@ body {
     background: linear-gradient(145deg, #f87171, #ef4444);
     color: white;
     box-shadow: 
-        6px 6px 12px rgba(239, 68, 68, 0.35),
-        -4px -4px 10px rgba(255, 255, 255, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+        3px 3px 8px rgba(239, 68, 68, 0.15),
+        -2px -2px 6px rgba(255, 255, 255, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Input Field - 3D Inset */
+/* Input Field - Elegant Soft Bevel */
 .clay-input {
-    background: var(--clay-bg);
+    background: var(--clay-bg-dark);
     border-radius: var(--clay-radius-md);
     box-shadow: 
-        inset 4px 4px 8px var(--clay-shadow-dark),
-        inset -4px -4px 8px var(--clay-shadow-light);
+        inset 2px 2px 4px var(--clay-shadow-dark),
+        inset -2px -2px 4px var(--clay-shadow-light);
     border: 1px solid var(--clay-border);
-    padding: 14px 18px;
-    font-size: 0.9rem;
-    color: #334155;
+    padding: 12px 16px;
+    font-size: 0.875rem;
+    color: #1e293b;
     font-weight: 500;
     outline: none;
-    transition: all 0.3s ease;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .clay-input:focus {
     background: var(--clay-bg-light);
     box-shadow: 
-        inset 5px 5px 10px var(--clay-shadow-dark),
-        inset -5px -5px 10px var(--clay-shadow-light),
+        inset 2px 2px 4px var(--clay-shadow-dark),
+        inset -2px -2px 4px var(--clay-shadow-light),
         0 0 0 3px var(--clay-shadow-primary);
     border-color: var(--clay-primary);
 }
@@ -562,96 +564,105 @@ body {
     color: #94a3b8;
 }
 
-/* Badge / Tag */
+/* Badge / Tag - Translucent Glassy */
 .clay-badge {
-    background: linear-gradient(145deg, var(--clay-bg-light), var(--clay-bg));
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.8), rgba(245, 248, 252, 0.6));
     border-radius: 50px;
-    padding: 6px 16px;
+    padding: 4px 12px;
     font-size: 0.75rem;
     font-weight: 700;
     box-shadow: 
-        3px 3px 6px var(--clay-shadow-dark),
-        -3px -3px 6px var(--clay-shadow-light);
+        1px 2px 4px var(--clay-shadow-dark),
+        -1px -1px 3px var(--clay-shadow-light);
     border: 1px solid var(--clay-border);
 }
 
-/* Modal - Floating 3D */
+/* Modal - Glassmorphism Floating Panel */
 .clay-modal {
-    background: linear-gradient(160deg, var(--clay-bg-light) 0%, var(--clay-bg) 100%);
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.8) 0%, rgba(245, 248, 252, 0.65) 100%);
+    backdrop-filter: blur(20px) saturate(180%);
     border-radius: var(--clay-radius-xl);
     box-shadow: 
-        20px 20px 40px var(--clay-shadow-dark),
-        -20px -20px 40px var(--clay-shadow-light),
-        inset 0 1px 0 var(--clay-highlight);
-    border: 1px solid var(--clay-border);
+        0 20px 40px -10px rgba(15, 23, 42, 0.12),
+        0 1px 0 rgba(255, 255, 255, 0.6) inset;
+    border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
-/* Sidebar */
+html.dark .clay-modal {
+    background: linear-gradient(160deg, rgba(17, 24, 39, 0.75) 0%, rgba(5, 8, 14, 0.65) 100%);
+    backdrop-filter: blur(20px) saturate(180%);
+    border-radius: var(--clay-radius-xl);
+    box-shadow: 
+        0 25px 50px -12px rgba(0, 0, 0, 0.6),
+        0 1px 0 rgba(255, 255, 255, 0.05) inset;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* Sidebar - Modern Glassy */
 .clay-sidebar {
     background: linear-gradient(180deg, var(--clay-bg-light) 0%, var(--clay-bg) 100%);
     border-radius: 0 var(--clay-radius-lg) var(--clay-radius-lg) 0;
     box-shadow: 
-        8px 0 24px var(--clay-shadow-dark);
+        4px 0 20px rgba(15, 23, 42, 0.02);
     border-right: 1px solid var(--clay-border);
 }
 
-/* Nav Item */
+/* Nav Item - Clean and Responsive */
 .clay-nav-item {
     background: transparent;
     border-radius: var(--clay-radius-md);
-    padding: 14px 20px;
+    padding: 12px 18px;
     color: #64748b;
     font-weight: 600;
-    transition: all 0.3s ease;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .clay-nav-item:hover {
     background: linear-gradient(145deg, var(--clay-bg-light), var(--clay-bg));
     color: var(--clay-primary);
     box-shadow: 
-        4px 4px 8px var(--clay-shadow-dark),
-        -4px -4px 8px var(--clay-shadow-light);
+        2px 2px 6px var(--clay-shadow-dark),
+        -2px -2px 6px var(--clay-shadow-light);
 }
 
 .clay-nav-item.active {
     background: linear-gradient(145deg, var(--clay-primary-light), var(--clay-primary));
     color: white;
     box-shadow: 
-        4px 4px 10px var(--clay-shadow-primary),
-        -2px -2px 6px rgba(255, 255, 255, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        2px 4px 8px var(--clay-shadow-primary),
+        -1px -1px 4px rgba(255, 255, 255, 0.2) inset;
 }
 
-/* Stats Card */
+/* Stats Card - Soft and Floating */
 .clay-stat-card {
     background: linear-gradient(145deg, var(--clay-bg-light), var(--clay-bg));
     border-radius: var(--clay-radius-lg);
-    padding: 24px;
+    padding: 20px;
     box-shadow: 
-        8px 8px 16px var(--clay-shadow-dark),
-        -8px -8px 16px var(--clay-shadow-light),
+        4px 4px 10px var(--clay-shadow-dark),
+        -4px -4px 10px var(--clay-shadow-light),
         inset 0 1px 0 var(--clay-highlight);
     border: 1px solid var(--clay-border);
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .clay-stat-card:hover {
-    transform: translateY(-6px) scale(1.02);
+    transform: translateY(-3px) scale(1.01);
     box-shadow: 
-        12px 12px 24px var(--clay-shadow-dark),
-        -12px -12px 24px var(--clay-shadow-light),
+        6px 8px 16px var(--clay-shadow-dark),
+        -6px -6px 16px var(--clay-shadow-light),
         inset 0 1px 0 var(--clay-highlight);
 }
 
 /* Icon Container */
 .clay-icon-box {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
     border-radius: var(--clay-radius-md);
     background: linear-gradient(145deg, var(--clay-bg-light), var(--clay-bg));
     box-shadow: 
-        4px 4px 8px var(--clay-shadow-dark),
-        -4px -4px 8px var(--clay-shadow-light);
+        2px 2px 6px var(--clay-shadow-dark),
+        -2px -2px 6px var(--clay-shadow-light);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -660,42 +671,42 @@ body {
 
 /* Floating Action Button */
 .clay-fab {
-    width: 60px;
-    height: 60px;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
     background: linear-gradient(145deg, var(--clay-primary-light), var(--clay-primary));
     box-shadow: 
-        8px 8px 16px var(--clay-shadow-primary),
-        -6px -6px 12px rgba(255, 255, 255, 0.3),
-        inset 0 2px 0 rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+        4px 6px 12px var(--clay-shadow-primary),
+        -3px -3px 8px rgba(255, 255, 255, 0.25),
+        inset 0 2px 0 rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
-    font-size: 1.25rem;
+    font-size: 1.15rem;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.25s ease;
 }
 
 .clay-fab:hover {
-    transform: scale(1.1) translateY(-4px);
+    transform: scale(1.05) translateY(-2px);
     box-shadow: 
-        12px 12px 24px var(--clay-shadow-primary),
-        -8px -8px 16px rgba(255, 255, 255, 0.4),
-        inset 0 2px 0 rgba(255, 255, 255, 0.25);
+        6px 8px 16px var(--clay-shadow-primary),
+        -4px -4px 10px rgba(255, 255, 255, 0.3),
+        inset 0 2px 0 rgba(255, 255, 255, 0.2);
 }
 
 /* Checkbox - Custom Clay Style */
 .clay-checkbox {
     appearance: none;
-    width: 24px;
-    height: 24px;
-    border-radius: 8px;
-    background: var(--clay-bg);
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    background: var(--clay-bg-dark);
     box-shadow: 
-        inset 3px 3px 6px var(--clay-shadow-dark),
-        inset -3px -3px 6px var(--clay-shadow-light);
+        inset 2px 2px 4px var(--clay-shadow-dark),
+        inset -2px -2px 4px var(--clay-shadow-light);
     border: 1px solid var(--clay-border);
     cursor: pointer;
     transition: all 0.2s ease;
@@ -1048,6 +1059,132 @@ body {
 @media (max-width: 768px) {
     #loginView .bg-white { border-radius: 1rem; padding: 1rem; }
     .floating-bubble-1, .floating-bubble-2 { display: none; }
+    .login-card {
+        margin: 1rem 0;
+        max-width: 100%;
+        border-radius: 20px !important;
+    }
+    .login-form-bg {
+        padding: 1.5rem !important;
+    }
+}
+
+/* Compact fit on small screen heights (under 800px / Laptop 1366x768) */
+@media (max-height: 800px) {
+    .login-card {
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+    .login-branding-bg {
+        padding: 1.25rem !important;
+        gap: 0.85rem !important;
+    }
+    .login-branding-bg h2 {
+        font-size: 1.5rem !important;
+        line-height: 1.2 !important;
+        margin-bottom: 0.5rem !important;
+    }
+    .login-branding-bg .eyebrow-text {
+        margin-bottom: 0.25rem !important;
+    }
+    .login-branding-bg .body-text {
+        font-size: 0.8rem !important;
+    }
+    .login-form-bg {
+        padding: 1.25rem !important;
+    }
+    .login-form-bg form {
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.25rem !important;
+    }
+    .login-form-bg form.space-y-5 > :not([hidden]) ~ :not([hidden]) {
+        margin-top: 0.6rem !important;
+    }
+    .login-form-bg form > div {
+        margin-bottom: 0.4rem !important;
+    }
+    .login-form-bg .mb-4 {
+        margin-bottom: 0.4rem !important;
+    }
+    
+    /* Make inputs more compact in low-height */
+    .login-form-bg .clay-input {
+        padding-top: 0.65rem !important;
+        padding-bottom: 0.65rem !important;
+    }
+    
+    .login-form-bg button[type="submit"],
+    .login-form-bg button[onclick^="startAbsenMandiri"] {
+        padding-top: 0.65rem !important;
+        padding-bottom: 0.65rem !important;
+        margin-top: 0.25rem !important;
+    }
+    
+    /* Mini cards compact */
+    .feature-mini-card {
+        padding: 0.65rem !important;
+        gap: 0.65rem !important;
+    }
+    .feature-card-icon {
+        width: 2rem !important;
+        height: 2rem !important;
+        min-width: 2rem !important;
+    }
+    .feature-card-content p {
+        margin-top: 0.1rem !important;
+        font-size: 0.65rem !important;
+    }
+    .feature-card-content h3 {
+        font-size: 0.75rem !important;
+    }
+    
+    /* Spacings around header of login form */
+    .login-form-bg .mb-8 {
+        margin-bottom: 0.85rem !important;
+    }
+    .login-form-bg .mb-6 {
+        margin-bottom: 0.6rem !important;
+    }
+    .login-form-bg h1 {
+        font-size: 1.5rem !important;
+    }
+    .login-form-bg p.text-sm {
+        margin-top: 0.15rem !important;
+        font-size: 0.75rem !important;
+    }
+    .login-form-bg .mt-8 {
+        margin-top: 0.75rem !important;
+    }
+    .login-form-bg .mt-6 {
+        margin-top: 0.6rem !important;
+    }
+    .login-form-bg .mt-8.pt-6 {
+        margin-top: 0.6rem !important;
+        padding-top: 0.4rem !important;
+    }
+}
+
+/* Perfect scale and centering for laptop viewports on desktop/tablet */
+@media (min-width: 768px) and (max-height: 850px) {
+    .login-card {
+        zoom: 0.82 !important; /* Perfect standard layout shrinking across modern browsers */
+        margin: auto !important;
+    }
+    
+    /* Fallback for browsers that do not support zoom (using scale, keeping layout centered) */
+    @supports not (zoom: 0.82) {
+        .login-card {
+            transform: scale(0.82) !important;
+            transform-origin: center center !important;
+        }
+    }
+    
+    #loginView {
+        justify-content: center !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+        overflow-y: auto !important;
+    }
 }
 
 /* Nav Item Active State */
@@ -1065,24 +1202,24 @@ body {
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-/* Dark Mode */
-html.dark body { background-color: #0f172a; color: #e2e8f0; }
-html.dark #adminLayout { background-color: #0f172a; }
-html.dark #sidebar { background-color: #1e293b; border-color: #334155; }
-html.dark #sidebar .nav-item { color: #94a3b8; }
-html.dark #sidebar .nav-item:hover, html.dark #sidebar .nav-item.active { background-color: #1e40af20; color: #60a5fa; }
-html.dark header { background-color: rgba(30,41,59,0.9); border-color: #334155; }
-html.dark header .font-bold { color: #e2e8f0; }
-html.dark .bg-white { background-color: #1e293b !important; }
-html.dark .bg-slate-50, html.dark .bg-slate-100 { background-color: #334155 !important; }
-html.dark .text-slate-800, html.dark .text-slate-700 { color: #e2e8f0 !important; }
-html.dark .text-slate-600 { color: #cbd5e1 !important; }
-html.dark .text-slate-500 { color: #94a3b8 !important; }
-html.dark .text-slate-400 { color: #64748b !important; }
-html.dark .border-slate-100, html.dark .border-slate-200 { border-color: #334155 !important; }
-html.dark .border-slate-50 { border-color: #1e293b !important; }
-html.dark .divide-slate-50 > :not([hidden]) ~ :not([hidden]) { border-color: #334155; }
-html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: #334155; }
+/* Dark Mode Refined */
+html.dark body { background-color: var(--clay-bg) !important; color: var(--clay-text-primary); }
+html.dark #adminLayout { background-color: var(--clay-bg) !important; }
+html.dark #sidebar { background: linear-gradient(180deg, var(--clay-bg-light) 0%, var(--clay-bg) 100%) !important; border-color: var(--clay-border) !important; }
+html.dark #sidebar .nav-item { color: var(--clay-text-secondary); }
+html.dark #sidebar .nav-item:hover, html.dark #sidebar .nav-item.active { background-color: rgba(99, 102, 241, 0.1); color: var(--clay-primary); }
+html.dark header { background: linear-gradient(145deg, rgba(17, 24, 39, 0.75), rgba(9, 13, 22, 0.65)) !important; backdrop-filter: blur(16px); border-color: var(--clay-border) !important; }
+html.dark header .font-bold { color: var(--clay-text-primary); }
+html.dark .bg-white { background-color: var(--clay-bg-light) !important; }
+html.dark .bg-slate-50, html.dark .bg-slate-100 { background-color: var(--clay-bg-dark) !important; }
+html.dark .text-slate-800, html.dark .text-slate-700 { color: var(--clay-text-primary) !important; }
+html.dark .text-slate-600 { color: var(--clay-text-secondary) !important; }
+html.dark .text-slate-500 { color: var(--clay-text-secondary) !important; }
+html.dark .text-slate-400 { color: var(--clay-text-muted) !important; }
+html.dark .border-slate-100, html.dark .border-slate-200 { border-color: var(--clay-border) !important; }
+html.dark .border-slate-50 { border-color: var(--clay-border) !important; }
+html.dark .divide-slate-50 > :not([hidden]) ~ :not([hidden]) { border-color: var(--clay-border); }
+html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: var(--clay-border); }
 
 /* Remove/adapt borders in dark mode for cleaner look */
 html.dark [class*="border-slate-"]:not(.clay-card):not(.clay-inset) {
@@ -1118,27 +1255,27 @@ html.dark .border-l {
     border-left-color: rgba(255, 255, 255, 0.08) !important;
 }
 
-/* Table borders in dark mode */
+/* Table styling in dark mode */
 html.dark table tbody tr {
-    border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+    border-bottom-color: rgba(255, 255, 255, 0.03) !important;
 }
 
 html.dark table thead th {
-    border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+    border-bottom-color: rgba(255, 255, 255, 0.06) !important;
 }
-html.dark .bg-blue-50 { background-color: #1e3a5f !important; }
-html.dark .bg-red-50, html.dark [class*="bg-red-50"] { background-color: #3b1a1a !important; }
-html.dark .bg-amber-50, html.dark [class*="bg-amber-50"] { background-color: #3b2d0a !important; }
-html.dark .bg-emerald-50, html.dark [class*="bg-emerald-50"] { background-color: #0a3b2d !important; }
-html.dark .bg-indigo-50 { background-color: #1e1b4b !important; }
-html.dark .bg-violet-50 { background-color: #2e1065 !important; }
-html.dark .shadow-sm { box-shadow: 0 1px 2px rgba(0,0,0,0.3) !important; }
-html.dark input, html.dark textarea, html.dark select { background-color: #334155 !important; color: #e2e8f0 !important; border-color: #475569 !important; }
-html.dark .input-field { background-color: #334155; color: #e2e8f0; border-color: #475569; }
-html.dark .input-field:focus { background-color: #1e293b; border-color: #3b82f6; }
-html.dark table thead tr { background-color: #334155 !important; }
-html.dark table tbody tr { background-color: #1e293b !important; }
-html.dark table tbody tr:hover { background-color: #334155 !important; }
+html.dark .bg-blue-50 { background-color: rgba(99, 102, 241, 0.1) !important; color: #818cf8 !important; }
+html.dark .bg-red-50, html.dark [class*="bg-red-50"] { background-color: rgba(239, 68, 68, 0.1) !important; color: #f87171 !important; }
+html.dark .bg-amber-50, html.dark [class*="bg-amber-50"] { background-color: rgba(245, 158, 11, 0.1) !important; color: #fbbf24 !important; }
+html.dark .bg-emerald-50, html.dark [class*="bg-emerald-50"] { background-color: rgba(16, 185, 129, 0.1) !important; color: #34d399 !important; }
+html.dark .bg-indigo-50 { background-color: rgba(79, 70, 229, 0.1) !important; color: #a5b4fc !important; }
+html.dark .bg-violet-50 { background-color: rgba(139, 92, 246, 0.1) !important; color: #c084fc !important; }
+html.dark .shadow-sm { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.2) !important; }
+html.dark input, html.dark textarea, html.dark select { background-color: var(--clay-bg-dark) !important; color: var(--clay-text-primary) !important; border-color: rgba(255, 255, 255, 0.08) !important; }
+html.dark .input-field { background-color: var(--clay-bg-dark); color: var(--clay-text-primary); border-color: rgba(255, 255, 255, 0.08); }
+html.dark .input-field:focus { background-color: var(--clay-bg-light); border-color: var(--clay-primary); }
+html.dark table thead tr { background-color: var(--clay-bg-dark) !important; }
+html.dark table tbody tr { background-color: var(--clay-bg-light) !important; }
+html.dark table tbody tr:hover { background-color: rgba(255, 255, 255, 0.015) !important; }
 
 /* Print Styles */
 @media print {
@@ -1168,7 +1305,7 @@ html.dark table tbody tr:hover { background-color: #334155 !important; }
 .login-container {
     background: radial-gradient(ellipse at 50% 30%, #1a3a52 0%, #0a1428 40%, #000000 100%);
     position: relative;
-    overflow: hidden;
+    overflow-y: auto;
 }
 
 /* Cosmic Background Layers */
@@ -1305,25 +1442,25 @@ html.dark table tbody tr:hover { background-color: #334155 !important; }
 /* Login Card Enhancements */
 .login-card {
     box-shadow: 
-        0 0 60px rgba(59, 130, 246, 0.3),
-        0 0 120px rgba(59, 130, 246, 0.15),
-        0 25px 50px rgba(0, 0, 0, 0.5);
-    border: 1px solid rgba(59, 130, 246, 0.2);
-    animation: cardGlow 3s ease-in-out infinite;
+        0 0 50px rgba(99, 102, 241, 0.25),
+        0 0 100px rgba(99, 102, 241, 0.12),
+        0 25px 50px rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(99, 102, 241, 0.03) !important;
+    animation: cardGlow 4s ease-in-out infinite;
 }
 
 @keyframes cardGlow {
     0%, 100% { 
         box-shadow: 
-            0 0 60px rgba(59, 130, 246, 0.3),
-            0 0 120px rgba(59, 130, 246, 0.15),
-            0 25px 50px rgba(0, 0, 0, 0.5);
+            0 0 50px rgba(99, 102, 241, 0.25),
+            0 0 100px rgba(99, 102, 241, 0.12),
+            0 25px 50px rgba(0, 0, 0, 0.45);
     }
     50% { 
         box-shadow: 
-            0 0 80px rgba(59, 130, 246, 0.4),
-            0 0 140px rgba(59, 130, 246, 0.25),
-            0 25px 50px rgba(0, 0, 0, 0.6);
+            0 0 70px rgba(99, 102, 241, 0.35),
+            0 0 120px rgba(99, 102, 241, 0.2),
+            0 25px 50px rgba(0, 0, 0, 0.55);
     }
 }
 

@@ -6166,6 +6166,7 @@ let volAbsenType = null; // 'IN' or 'OUT'
 let volClockInterval = null;
 let volGpsWatchId = null;
 let volGuestMode = false; // true = akses dari tombol Absen Mandiri tanpa login
+let volSourceView = 'landing'; // Menyimpan asal pemanggilan ('landing' atau 'login')
 
 function haversineDistance(lat1, lon1, lat2, lon2) {
     const R = 6371000; // Earth radius in meters
@@ -6877,6 +6878,15 @@ function volCancelFlow() {
 // --- Fungsi untuk masuk mode Absen Mandiri dari halaman login (tanpa akun) ---
 async function startAbsenMandiri() {
     volGuestMode = true;
+
+    // Tentukan sumber pemanggilan (apakah dari loginView atau landingView)
+    const loginView = document.getElementById('loginView');
+    if (loginView && !loginView.classList.contains('hidden')) {
+        volSourceView = 'login';
+    } else {
+        volSourceView = 'landing';
+    }
+
     // Ambil data karyawan dari server dulu
     toggleLoader(true, 'Memuat data...');
     try {
@@ -6903,16 +6913,31 @@ async function startAbsenMandiri() {
     }
     toggleLoader(false);
 
-    // Sembunyikan login, tampilkan volunteer layout
-    document.getElementById('loginView').classList.add('hidden');
-    const landingView = document.getElementById('landingView');
-    if (landingView) landingView.classList.add('hidden');
-    initVolunteer();
+    // Animasi transisi smooth masuk ke volunteerLayout
+    const activeView = volSourceView === 'login' ? document.getElementById('loginView') : document.getElementById('landingView');
+    const volunteerLayout = document.getElementById('volunteerLayout');
+    
+    if (activeView && volunteerLayout) {
+        activeView.classList.add('view-hidden');
+        setTimeout(() => {
+            activeView.classList.add('hidden');
+            initVolunteer();
+            setTimeout(() => {
+                volunteerLayout.classList.remove('view-hidden');
+            }, 50);
+        }, 500);
+    } else {
+        // Fallback jika elemen tidak ditemukan
+        if (document.getElementById('loginView')) document.getElementById('loginView').classList.add('hidden');
+        if (document.getElementById('landingView')) document.getElementById('landingView').classList.add('hidden');
+        initVolunteer();
+        if (volunteerLayout) volunteerLayout.classList.remove('view-hidden');
+    }
 }
 
-// Tombol keluar dari volunteer (kembali ke login)
+// Tombol keluar dari volunteer (kembali ke login/landing)
 function volExitToLogin() {
-    // Kalau mode tamu, langsung balik ke login
+    // Kalau mode tamu, langsung balik ke asal
     if (volGuestMode) {
         volGuestMode = false;
         volScannedEmployee = null;
@@ -6922,12 +6947,25 @@ function volExitToLogin() {
         if (volClockInterval) { clearInterval(volClockInterval); volClockInterval = null; }
         if (volGpsWatchId) { navigator.geolocation.clearWatch(volGpsWatchId); volGpsWatchId = null; }
         volLocationLocked = false;
-        document.getElementById('volunteerLayout').classList.add('hidden');
-        const landingView = document.getElementById('landingView');
-        if (landingView) {
-            landingView.classList.remove('hidden', 'opacity-0', 'scale-98');
+
+        const volunteerLayout = document.getElementById('volunteerLayout');
+        const targetView = volSourceView === 'login' ? document.getElementById('loginView') : document.getElementById('landingView');
+
+        if (volunteerLayout && targetView) {
+            volunteerLayout.classList.add('view-hidden');
+            setTimeout(() => {
+                volunteerLayout.classList.add('hidden');
+                targetView.classList.remove('hidden');
+                setTimeout(() => {
+                    targetView.classList.remove('view-hidden');
+                }, 50);
+            }, 500);
         } else {
-            document.getElementById('loginView').classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+            // Fallback jika elemen tidak ditemukan
+            if (volunteerLayout) volunteerLayout.classList.add('hidden');
+            if (targetView) {
+                targetView.classList.remove('hidden', 'view-hidden');
+            }
         }
     } else {
         // Mode login biasa, panggil logout standar

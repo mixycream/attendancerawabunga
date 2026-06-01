@@ -68,6 +68,18 @@
             filter: drop-shadow(1px 0px 0px #fff) drop-shadow(-1px 0px 0px #fff) drop-shadow(0px 1px 0px #fff) drop-shadow(0px -1px 0px #fff) drop-shadow(1px 1px 0px #fff) drop-shadow(-1px -1px 0px #fff) drop-shadow(1px -1px 0px #fff) drop-shadow(-1px 1px 0px #fff);
             transition: filter 0.3s ease;
         }
+        
+        /* Premium View Transitions (Apple/Stripe Grade) */
+        .transition-view {
+            transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1), transform 600ms cubic-bezier(0.16, 1, 0.3, 1), filter 600ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+            will-change: opacity, transform, filter;
+        }
+        .view-hidden {
+            opacity: 0 !important;
+            transform: scale(0.96) translateY(12px) !important;
+            filter: blur(8px) !important;
+            pointer-events: none !important;
+        }
     </style>
 
     <div id="appPreloader" class="fixed inset-0 z-[400] flex flex-col items-center justify-center bg-[#090d16] transition-all duration-700 ease-out">
@@ -658,7 +670,7 @@
 
     <!-- APP CONTAINER -->
     <div id="app" class="flex-1 flex flex-col h-full relative">        <!-- ==================== LANDING PAGE (Google Antigravity Style - Rebranded to Cloud MBG) ==================== -->
-        <div id="landingView" class="absolute inset-0 z-40 flex flex-col w-full h-full overflow-y-auto bg-[#f8fafc] text-slate-800 dark:bg-[#090d16] dark:text-white scroll-smooth relative transition-all duration-500">
+        <div id="landingView" class="transition-view absolute inset-0 z-40 flex flex-col w-full h-full overflow-y-auto bg-[#f8fafc] text-slate-800 dark:bg-[#090d16] dark:text-white scroll-smooth relative">
             <!-- Hero Particles Canvas (Interactive 3D Sphere in Background) -->
             <canvas id="heroCanvasParticles" class="absolute top-0 left-0 w-full h-[650px] md:h-[750px] pointer-events-none z-0 opacity-40 dark:opacity-30"></canvas>
 
@@ -708,7 +720,7 @@
             </header>
 
             <!-- Hero Section -->
-            <section class="relative z-10 flex flex-col items-center justify-center text-center px-6 pt-24 pb-20 md:pt-32 md:pb-28 max-w-4xl mx-auto w-full">
+            <section class="relative z-10 flex flex-col items-center justify-center text-center px-6 pt-16 pb-12 md:pt-20 md:pb-16 max-w-4xl mx-auto w-full">
                 <!-- Branding Mini Capsule -->
                 <div class="inline-flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-4 py-1.5 text-xs text-indigo-600 dark:text-indigo-300 font-bold tracking-wider uppercase mb-8 select-none">
                     <i class="fas fa-cloud text-[10px]"></i> Cloud MBG
@@ -1267,27 +1279,29 @@
                 function showLoginScreen() {
                     const landing = document.getElementById('landingView');
                     const login = document.getElementById('loginView');
-                    landing.classList.add('opacity-0', 'scale-98');
+                    if (!landing || !login) return;
+                    landing.classList.add('view-hidden');
                     setTimeout(() => {
                         landing.classList.add('hidden');
                         login.classList.remove('hidden');
                         setTimeout(() => {
-                            login.classList.remove('opacity-0', 'pointer-events-none');
+                            login.classList.remove('view-hidden');
                         }, 50);
-                    }, 300);
+                    }, 500);
                 }
 
                 function showLandingView() {
                     const landing = document.getElementById('landingView');
                     const login = document.getElementById('loginView');
-                    login.classList.add('opacity-0', 'pointer-events-none');
+                    if (!landing || !login) return;
+                    login.classList.add('view-hidden');
                     setTimeout(() => {
                         login.classList.add('hidden');
                         landing.classList.remove('hidden');
                         setTimeout(() => {
-                            landing.classList.remove('opacity-0', 'scale-98');
+                            landing.classList.remove('view-hidden');
                         }, 50);
-                    }, 300);
+                    }, 500);
                 }
 
                 function openPrivacyModal() {
@@ -1330,7 +1344,7 @@
         </div> <!-- /landingView -->
 
         <!-- LOGIN VIEW -->
-        <div id="loginView" class="login-container relative min-h-screen flex items-center justify-center p-4 md:p-6 overflow-hidden hidden transition-all duration-500">
+        <div id="loginView" class="transition-view view-hidden login-container absolute inset-0 z-40 flex flex-col items-center p-4 md:p-6 overflow-y-auto py-8 hidden">
             <div class="cosmic-bg"></div>
             
             <!-- Animated Particles Canvas -->
@@ -1377,7 +1391,7 @@
             </div>
 
             <!-- Login Card -->
-            <div class="w-full max-w-4xl rounded-3xl overflow-hidden relative animate-slide-up grid md:grid-cols-2 login-card" id="loginCard">
+            <div class="w-full max-w-4xl rounded-3xl overflow-hidden relative animate-slide-up grid md:grid-cols-2 login-card my-auto" id="loginCard">
                 <!-- LEFT: Brand / Branding -->
                 <div class="hidden md:flex flex-col items-center justify-center gap-6 bg-gradient-to-b from-indigo-900 via-indigo-800 to-slate-900 text-white p-10 relative overflow-hidden login-branding-bg">
                     <!-- Gradient Overlay -->
@@ -2872,7 +2886,7 @@
         </div>
 
         <!-- 4. VOLUNTEER SELF-ATTENDANCE LAYOUT -->
-        <div id="volunteerLayout" class="hidden flex flex-col h-full clay-bg dark:bg-slate-900 text-slate-900 dark:text-white font-sans relative transition-colors duration-300">
+        <div id="volunteerLayout" class="transition-view view-hidden hidden flex flex-col h-full clay-bg dark:bg-slate-900 text-slate-900 dark:text-white font-sans relative transition-colors duration-300">
             <!-- Header Bar -->
             <div class="absolute top-0 left-0 w-full z-20 px-6 py-4 bg-gradient-to-b from-white/30 dark:from-black/80 to-transparent dark:to-transparent flex flex-col gap-2">
                 <div class="flex justify-between items-start">
