@@ -13,6 +13,9 @@ const DIVISION_ROLE_PRESETS = {
     'Admin Yayasan': 'foundation'
 };
 
+const ALLOWED_ROLES = ['employee', 'security', 'foundation', 'admin_warehouse', 'warehouse'];
+
+
 const ROLE_LABELS = {
     admin: 'Admin',
     employee: 'Relawan Biasa',
@@ -982,7 +985,7 @@ function renderViolationsTab() {
     // Exclude [Bebas] entries — those are admin-approved free attendance
     const allowedEmpIds = new Set(
         employees
-            .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+            .filter(e => ALLOWED_ROLES.includes(e.role || 'employee'))
             .map(e => String(e.id))
     );
     let violations = [];
@@ -1246,7 +1249,7 @@ function renderSalary(filteredLogsOverride) {
         : useLogs;
     
     let salaryData = employees
-        .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+        .filter(e => ALLOWED_ROLES.includes(e.role || 'employee'))
         .map(e => {
         const empLogs = periodLogs.filter(l => l.empId === e.id);
         const allLogsOfEmp = useLogs.filter(l => l.empId === e.id); // For details which might extend
@@ -1543,8 +1546,7 @@ function generateRekapFilename(ext, specificStart, specificEnd) {
 }
 
 function buildRekapWorkbook(tglMulai, tglSelesai) {
-    const allowedRoles = ['employee', 'security', 'foundation'];
-    const allowedEmployees = employees.filter(e => allowedRoles.includes(e.role || 'employee'));
+    const allowedEmployees = employees.filter(e => ALLOWED_ROLES.includes(e.role || 'employee'));
     const allowedEmpIds = new Set(allowedEmployees.map(e => String(e.id)));
 
     // Generate day list for the 14 columns
@@ -2179,8 +2181,7 @@ function validateEmployee(id) {
     const emp = employees.find(e => String(e.id).trim() == cleanId || e.name.trim().replace(/\s+/g, ' ').toLowerCase() == cleanId.toLowerCase());
     if(emp) {
         // Block other roles from self attendance
-        const allowedRoles = ['employee', 'security', 'foundation'];
-        if (!allowedRoles.includes(emp.role || 'employee')) {
+        if (!ALLOWED_ROLES.includes(emp.role || 'employee')) {
             showToast("Peran Anda tidak memerlukan pencatatan absensi.", "error");
             return;
         }
@@ -3468,7 +3469,7 @@ function renderExcludeDivCheckboxes() {
     if (!container) return;
     const divs = [...new Set(
         employees
-            .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+            .filter(e => ALLOWED_ROLES.includes(e.role || 'employee'))
             .map(e => e.division)
             .filter(Boolean)
     )].sort();
@@ -3562,7 +3563,7 @@ function renderPengumumanPreview() {
 
     const allowedEmpIds = new Set(
         employees
-            .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+            .filter(e => ALLOWED_ROLES.includes(e.role || 'employee'))
             .map(e => String(e.id))
     );
 
@@ -3653,7 +3654,7 @@ function renderPengumumanPreview() {
     if (showHadir) {
         const label = nextSection();
         const empHadirData = employees
-            .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+            .filter(e => ALLOWED_ROLES.includes(e.role || 'employee'))
             .map(e => {
             const empWorkDates = getWorkDatesForDiv(e.division);
             const hadirMap = getHadirMap(e.id, empWorkDates);
@@ -3699,7 +3700,7 @@ function renderPengumumanPreview() {
     if (showTidakHadir) {
         const label = nextSection();
         const empTidakData = employees
-            .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+            .filter(e => ALLOWED_ROLES.includes(e.role || 'employee'))
             .map(e => {
             const empWorkDates = getWorkDatesForDiv(e.division);
             const hadirMap = getHadirMap(e.id, empWorkDates);
@@ -4016,7 +4017,7 @@ function maSetMode(mode) {
 function maGetDivisions() {
     const divs = new Set();
     employees
-        .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+        .filter(e => ALLOWED_ROLES.includes(e.role || 'employee'))
         .forEach(e => { if (e.division) divs.add(e.division); });
     return [...divs].sort();
 }
@@ -4027,7 +4028,7 @@ function maRenderDivisionChips() {
     container.innerHTML = divs.map(d => {
         const isActive = maSelectedDivisions.has(d);
         const count = employees
-            .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+            .filter(e => ALLOWED_ROLES.includes(e.role || 'employee'))
             .filter(e => e.division === d).length;
         return `<button onclick="maToggleDivision('${d.replace(/'/g, "\\'")}')" class="px-3 py-2 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
             isActive ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'
@@ -4041,7 +4042,7 @@ function maToggleDivision(div) {
     // Rebuild selected employees from selected divisions
     maSelectedEmployees.clear();
     employees
-        .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+        .filter(e => ALLOWED_ROLES.includes(e.role || 'employee'))
         .forEach(e => { if (maSelectedDivisions.has(e.division)) maSelectedEmployees.add(e.id); });
     maRenderDivisionChips();
     maRenderExcludeList();
@@ -4061,7 +4062,7 @@ function maRenderExcludeList() {
     if (!container) return;
     const search = (document.getElementById('maExcludeSearch')?.value || '').toLowerCase();
     // Show employees that are in the current selection pool
-    const allowedPool = employees.filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'));
+    const allowedPool = employees.filter(e => ALLOWED_ROLES.includes(e.role || 'employee'));
     let pool;
     if (maSelectionMode === 'all') pool = allowedPool;
     else if (maSelectionMode === 'division') pool = allowedPool.filter(e => maSelectedDivisions.has(e.division));
@@ -4090,7 +4091,7 @@ function maToggleExclude(id, checked) {
 function maRenderEmployeeList(filter = '') {
     const container = document.getElementById('maEmployeeList');
     const filtered = employees
-        .filter(e => ['employee', 'security', 'foundation'].includes(e.role || 'employee'))
+        .filter(e => ALLOWED_ROLES.includes(e.role || 'employee'))
         .filter(e => e.name.toLowerCase().includes(filter.toLowerCase()));
     container.innerHTML = filtered.length === 0 ? '<div class="p-4 text-center text-xs text-slate-400">Tidak ada relawan ditemukan</div>' :
         filtered.map(e => `
