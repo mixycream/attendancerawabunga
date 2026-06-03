@@ -1674,7 +1674,7 @@
                     <!-- TAB 1: DASHBOARD -->
                     <div id="tab-dashboard" class="animate-fade-in space-y-6">
                         <!-- Stats Grid -->
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 md:gap-6">
                             <!-- Card Total Relawan (Updated: Clickable) -->
                             <div onclick="showAllEmployees()" class="cursor-pointer clay-stat-card relative overflow-hidden group">
                                 <div class="absolute -right-4 -top-4 w-24 h-24 bg-slate-100 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
@@ -1697,9 +1697,47 @@
                                         <div class="text-3xl font-extrabold" id="statPresent">0</div>
                                     </div>
                                     <div class="mt-4 flex items-center justify-between">
-                                        <div class="text-[10px] opacity-80" id="statWorking">... Sedang Bekerja</div>
+                                        <div class="text-[10px] opacity-80" id="statWorking">... Bekerja</div>
                                         <!-- Detail Button: Realtime -->
                                         <button onclick="showActiveVolunteers(); event.stopPropagation();" class="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg backdrop-blur-sm transition active:scale-95 border border-white/10 flex items-center gap-2">
+                                            <i class="fas fa-list-ul text-xs"></i> <span class="text-[10px] font-bold">Detail</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card Belum Hadir (New, Clickable) -->
+                            <div onclick="showBelumHadirVolunteers()" class="cursor-pointer bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 p-6 rounded-2xl shadow-lg shadow-slate-500/15 text-white relative overflow-hidden group hover:scale-[1.01] transition-transform active:scale-95 hover:shadow-slate-500/25 animate-clay-float">
+                                <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/20 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
+                                <div class="relative h-full flex flex-col justify-between">
+                                    <div>
+                                        <div class="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1 flex items-center gap-2">
+                                            Belum Hadir <i class="fas fa-chevron-right text-[8px] opacity-50"></i>
+                                        </div>
+                                        <div class="text-3xl font-extrabold" id="statBelumHadir">0</div>
+                                    </div>
+                                    <div class="mt-4 flex items-center justify-between">
+                                        <div class="text-[10px] opacity-80">Masih ditunggu</div>
+                                        <button onclick="showBelumHadirVolunteers(); event.stopPropagation();" class="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg backdrop-blur-sm transition active:scale-95 border border-white/10 flex items-center gap-2">
+                                            <i class="fas fa-list-ul text-xs"></i> <span class="text-[10px] font-bold">Detail</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card Tidak Hadir (New, Clickable) -->
+                            <div onclick="showAbsentVolunteers()" class="cursor-pointer bg-gradient-to-br from-rose-600 via-rose-700 to-pink-700 p-6 rounded-2xl shadow-lg shadow-rose-500/15 text-white relative overflow-hidden group hover:scale-[1.01] transition-transform active:scale-95 hover:shadow-rose-500/25 animate-clay-float">
+                                <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/20 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
+                                <div class="relative h-full flex flex-col justify-between">
+                                    <div>
+                                        <div class="text-[10px] font-bold text-rose-100 uppercase tracking-wider mb-1 flex items-center gap-2">
+                                            Tidak Hadir Hari Ini <i class="fas fa-chevron-right text-[8px] opacity-50"></i>
+                                        </div>
+                                        <div class="text-3xl font-extrabold" id="statAbsent">0</div>
+                                    </div>
+                                    <div class="mt-4 flex items-center justify-between">
+                                        <div class="text-[10px] opacity-80">Lewat batas toleransi</div>
+                                        <button onclick="showAbsentVolunteers(); event.stopPropagation();" class="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg backdrop-blur-sm transition active:scale-95 border border-white/10 flex items-center gap-2">
                                             <i class="fas fa-list-ul text-xs"></i> <span class="text-[10px] font-bold">Detail</span>
                                         </button>
                                     </div>
@@ -1730,22 +1768,43 @@
                                 </div>
                             </div>
                             
-                            <!-- Card Setting -->
-                             <div class="clay-card p-6 relative overflow-hidden group hover:border-blue-200 transition">
+                            <!-- Card Tarif Lembur (Setting - Refactored Premium) -->
+                            <div class="bg-gradient-to-br from-amber-500 via-orange-600 to-amber-600 p-6 rounded-2xl shadow-lg shadow-orange-500/15 text-white relative overflow-hidden group hover:scale-[1.01] transition-transform active:scale-95 hover:shadow-orange-500/25 animate-clay-float">
+                                <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/20 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
                                 <div class="relative h-full flex flex-col justify-between">
                                     <div>
-                                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-                                            <span>Tarif Lembur</span>
+                                        <div class="text-[10px] font-bold text-orange-100 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                            <i class="fas fa-coins text-xs"></i> Tarif Lembur
                                         </div>
-                                        <div class="flex items-center gap-2 mb-3">
-                                            <span class="text-xs font-bold text-slate-400">Rp</span>
-                                            <input type="number" id="configOvertimeRate" value="15000" onchange="saveConfig()" class="w-full bg-slate-50 border-none rounded-lg text-lg font-bold text-slate-800 focus:ring-2 focus:ring-blue-600 py-1 px-2 placeholder-slate-300">
-                                            <span class="text-[10px] text-slate-400">/Jam</span>
+                                        <div class="flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-white/50 transition">
+                                            <span class="text-xs font-extrabold text-orange-100">Rp</span>
+                                            <input type="number" id="configOvertimeRate" value="15000" onchange="saveConfig()" class="w-full bg-transparent border-none text-white text-lg font-extrabold focus:ring-0 p-0 placeholder-orange-200/50">
+                                            <span class="text-[10px] font-bold text-orange-100 uppercase tracking-wider">/Jam</span>
                                         </div>
                                     </div>
-                                    <button onclick="openConfigModal()" class="w-full py-2 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-700 transition flex items-center justify-center gap-2">
-                                        <i class="fas fa-clock"></i> Atur Jam Kerja
-                                    </button>
+                                    <div class="mt-4 flex items-center justify-between text-[10px] text-orange-100/80">
+                                        <span class="flex items-center gap-1"><i class="fas fa-sync-alt animate-spin text-[8px] opacity-75"></i> Auto Simpan</span>
+                                        <i class="fas fa-check-circle"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card Jam Kerja (Setting - Refactored Premium) -->
+                            <div onclick="openConfigModal()" class="cursor-pointer bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 p-6 rounded-2xl shadow-lg shadow-blue-500/15 text-white relative overflow-hidden group hover:scale-[1.01] transition-transform active:scale-95 hover:shadow-blue-500/25 animate-clay-float">
+                                <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/20 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
+                                <div class="relative h-full flex flex-col justify-between">
+                                    <div>
+                                        <div class="text-[10px] font-bold text-blue-100 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                                            <i class="fas fa-clock text-xs"></i> Jam Kerja Relawan
+                                        </div>
+                                        <div class="text-3xl font-extrabold" id="statShiftCount">... Shift</div>
+                                    </div>
+                                    <div class="mt-4 flex items-center justify-between">
+                                        <div class="text-[10px] text-blue-100/80">Konfigurasi Jam & Shift</div>
+                                        <button onclick="openConfigModal(); event.stopPropagation();" class="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg backdrop-blur-sm transition active:scale-95 border border-white/10 flex items-center gap-2">
+                                            <i class="fas fa-cog text-xs animate-spin-slow"></i> <span class="text-[10px] font-bold">Atur</span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

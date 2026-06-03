@@ -753,14 +753,54 @@ function refreshUI() {
         return myLogs.length > 0 && myLogs[0].type === 'IN';
     }).length;
 
+    // Hitung Tidak Hadir & Belum Hadir (Hanya relawan aktif yang tergolong ALLOWED_ROLES)
+    const activeEmployees = employees.filter(e => ALLOWED_ROLES.includes(e.role || 'employee'));
+    const presentEmpIds = new Set(todayLogs.filter(l => l.type === 'IN').map(l => String(l.empId)));
+    const expectedEmployees = activeEmployees.filter(e => {
+        if (typeof isDateExcludedForDiv === 'function' && isDateExcludedForDiv(today, e.division)) {
+            return false;
+        }
+        return true;
+    });
+
+    let absentCount = 0;
+    let belumHadirCount = 0;
+    const now = new Date();
+
+    expectedEmployees.forEach(e => {
+        if (presentEmpIds.has(String(e.id))) return; // Already present
+
+        const shift = appConfig.shifts?.[e.division];
+        if (!shift || typeof shift === 'string' || !shift.start) {
+            belumHadirCount++; // Default to Belum Hadir if shift not configured
+            return;
+        }
+
+        const [sh, sm] = shift.start.split(':').map(Number);
+        const shiftDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm);
+        const limitDate = new Date(shiftDate.getTime() + 60 * 60 * 1000); // 1 hour past shift start
+
+        if (now > limitDate) {
+            absentCount++;
+        } else {
+            belumHadirCount++;
+        }
+    });
+
     // Update Stats Cards
     document.getElementById('statEmp').innerText = employees.length;
     document.getElementById('statPresent').innerText = present;
     document.getElementById('statWorking').innerText = workingCount + " Sedang Bekerja";
+    document.getElementById('statAbsent').innerText = absentCount;
+    const statBelum = document.getElementById('statBelumHadir');
+    if (statBelum) statBelum.innerText = belumHadirCount;
     document.getElementById('statOvertime').innerText = overtimeCount;
     document.getElementById('statLate').innerText = lateCount; 
 
-    // Render Components
+    const shiftCount = Object.keys(appConfig.shifts || {}).length;
+    const shiftEl = document.getElementById('statShiftCount');
+    if (shiftEl) shiftEl.innerText = `${shiftCount} Divisi`; 
+
     renderTrendChart();
     renderDivisionGrid();
 
@@ -2857,6 +2897,8 @@ function checkClockInAllowed(empId, division) {
 function showAllEmployees() { openModalList('Total Relawan Terdaftar', 'all'); }
 function showActiveVolunteers() { openModalList('Relawan Sedang Bekerja', 'active'); }
 function showPresentVolunteers() { openModalList('Relawan Hadir Hari Ini', 'present'); }
+function showAbsentVolunteers() { openModalList('Relawan Tidak Hadir Hari Ini', 'absent'); }
+function showBelumHadirVolunteers() { openModalList('Relawan Belum Hadir', 'belum_hadir'); }
 function showOvertimeToday() { openModalList('Lembur Hari Ini', 'overtime'); }
 function showLateToday() { openModalList('Terlambat Hari Ini', 'late'); }
 function showDivisionDetails(division) { openModalList(`Divisi: ${division}`, 'division', division); }
@@ -2885,6 +2927,46 @@ function openModalList(title, mode, filterParam = null) {
                 const emp = employees.find(e => e.id === log.empId);
                 return emp ? { ...emp, inTime: log.time, status: 'present' } : null;
             }).filter(e => e);
+        } else if (mode === 'absent') {
+            document.getElementById('activeModalSubtitle').innerText = `Tidak Hadir ${today}`;
+            const activeEmployees = employees.filter(e => ALLOWED_ROLES.includes(e.role || 'employee'));
+            const presentEmpIds = new Set(logs.filter(l => l.date === today && l.type === 'IN').map(l => String(l.empId)));
+            const expectedEmployees = activeEmployees.filter(e => {
+                if (typeof isDateExcludedForDiv === 'function' && isDateExcludedForDiv(today, e.division)) {
+                    return false;
+                }
+                return true;
+            });
+            filtered = expectedEmployees.filter(e => {
+                if (presentEmpIds.has(String(e.id))) return false;
+                const shift = appConfig.shifts?.[e.division];
+                if (!shift || typeof shift === 'string' || !shift.start) return false;
+                
+                const [sh, sm] = shift.start.split(':').map(Number);
+                const shiftDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm);
+                const limitDate = new Date(shiftDate.getTime() + 60 * 60 * 1000);
+                return now > limitDate;
+            });
+        } else if (mode === 'belum_hadir') {
+            document.getElementById('activeModalSubtitle').innerText = `Belum Hadir ${today}`;
+            const activeEmployees = employees.filter(e => ALLOWED_ROLES.includes(e.role || 'employee'));
+            const presentEmpIds = new Set(logs.filter(l => l.date === today && l.type === 'IN').map(l => String(l.empId)));
+            const expectedEmployees = activeEmployees.filter(e => {
+                if (typeof isDateExcludedForDiv === 'function' && isDateExcludedForDiv(today, e.division)) {
+                    return false;
+                }
+                return true;
+            });
+            filtered = expectedEmployees.filter(e => {
+                if (presentEmpIds.has(String(e.id))) return false;
+                const shift = appConfig.shifts?.[e.division];
+                if (!shift || typeof shift === 'string' || !shift.start) return true; // Default to Belum Hadir
+                
+                const [sh, sm] = shift.start.split(':').map(Number);
+                const shiftDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm);
+                const limitDate = new Date(shiftDate.getTime() + 60 * 60 * 1000);
+                return now <= limitDate;
+            });
         } else if (mode === 'overtime') {
             document.getElementById('activeModalSubtitle').innerText = `Lembur ${today}`;
             const todayOvertimeLogs = logs.filter(l => l.date === today && l.type === 'OUT' && l.overtime > 0);
@@ -2918,6 +3000,12 @@ function openModalList(title, mode, filterParam = null) {
             } else if (mode === 'present') {
                 statusBadge = '<span class="bg-blue-100 text-blue-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Hadir</span>';
                 timeInfo = `<div class="text-[10px] text-slate-400">Masuk: <span class="font-bold text-slate-700">${w.inTime}</span></div>`;
+            } else if (mode === 'absent') {
+                statusBadge = '<span class="bg-rose-100 text-rose-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Tidak Hadir</span>';
+                timeInfo = `<div class="text-[10px] text-slate-400">Shift: <span class="font-bold text-slate-700">${getShiftTime(w.division)}</span></div>`;
+            } else if (mode === 'belum_hadir') {
+                statusBadge = '<span class="bg-slate-100 text-slate-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Belum Hadir</span>';
+                timeInfo = `<div class="text-[10px] text-slate-400">Shift: <span class="font-bold text-slate-700">${getShiftTime(w.division)}</span></div>`;
             } else if (mode === 'overtime') {
                 statusBadge = '<span class="bg-amber-100 text-amber-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Lembur</span>';
                 timeInfo = `<div class="text-sm font-bold text-amber-600">${w.extraInfo}</div>`;
@@ -3933,22 +4021,29 @@ const INDONESIA_HOLIDAYS = {
     // === 2026 ===
     '2026-01-01': 'Tahun Baru Masehi',
     '2026-01-16': 'Isra Miraj Nabi Muhammad SAW',
-    '2026-02-17': 'Tahun Baru Imlek',
-    '2026-03-17': 'Hari Suci Nyepi',
-    '2026-03-20': 'Hari Raya Idul Fitri',
-    '2026-03-21': 'Hari Raya Idul Fitri',
-    '2026-03-22': 'Cuti Bersama Idul Fitri',
-    '2026-03-23': 'Cuti Bersama Idul Fitri',
-    '2026-04-03': 'Wafat Isa Al Masih',
+    '2026-02-16': 'Cuti Bersama Tahun Baru Imlek 2577 Kongzili',
+    '2026-02-17': 'Tahun Baru Imlek 2577 Kongzili',
+    '2026-03-18': 'Cuti Bersama Hari Suci Nyepi',
+    '2026-03-19': 'Hari Suci Nyepi (Tahun Baru Saka 1948)',
+    '2026-03-20': 'Cuti Bersama Hari Raya Idul Fitri 1447 H',
+    '2026-03-21': 'Hari Raya Idul Fitri 1447 H',
+    '2026-03-22': 'Hari Raya Idul Fitri 1447 H',
+    '2026-03-23': 'Cuti Bersama Hari Raya Idul Fitri 1447 H',
+    '2026-03-24': 'Cuti Bersama Hari Raya Idul Fitri 1447 H',
+    '2026-04-03': 'Wafat Yesus Kristus',
+    '2026-04-05': 'Hari Kebangkitan Yesus Kristus (Paskah)',
     '2026-05-01': 'Hari Buruh Internasional',
-    '2026-05-16': 'Kenaikan Isa Al Masih',
-    '2026-05-26': 'Hari Raya Idul Adha',
-    '2026-05-31': 'Hari Raya Waisak',
+    '2026-05-14': 'Kenaikan Yesus Kristus',
+    '2026-05-15': 'Cuti Bersama Kenaikan Yesus Kristus',
+    '2026-05-27': 'Hari Raya Idul Adha 1447 H',
+    '2026-05-28': 'Cuti Bersama Hari Raya Idul Adha 1447 H',
+    '2026-05-31': 'Hari Raya Waisak 2570 BE',
     '2026-06-01': 'Hari Lahir Pancasila',
-    '2026-06-17': 'Tahun Baru Hijriah',
+    '2026-06-16': 'Tahun Baru Islam 1448 H',
     '2026-08-17': 'Hari Kemerdekaan RI',
-    '2026-08-26': 'Maulid Nabi Muhammad SAW',
-    '2026-12-25': 'Hari Natal',
+    '2026-08-25': 'Maulid Nabi Muhammad SAW',
+    '2026-12-24': 'Cuti Bersama Hari Raya Natal',
+    '2026-12-25': 'Hari Raya Natal',
     // === 2027 ===
     '2027-01-01': 'Tahun Baru Masehi',
     '2027-01-05': 'Isra Miraj Nabi Muhammad SAW',
