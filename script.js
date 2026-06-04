@@ -200,6 +200,7 @@ let scannedEmployee = null;
 let currentFacingMode = 'user';
 let currentLocation = "Lokasi Tidak Terdeteksi";
 let isLocationLocked = false;
+let securityCoords = { lat: 0, lng: 0 };
 let activeWorkerTimer = null; 
 
 // --- HELPER FUNCTIONS ---
@@ -2440,6 +2441,22 @@ function validateEmployee(id) {
             showToast("Security tidak bisa di-scan dari halaman relawan.", "error");
             return;
         }
+
+        // Check geofence after scanning QR (skip jika admin matikan)
+        if (!appConfig.disableGeofence) {
+            if (!isLocationLocked || !securityCoords.lat) {
+                showToast("Tunggu GPS terkunci untuk memverifikasi lokasi absensi!", "error");
+                return;
+            }
+            const dist = haversineDistance(securityCoords.lat, securityCoords.lng, GEOFENCE_CONFIG.lat, GEOFENCE_CONFIG.lng);
+            if (dist > GEOFENCE_CONFIG.radius) {
+                showToast(`Relawan di luar area absensi (${Math.round(dist)}m). Maksimal ${GEOFENCE_CONFIG.radius}m. dari Dapur`, 'error');
+                if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+                resetSecurityFlow();
+                return;
+            }
+        }
+
         scannedEmployee = emp;
         document.getElementById('secGatePage')?.classList.add('hidden');
         document.getElementById('secPage1').classList.add('hidden');
@@ -2483,6 +2500,17 @@ function resetSecurityFlow() {
 async function submitAbsence(type) {
     if (!isLocationLocked) return showToast("Tunggu GPS Terkunci!\nPastikan GPS dan Lokasi Aktif.", "error");
     if (securitySelfAttendanceMode && type !== 'IN') return showToast("Gunakan Absen Masuk untuk absen security awal shift.", "error");
+
+    // Re-check geofence at submit time (skip jika admin matikan)
+    if (!appConfig.disableGeofence) {
+        if (!securityCoords.lat) {
+            return showToast("Tunggu GPS Terkunci!\nPastikan GPS dan Lokasi Aktif.", "error");
+        }
+        const dist = haversineDistance(securityCoords.lat, securityCoords.lng, GEOFENCE_CONFIG.lat, GEOFENCE_CONFIG.lng);
+        if (dist > GEOFENCE_CONFIG.radius) {
+            return showToast(`Di luar area absensi (${Math.round(dist)}m) dari Dapur.`, 'error');
+        }
+    }
 
     const now = new Date();
     const today = getLocalDateStr(now);
@@ -2921,6 +2949,7 @@ function startClockAndGPS() {
     if (navigator.geolocation) {
         navigator.geolocation.watchPosition(
             (pos) => {
+                securityCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
                 currentLocation = `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
                 document.getElementById('liveLoc').innerText = currentLocation;
                 if (!isLocationLocked) {
@@ -6269,7 +6298,7 @@ function initSecurity() {
             updateSecurityProfileIndicator();
             startClockAndGPS();
             updateSecurityEntryGate();
-            showLoaderSuccess("Security Page Siap");
+            toggleLoader(false);
         }, 300);
     } else {
         document.getElementById('securityLayout').classList.remove('hidden');
@@ -6503,12 +6532,15 @@ function volUpdateGeofenceUI() {
     const txt = document.getElementById('volGeofenceText');
     if (!bar || !txt) return;
 
-    // Jika geofence dimatikan admin → sembunyikan bar sepenuhnya
-    if (appConfig.disableGeofence) {
-        bar.style.display = 'none';
-        return true;
+    // Jika geofence dimatikan admin atau tidak di halaman selfie → sembunyikan bar sepenuhnya
+    const selfiePage = document.getElementById('volPageSelfie');
+    const isSelfieActive = selfiePage && !selfiePage.classList.contains('hidden');
+
+    if (appConfig.disableGeofence || !isSelfieActive) {
+        bar.classList.add('hidden');
+        return;
     }
-    bar.style.display = '';
+    bar.classList.remove('hidden');
 
     if (!volLocationLocked) {
         bar.className = 'mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-yellow-500/15 border border-yellow-400/20 text-[10px] text-yellow-300 font-bold transition-all duration-300';
@@ -6679,7 +6711,7 @@ function initVolunteer() {
         volUpdateTodayStatus();
         volShowPage('home');
         
-        showLoaderSuccess("Volunteer Page Siap");
+        toggleLoader(false);
         }, 300);
     } else {
         // Hide all other layouts
@@ -6730,20 +6762,12 @@ function volShowPage(page) {
     if (page === 'home') document.getElementById('volPageHome')?.classList.remove('hidden');
     else if (page === 'qr') document.getElementById('volPageQR')?.classList.remove('hidden');
     else if (page === 'selfie') document.getElementById('volPageSelfie')?.classList.remove('hidden');
+
+    // Update geofence bar visibility and status
+    volUpdateGeofenceUI();
 }
 
 function volStartAbsen() {
-    if (!volLocationLocked) return showToast('Tunggu GPS terkunci dulu!', 'error');
-
-    // Check geofence (skip jika admin matikan)
-    if (!appConfig.disableGeofence) {
-        const dist = haversineDistance(volCurrentLocation.lat, volCurrentLocation.lng, GEOFENCE_CONFIG.lat, GEOFENCE_CONFIG.lng);
-        if (dist > GEOFENCE_CONFIG.radius) {
-            // return showToast(`Anda di luar area absensi (${Math.round(dist)}m). Maksimal ${GEOFENCE_CONFIG.radius}m.`, 'error');
-                        return showToast(`Relawan di luar area absensi (${Math.round(dist)}m). Maksimal ${GEOFENCE_CONFIG.radius}m. dari Dapur`, 'error');
-        }
-    }
-
     // Di mode login, sudah tahu user-nya → langsung tentukan tipe
     if (!volGuestMode && currentUser) {
         volAbsenType = volDetectAbsenType(currentUser.id);
@@ -6832,6 +6856,22 @@ function volValidateQR(data) {
         showToast('QR ini bukan milik Anda. Gunakan QR Code pribadi Anda.', 'error');
         requestAnimationFrame(volScanLoop);
         return;
+    }
+
+    // Check geofence after scanning QR (skip jika admin matikan)
+    if (!appConfig.disableGeofence) {
+        if (!volLocationLocked) {
+            showToast("Tunggu GPS terkunci untuk memverifikasi lokasi absensi!", "error");
+            requestAnimationFrame(volScanLoop);
+            return;
+        }
+        const dist = haversineDistance(volCurrentLocation.lat, volCurrentLocation.lng, GEOFENCE_CONFIG.lat, GEOFENCE_CONFIG.lng);
+        if (dist > GEOFENCE_CONFIG.radius) {
+            showToast(`Relawan di luar area absensi (${Math.round(dist)}m). Maksimal ${GEOFENCE_CONFIG.radius}m. dari Dapur`, 'error');
+            if (volScanStream) { volScanStream.getTracks().forEach(t => t.stop()); volScanStream = null; }
+            volCancelFlow();
+            return;
+        }
     }
 
     volScannedEmployee = emp;
