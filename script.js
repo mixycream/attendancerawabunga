@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzKvbFqw3AA15B7TCUbTRg5RbVPJIiffYW73vBIT6Levj5MC0HgKXnKu87rdjiryfie/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwGoQiTNLQBNSikxt-I6NwbqodUNSOvkv6vIiZ274SyQ3wILlEnhNyd27h7tiASUH7I/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -177,7 +177,8 @@ let appConfig = {
     disableEarlyReason: '',
     disableBothReason: '',
     disableGeofence: false,
-    hideOvertime: false
+    hideOvertime: false,
+    allowMultipleIn: false
 }; 
 let sortState = {
     logs: 'time_desc',
@@ -187,6 +188,7 @@ let sortState = {
 let editingEmployeeId = null;
 let pendingAttendancePayload = null; // Menyimpan data sementara jika telat > 30 menit
 let trendChartInstance = null; // Instance Chart.js
+let currentChartPeriod = '7d'; // Periode tren grafik aktif
 let securitySelfAttendanceDone = false;
 let securitySelfAttendanceMode = false;
 let sessionTimer = null;
@@ -378,10 +380,33 @@ function togglePasswordVisibility() {
     else { inp.type = 'password'; if(icon) { icon.className = 'fas fa-eye'; } }
 }
 
-async function logout() {
-    if(confirm("Keluar dari aplikasi?")) {
-        await forceLogout();
+function openLogoutModal() {
+    const modal = document.getElementById('logoutConfirmModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            modal.querySelector('.clay-modal')?.classList.remove('scale-95');
+        }, 10);
     }
+}
+
+function closeLogoutModal() {
+    const modal = document.getElementById('logoutConfirmModal');
+    if (modal) {
+        modal.classList.add('opacity-0');
+        modal.querySelector('.clay-modal')?.classList.add('scale-95');
+        setTimeout(() => modal.classList.add('hidden'), 300);
+    }
+}
+
+async function confirmLogoutAction() {
+    closeLogoutModal();
+    await forceLogout();
+}
+
+async function logout() {
+    openLogoutModal();
 }
 
 async function forceLogout() {
@@ -587,6 +612,7 @@ async function fetchData(force = false) {
                     appConfig.disableBothReason = data.config.disableBothReason || '';
                     appConfig.disableGeofence = data.config.disableGeofence === true || data.config.disableGeofence === 'true';
                     appConfig.hideOvertime = data.config.hideOvertime === true || data.config.hideOvertime === 'true';
+                    appConfig.allowMultipleIn = data.config.allowMultipleIn === true || data.config.allowMultipleIn === 'true';
                 }
 
                 refreshUI();
@@ -2141,13 +2167,48 @@ function cetakRekapGaji() {
 
 // --- CHART & GRID ---
 function renderTrendChart() {
-    const ctx = document.getElementById('trendChart').getContext('2d');
+    const canvasEl = document.getElementById('trendChart');
+    if (!canvasEl) return;
+    const ctx = canvasEl.getContext('2d');
     
-    const labels = [...Array(7)].map((_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        return getLocalDateStr(d);
-    }).reverse();
+    let labels = [];
+    const now = new Date();
+    
+    if (currentChartPeriod === '7d') {
+        labels = [...Array(7)].map((_, i) => {
+            const d = new Date();
+            d.setDate(now.getDate() - i);
+            return getLocalDateStr(d);
+        }).reverse();
+    } else if (currentChartPeriod === '14d') {
+        labels = [...Array(14)].map((_, i) => {
+            const d = new Date();
+            d.setDate(now.getDate() - i);
+            return getLocalDateStr(d);
+        }).reverse();
+    } else if (currentChartPeriod === 'custom') {
+        const startVal = document.getElementById('chartStartDate')?.value;
+        const endVal = document.getElementById('chartEndDate')?.value;
+        const start = startVal ? new Date(startVal) : null;
+        const end = endVal ? new Date(endVal) : null;
+        
+        if (start && end && !isNaN(start.getTime()) && !isNaN(end.getTime()) && end >= start) {
+            let current = new Date(start);
+            const maxDays = 60; // limit
+            let count = 0;
+            while (current <= end && count < maxDays) {
+                labels.push(getLocalDateStr(current));
+                current.setDate(current.getDate() + 1);
+                count++;
+            }
+        } else {
+            labels = [...Array(7)].map((_, i) => {
+                const d = new Date();
+                d.setDate(now.getDate() - i);
+                return getLocalDateStr(d);
+            }).reverse();
+        }
+    }
 
     const presentData = labels.map(date => logs.filter(l => l.date === date && l.type === 'IN').length);
     const lateData = labels.map(date => logs.filter(l => l.date === date && l.lateMinutes > 0).length);
@@ -2155,10 +2216,28 @@ function renderTrendChart() {
 
     if (trendChartInstance) trendChartInstance.destroy();
 
+    const isDark = document.documentElement.classList.contains('dark');
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)';
+    const textColor = isDark ? '#94a3b8' : '#64748b';
+    const legendColor = isDark ? '#f1f5f9' : '#1e293b';
+
     const labelColors = labels.map(d => {
         const dt = new Date(d + 'T00:00:00');
-        return (dt.getDay() === 0 || getHoliday(d)) ? '#ef4444' : '#64748b';
+        return (dt.getDay() === 0 || getHoliday(d)) ? '#f43f5e' : textColor;
     });
+
+    // Create modern gradients under lines
+    const gradHadir = ctx.createLinearGradient(0, 0, 0, 240);
+    gradHadir.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
+    gradHadir.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+
+    const gradTelat = ctx.createLinearGradient(0, 0, 0, 240);
+    gradTelat.addColorStop(0, 'rgba(244, 63, 94, 0.2)');
+    gradTelat.addColorStop(1, 'rgba(244, 63, 94, 0.0)');
+
+    const gradLembur = ctx.createLinearGradient(0, 0, 0, 240);
+    gradLembur.addColorStop(0, 'rgba(245, 158, 11, 0.2)');
+    gradLembur.addColorStop(1, 'rgba(245, 158, 11, 0.0)');
 
     trendChartInstance = new Chart(ctx, {
         type: 'line',
@@ -2173,21 +2252,153 @@ function renderTrendChart() {
                 return lbl;
             }),
             datasets: [
-                { label: 'Hadir', data: presentData, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.4, fill: true },
-                { label: 'Telat', data: lateData, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', tension: 0.4 },
-                { label: 'Lembur', data: overtimeData, borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', tension: 0.4 }
+                {
+                    label: 'Hadir',
+                    data: presentData,
+                    borderColor: '#10b981',
+                    backgroundColor: gradHadir,
+                    borderWidth: 3,
+                    tension: 0.38,
+                    fill: true,
+                    pointRadius: labels.length > 15 ? 1 : 3,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#10b981',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 1.5
+                },
+                {
+                    label: 'Telat',
+                    data: lateData,
+                    borderColor: '#f43f5e',
+                    backgroundColor: gradTelat,
+                    borderWidth: 3,
+                    tension: 0.38,
+                    fill: true,
+                    pointRadius: labels.length > 15 ? 1 : 3,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#f43f5e',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 1.5
+                },
+                {
+                    label: 'Lembur',
+                    data: overtimeData,
+                    borderColor: '#f59e0b',
+                    backgroundColor: gradLembur,
+                    borderWidth: 3,
+                    tension: 0.38,
+                    fill: true,
+                    pointRadius: labels.length > 15 ? 1 : 3,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#f59e0b',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 1.5
+                }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { position: 'top' } },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        color: legendColor,
+                        font: { family: 'Outfit, Inter, sans-serif', size: 11, weight: 'bold' },
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        padding: 15
+                    }
+                },
+                tooltip: {
+                    backgroundColor: isDark ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.9)',
+                    titleColor: isDark ? '#f1f5f9' : '#1e293b',
+                    bodyColor: isDark ? '#cbd5e1' : '#475569',
+                    borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                    borderWidth: 1,
+                    padding: 10,
+                    cornerRadius: 12,
+                    titleFont: { family: 'Outfit, Inter, sans-serif', weight: 'bold', size: 12 },
+                    bodyFont: { family: 'Outfit, Inter, sans-serif', size: 11 },
+                    displayColors: true,
+                    boxWidth: 8,
+                    boxHeight: 8,
+                    boxPadding: 4
+                }
+            },
             scales: {
-                y: { beginAtZero: true, ticks: { stepSize: 1 } },
-                x: { ticks: { color: labelColors } }
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1,
+                        color: textColor,
+                        font: { family: 'Outfit, Inter, sans-serif', size: 10 }
+                    },
+                    grid: {
+                        color: gridColor,
+                        drawBorder: false,
+                        borderDash: [5, 5]
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: labelColors,
+                        font: { family: 'Outfit, Inter, sans-serif', size: 10 }
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
             }
         }
     });
+}
+
+function changeChartPeriod(period) {
+    currentChartPeriod = period;
+    
+    const btns = {
+        '7d': document.getElementById('btnPeriod7d'),
+        '14d': document.getElementById('btnPeriod14d'),
+        'custom': document.getElementById('btnPeriodCustom')
+    };
+    
+    Object.entries(btns).forEach(([p, btn]) => {
+        if (!btn) return;
+        if (p === period) {
+            btn.className = "px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-blue-600 text-white shadow-sm shadow-blue-600/20 active:scale-95";
+        } else {
+            btn.className = "px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 active:scale-95";
+        }
+    });
+    
+    const wrap = document.getElementById('customDateRangeWrap');
+    if (wrap) {
+        if (period === 'custom') {
+            wrap.classList.remove('hidden');
+            wrap.classList.add('flex');
+            
+            const end = new Date();
+            const start = new Date();
+            start.setDate(end.getDate() - 14);
+            
+            const startInp = document.getElementById('chartStartDate');
+            const endInp = document.getElementById('chartEndDate');
+            if (startInp && !startInp.value) startInp.value = getLocalDateStr(start);
+            if (endInp && !endInp.value) endInp.value = getLocalDateStr(end);
+        } else {
+            wrap.classList.remove('flex');
+            wrap.classList.add('hidden');
+        }
+    }
+    
+    renderTrendChart();
+}
+
+function onCustomChartDatesChange() {
+    if (currentChartPeriod === 'custom') {
+        renderTrendChart();
+    }
 }
 
 function renderDivisionGrid() {
@@ -2281,7 +2492,7 @@ async function submitAbsence(type) {
 
     const bothDisabled = appConfig.disableBoth || (appConfig.disableLate && appConfig.disableEarly);
     if(type === 'IN') {
-        if(lastLog && lastLog.type === 'IN' && !bothDisabled) {
+        if(lastLog && lastLog.type === 'IN' && !appConfig.allowMultipleIn) {
             showToast("Sesi Masih Aktif!", "error");
             setTimeout(resetSecurityFlow, 1500); 
             return;
@@ -2350,7 +2561,7 @@ async function submitAbsence(type) {
     }
     
     if(type === 'OUT') {
-        if((!lastLog || lastLog.type === 'OUT') && !bothDisabled) return showToast("Belum Absen Masuk!", "error");
+        if((!lastLog || lastLog.type === 'OUT') && !appConfig.allowMultipleIn) return showToast("Belum Absen Masuk!", "error");
         const divConfig = appConfig.shifts[scannedEmployee.division];
         if (divConfig && typeof divConfig !== 'string' && lastLog && lastLog.type === 'IN') {
              const shiftEndH = parseInt(divConfig.end.split(':')[0]);
@@ -2838,32 +3049,34 @@ function getShiftTime(division) {
 
 // --- Batasan Absensi: 1 jam sebelum shift & 1x per hari ---
 function checkClockInAllowed(empId, division) {
+    const now = new Date();
+    const today = getLocalDateStr(now);
+
+    // Cek 1: Sudah absen masuk hari ini? (Hanya dibatasi jika allowMultipleIn bernilai false)
+    if (!appConfig.allowMultipleIn) {
+        const alreadyIN = logs.some(l =>
+            String(l.empId) === String(empId) &&
+            l.date === today &&
+            (l.type === 'IN' || l.type === 'PENDING')
+        );
+        if (alreadyIN) {
+            return { allowed: false, message: 'Sudah absen masuk hari ini! Maksimal 1x absen masuk per hari.' };
+        }
+    }
+
     const divConfig = appConfig.shifts[division];
     if (!divConfig || typeof divConfig === 'string') return { allowed: true };
 
-    const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
-    const today = getLocalDateStr(now);
-
     const [startH, startM] = divConfig.start.split(':').map(Number);
     const shiftStartMin = startH * 60 + startM;
     const [endH, endM] = divConfig.end.split(':').map(Number);
     const shiftEndMin = endH * 60 + endM;
     const isOvernight = shiftEndMin <= shiftStartMin;
 
-    // Jika fitur telat+pulang awal dimatikan → bebas masuk kapan saja, kuota 1x tidak berlaku
+    // Jika fitur telat+pulang awal dimatikan → bebas masuk kapan saja, bypass window 30 menit
     const lateDisabled = appConfig.disableBoth || appConfig.disableLate;
     if (lateDisabled) return { allowed: true };
-
-    // Cek 1: Sudah absen masuk hari ini? (1x per shift per hari)
-    const alreadyIN = logs.some(l =>
-        String(l.empId) === String(empId) &&
-        l.date === today &&
-        l.type === 'IN'
-    );
-    if (alreadyIN) {
-        return { allowed: false, message: 'Sudah absen masuk hari ini! Maksimal 1x absen masuk per hari.' };
-    }
 
     // Cek 2: Apakah dalam window 30 menit sebelum shift?
     let minutesBefore = shiftStartMin - nowMin;
@@ -3441,6 +3654,8 @@ function loadSettingsUI() {
     if (tGeo) tGeo.checked = appConfig.disableGeofence;
     const tOT = document.getElementById('toggleHideOvertime');
     if (tOT) tOT.checked = appConfig.hideOvertime;
+    const tMultIn = document.getElementById('toggleMultipleIn');
+    if (tMultIn) tMultIn.checked = appConfig.allowMultipleIn;
 
     const bReason = document.getElementById('bothReasonInput');
     const lReason = document.getElementById('lateReasonInput');
@@ -3498,6 +3713,7 @@ async function saveFeatureSettings() {
     const disableEarlyReason = document.getElementById('earlyReasonInput')?.value.trim() || '';
     const disableGeofence = document.getElementById('toggleGeofence')?.checked || false;
     const hideOvertime = document.getElementById('toggleHideOvertime')?.checked || false;
+    const allowMultipleIn = document.getElementById('toggleMultipleIn')?.checked || false;
 
     appConfig.disableBoth = disableBoth;
     appConfig.disableLate = disableLate;
@@ -3507,12 +3723,13 @@ async function saveFeatureSettings() {
     appConfig.disableEarlyReason = disableEarlyReason;
     appConfig.disableGeofence = disableGeofence;
     appConfig.hideOvertime = hideOvertime;
+    appConfig.allowMultipleIn = allowMultipleIn;
 
     toggleLoader(true, 'Menyimpan pengaturan...');
     const success = await postData('saveFeatureSettings', {
         disableBoth, disableLate, disableEarly,
         disableBothReason, disableLateReason, disableEarlyReason,
-        disableGeofence, hideOvertime
+        disableGeofence, hideOvertime, allowMultipleIn
     });
     toggleLoader(false);
     if (success) {
@@ -3534,6 +3751,9 @@ function toggleDarkMode() {
         localStorage.setItem('mbg_dark_mode', '1');
         if (icon) icon.className = 'fas fa-sun';
     }
+    
+    // Render ulang grafik tren kehadiran agar warnanya berganti sesuai tema gelap/terang
+    renderTrendChart();
 }
 
 // Init dark mode from localStorage
@@ -6756,7 +6976,7 @@ async function volSubmitSelfie() {
 
     const volBothDisabled = appConfig.disableBoth || (appConfig.disableLate && appConfig.disableEarly);
     if (volAbsenType === 'IN') {
-        if (lastLog && lastLog.type === 'IN' && !volBothDisabled) {
+        if (lastLog && lastLog.type === 'IN' && !appConfig.allowMultipleIn) {
             showToast('Sesi masih aktif! Kamu sudah Absen Masuk.', 'error');
             volCancelFlow();
             return;
@@ -6770,7 +6990,7 @@ async function volSubmitSelfie() {
         }
     }
     if (volAbsenType === 'OUT') {
-        if ((!lastLog || lastLog.type === 'OUT') && !volBothDisabled) {
+        if ((!lastLog || lastLog.type === 'OUT') && !appConfig.allowMultipleIn) {
             showToast('Belum Absen Masuk!', 'error');
             volCancelFlow();
             return;
@@ -7005,6 +7225,7 @@ async function startAbsenMandiri() {
                 appConfig.disableBothReason = data.config.disableBothReason || '';
                 appConfig.disableGeofence = data.config.disableGeofence === true || data.config.disableGeofence === 'true';
                 appConfig.hideOvertime = data.config.hideOvertime === true || data.config.hideOvertime === 'true';
+                appConfig.allowMultipleIn = data.config.allowMultipleIn === true || data.config.allowMultipleIn === 'true';
             }
         }
     } catch (e) {
