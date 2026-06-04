@@ -201,6 +201,8 @@ let currentFacingMode = 'user';
 let currentLocation = "Lokasi Tidak Terdeteksi";
 let isLocationLocked = false;
 let securityCoords = { lat: 0, lng: 0 };
+let toastTimeout = null;
+let toastProgressTimeout = null;
 let activeWorkerTimer = null; 
 
 // --- HELPER FUNCTIONS ---
@@ -7333,12 +7335,84 @@ function volExitToLogin() {
     }
 }
 
-function showToast(msg, type='success') {
-    const t = document.getElementById('toast'); const i = document.getElementById('toastIcon'); document.getElementById('toastMsg').innerText = msg;
-    if(type === 'error') { i.className = "w-8 h-8 rounded-full bg-red-500 flex items-center justify-center text-white text-xs"; i.innerHTML = '<i class="fas fa-times"></i>'; } 
-    else { i.className = "w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs"; i.innerHTML = '<i class="fas fa-check"></i>'; }
-    t.classList.remove('-translate-y-[200%]', 'opacity-0'); setTimeout(() => t.classList.add('-translate-y-[200%]', 'opacity-0'), 6000); 
+function hideToast() {
+    const t = document.getElementById('toast');
+    if (!t) return;
+    t.style.transform = 'translateY(-150%) scale(0.95)';
+    t.style.opacity = '0';
+    
+    if (toastTimeout) { clearTimeout(toastTimeout); toastTimeout = null; }
+    if (toastProgressTimeout) { clearTimeout(toastProgressTimeout); toastProgressTimeout = null; }
 }
+
+function showToast(msg, type='success') {
+    const t = document.getElementById('toast');
+    const i = document.getElementById('toastIcon');
+    const msgEl = document.getElementById('toastMsg');
+    const titleEl = document.getElementById('toastTitle');
+    const progEl = document.getElementById('toastProgress');
+    if (!t || !i || !msgEl || !progEl) return;
+
+    msgEl.innerText = msg;
+    
+    // Reset progress bar animation width
+    progEl.style.transition = 'none';
+    progEl.style.width = '100%';
+    
+    // Force a browser reflow to apply the width reset immediately
+    progEl.offsetHeight;
+
+    // Clear any active timeouts
+    if (toastTimeout) clearTimeout(toastTimeout);
+    if (toastProgressTimeout) clearTimeout(toastProgressTimeout);
+
+    // Apply color schemes based on type
+    if (type === 'error') {
+        if (titleEl) {
+            titleEl.innerText = 'Error';
+            titleEl.className = "font-bold text-[10px] uppercase tracking-wider text-rose-500 leading-none";
+        }
+        i.className = "w-10 h-10 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 text-base shrink-0 shadow-sm";
+        i.innerHTML = '<i class="fas fa-exclamation-circle animate-pulse"></i>';
+        t.className = "fixed top-6 right-0 left-0 mx-auto w-full max-w-[380px] z-[999] transition-all duration-500 transform bg-white/85 dark:bg-slate-950/80 backdrop-blur-xl text-slate-800 dark:text-white p-4 rounded-3xl shadow-[0_20px_50px_rgba(244,63,94,0.15)] dark:shadow-[0_20px_50px_rgba(244,63,94,0.3)] flex flex-col gap-3 border border-rose-200/50 dark:border-rose-500/20 overflow-hidden";
+        progEl.className = "h-full bg-rose-500 w-full";
+    } else if (type === 'warning' || type === 'info') {
+        if (titleEl) {
+            titleEl.innerText = type === 'warning' ? 'Peringatan' : 'Info';
+            titleEl.className = "font-bold text-[10px] uppercase tracking-wider text-amber-500 leading-none";
+        }
+        i.className = "w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 text-base shrink-0 shadow-sm";
+        i.innerHTML = '<i class="fas fa-info-circle animate-pulse"></i>';
+        t.className = "fixed top-6 right-0 left-0 mx-auto w-full max-w-[380px] z-[999] transition-all duration-500 transform bg-white/85 dark:bg-slate-950/80 backdrop-blur-xl text-slate-800 dark:text-white p-4 rounded-3xl shadow-[0_20px_50px_rgba(245,158,11,0.15)] dark:shadow-[0_20px_50px_rgba(245,158,11,0.3)] flex flex-col gap-3 border border-amber-200/50 dark:border-amber-500/20 overflow-hidden";
+        progEl.className = "h-full bg-amber-500 w-full";
+    } else {
+        // Success
+        if (titleEl) {
+            titleEl.innerText = 'Sukses';
+            titleEl.className = "font-bold text-[10px] uppercase tracking-wider text-emerald-500 leading-none";
+        }
+        i.className = "w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 text-base shrink-0 shadow-sm";
+        i.innerHTML = '<i class="fas fa-check-circle animate-pulse"></i>';
+        t.className = "fixed top-6 right-0 left-0 mx-auto w-full max-w-[380px] z-[999] transition-all duration-500 transform bg-white/85 dark:bg-slate-950/80 backdrop-blur-xl text-slate-800 dark:text-white p-4 rounded-3xl shadow-[0_20px_50px_rgba(16,185,129,0.15)] dark:shadow-[0_20px_50px_rgba(16,185,129,0.3)] flex flex-col gap-3 border border-emerald-200/50 dark:border-emerald-500/20 overflow-hidden";
+        progEl.className = "h-full bg-emerald-500 w-full";
+    }
+
+    // Drop down and scale in
+    t.style.transform = 'translateY(0) scale(1)';
+    t.style.opacity = '1';
+
+    // Delay slightly to start progress bar animation transition
+    toastProgressTimeout = setTimeout(() => {
+        progEl.style.transition = 'width 4800ms linear';
+        progEl.style.width = '0%';
+    }, 50);
+
+    toastTimeout = setTimeout(() => {
+        t.style.transform = 'translateY(-150%) scale(0.95)';
+        t.style.opacity = '0';
+    }, 5000);
+}
+
 
 // === ATTENDANCE SUCCESS ANIMATION ===
 function showAbsenSuccess({ type, name, message, onDone }) {

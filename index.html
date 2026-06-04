@@ -700,13 +700,27 @@
     </div>
 
     <!-- TOAST NOTIFICATION -->
-    <div id="toast" class="fixed top-6 right-0 left-0 mx-auto w-max max-w-[90%] z-[200] transition-all duration-500 transform -translate-y-[200%] opacity-0 bg-slate-900/90 backdrop-blur-md text-white pl-4 pr-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-white/10">
-        <div id="toastIcon" class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs"><i class="fas fa-check"></i></div>
-        <div>
-            <h4 class="font-bold text-sm">Notifikasi</h4>
-            <span id="toastMsg" class="text-xs text-slate-300 font-medium">...</span>
+    <div id="toast" class="fixed top-6 right-0 left-0 mx-auto w-full max-w-[380px] z-[999] transition-all duration-500 transform -translate-y-[150%] scale-95 opacity-0 bg-white/80 dark:bg-slate-950/75 backdrop-blur-xl text-slate-800 dark:text-white p-4 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] flex flex-col gap-3 border border-slate-200/60 dark:border-white/10 overflow-hidden">
+        <div class="flex items-center gap-3">
+            <div id="toastIcon" class="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 text-base shrink-0 shadow-sm">
+                <i class="fas fa-check-circle animate-pulse"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                    <h4 id="toastTitle" class="font-bold text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 leading-none">Notifikasi</h4>
+                    <button onclick="hideToast()" class="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                        <i class="fas fa-times text-xs"></i>
+                    </button>
+                </div>
+                <span id="toastMsg" class="text-xs font-semibold text-slate-700 dark:text-slate-200 mt-1.5 leading-tight block whitespace-pre-line">...</span>
+            </div>
+        </div>
+        <!-- Progress Bar -->
+        <div class="absolute bottom-0 left-0 w-full h-[3px] bg-slate-100 dark:bg-white/5">
+            <div id="toastProgress" class="h-full bg-emerald-500 transition-all duration-[5000ms] ease-linear w-full"></div>
         </div>
     </div>
+
 
     <!-- APP CONTAINER -->
     <div id="app" class="flex-1 flex flex-col h-full relative">        <!-- ==================== LANDING PAGE (Google Antigravity Style - Rebranded to Cloud MBG) ==================== -->
@@ -765,13 +779,13 @@
                 <div class="inline-flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-4 py-1.5 text-xs text-indigo-600 dark:text-indigo-300 font-bold tracking-wider uppercase mb-8 select-none">
                     <i class="fas fa-cloud text-[10px]"></i> Cloud MBG
                 </div>
-
                 <!-- Main Typist Headline -->
-                <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight md:leading-[1.1] min-h-[140px] md:min-h-[190px]">
-                    Experience liftoff with<br>
-                    <span id="typistElement" class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-400 select-all"></span><span class="text-indigo-500 animate-pulse font-light">|</span>
+                <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight md:leading-[1.1]">
+                    Experience liftoff with
+                    <div class="h-[72px] md:h-[96px] mt-2 flex items-center justify-center">
+                        <span id="typistElement" class="text-2xl md:text-4xl text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-400 select-all leading-tight"></span>
+                    </div>
                 </h1>
-
                 <!-- Subtext -->
                 <p class="text-slate-500 dark:text-slate-400 max-w-2xl text-sm md:text-base leading-relaxed mt-6">
                     Platform manajemen operasional, geofencing absensi waktu nyata, dan perhitungan rekap gaji otomatis berstandar korporat modern. Cepat, transparan, aman, dan dirancang untuk performa tanpa kendala.
@@ -1083,6 +1097,25 @@
             </footer>
 
             <!-- LANDING PAGE SCRIPTS (Typist, 3D Constellation Sphere, Pricing & Modals) -->
+            <style>
+                @keyframes cursorBlink {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0; }
+                }
+                .typewriter-cursor {
+                    color: #6366f1 !important;
+                    background: none !important;
+                    -webkit-background-clip: initial !important;
+                    background-clip: initial !important;
+                    -webkit-text-fill-color: initial !important;
+                    font-weight: 300;
+                    margin-left: 2px;
+                    display: inline-block;
+                }
+                .typewriter-cursor.blink {
+                    animation: cursorBlink 0.8s infinite;
+                }
+            </style>
             <script>
                 // 1. TYPIST ANIMATION (Type, Hold, Erase, Repeat)
                 (function() {
@@ -1102,24 +1135,31 @@
 
                     function type() {
                         const currentWord = words[wordIdx];
+                        let isWaiting = false;
+
                         if (isDeleting) {
-                            typist.innerText = currentWord.substring(0, charIdx - 1);
                             charIdx--;
                             delay = 30;
                         } else {
-                            typist.innerText = currentWord.substring(0, charIdx + 1);
                             charIdx++;
                             delay = 80;
                         }
 
+                        const textToShow = currentWord.substring(0, charIdx);
+
                         if (!isDeleting && charIdx === currentWord.length) {
                             isDeleting = true;
                             delay = 2200; // Hold full sentence
+                            isWaiting = true;
                         } else if (isDeleting && charIdx === 0) {
                             isDeleting = false;
                             wordIdx = (wordIdx + 1) % words.length;
                             delay = 300; // Switch pause
+                            isWaiting = true;
                         }
+
+                        const blinkClass = isWaiting ? 'blink' : '';
+                        typist.innerHTML = textToShow + '<span class="typewriter-cursor ' + blinkClass + '">|</span>';
 
                         setTimeout(type, delay);
                     }
@@ -2854,126 +2894,138 @@
 
         <!-- 3. SECURITY LAYOUT (Security Mode) -->
         <div id="securityLayout" class="hidden flex flex-col h-full clay-bg dark:bg-slate-900 text-slate-900 dark:text-white font-sans relative transition-colors duration-300">
-            <div class="absolute top-0 left-0 w-full z-20 px-6 py-4 bg-gradient-to-b from-white/30 dark:from-black/80 to-transparent dark:to-transparent flex flex-col gap-2">
-                <div class="flex justify-between items-start">
+            <!-- Background Decorative Ambient Glows -->
+            <div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                <div class="absolute -top-[10%] -left-[20%] w-[350px] h-[350px] bg-blue-500/10 dark:bg-blue-500/5 rounded-full blur-[120px]"></div>
+                <div class="absolute top-[40%] -right-[20%] w-[300px] h-[300px] bg-indigo-500/10 dark:bg-indigo-500/5 rounded-full blur-[100px]"></div>
+                <div class="absolute -bottom-[10%] left-[10%] w-[250px] h-[250px] bg-violet-500/5 dark:bg-violet-500/3 rounded-full blur-[80px]"></div>
+            </div>
+
+            <!-- Unified Floating Glassmorphic Status Header -->
+            <div class="absolute top-4 left-4 right-4 z-20 p-4 bg-white/70 dark:bg-slate-950/45 border border-slate-200/50 dark:border-white/10 backdrop-blur-md rounded-[2rem] shadow-xl flex flex-col gap-2.5">
+                <div class="flex justify-between items-center">
                     <div class="flex items-center gap-2">
                          <span class="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse shadow-[0_0_10px_#3b82f6]"></span>
-                         <span class="text-blue-600 dark:text-blue-400 font-bold text-xs tracking-widest uppercase">Live Security</span>
+                         <span class="text-blue-600 dark:text-blue-400 font-extrabold text-xs tracking-wider uppercase">Live Security</span>
                     </div>
                     <!-- UPDATED: Added Sync Button & Dark Mode Toggle -->
-                    <div class="flex gap-2 items-center">
-                        <button onclick="toggleDarkMode()" class="w-8 h-8 rounded-full clay-btn dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all hover:scale-110" title="Toggle Dark Mode">
+                    <div class="flex gap-1.5 items-center">
+                        <button onclick="toggleDarkMode()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 flex items-center justify-center transition hover:scale-105 active:scale-95" title="Toggle Dark Mode">
                             <i id="darkModeIcon" class="fas fa-moon text-xs"></i>
                         </button>
-                        <button onclick="setSyncButtonLoading(this,true); fetchData(true)" class="w-8 h-8 rounded-full clay-btn dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all hover:scale-110" title="Sync Data">
+                        <button onclick="setSyncButtonLoading(this,true); fetchData(true)" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 flex items-center justify-center transition hover:scale-105 active:scale-95" title="Sync Data">
                             <i class="fas fa-sync-alt text-xs"></i>
                         </button>
-                        <button onclick="logout()" class="w-8 h-8 rounded-full clay-btn dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 flex items-center justify-center transition-all" title="Logout">
+                        <button onclick="logout()" class="w-8 h-8 rounded-full bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 flex items-center justify-center transition hover:scale-105 active:scale-95" title="Logout">
                             <i class="fas fa-power-off text-xs"></i>
                         </button>
                     </div>
                 </div>
                 <!-- Dynamic Info Bar -->
-                <div class="flex justify-between items-end">
+                <div class="flex justify-between items-center border-t border-slate-200/40 dark:border-white/5 pt-2.5">
                     <div>
-                        <div id="liveTime" class="text-3xl font-extrabold font-mono leading-none tracking-tight text-slate-900 dark:text-white">00:00:00</div>
-                        <div id="liveDate" class="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">Senin, 1 Januari 2024</div>
-                        <div id="securityProfileIndicator" class="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-blue-100 dark:bg-blue-500/15 border border-blue-300 dark:border-blue-400/20 text-[10px] text-blue-700 dark:text-blue-200">
-                            <i class="fas fa-user-shield text-blue-600 dark:text-blue-300"></i>
+                        <div id="liveTime" class="text-2xl font-extrabold font-mono tracking-tight text-slate-900 dark:text-white leading-none">00:00:00</div>
+                        <div id="liveDate" class="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-1">Senin, 1 Januari 2024</div>
+                        <div id="securityProfileIndicator" class="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200/50 dark:border-blue-500/20 text-[9px] font-bold text-blue-700 dark:text-blue-400">
+                            <i class="fas fa-user-shield text-blue-500 dark:text-blue-400"></i>
                             <span id="securityProfileText">Security: -</span>
                         </div>
                     </div>
-                    <div class="text-right max-w-[50%]">
-                        <div class="flex items-center justify-end gap-1 text-[10px] text-blue-600 dark:text-blue-400 uppercase tracking-wider font-bold mb-0.5">
+                    <div class="text-right max-w-[50%] flex flex-col items-end">
+                        <div class="flex items-center gap-1 text-[9px] text-blue-600 dark:text-blue-400 uppercase tracking-wider font-bold">
                             <i class="fas fa-map-marker-alt"></i> <span id="gpsStatus">Mencari GPS...</span>
                         </div>
-                        <div id="liveLoc" class="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">Menunggu Kordinat...</div>
+                        <div id="liveLoc" class="text-[9px] text-slate-400 dark:text-slate-500 font-mono truncate max-w-[150px] mt-0.5">Menunggu Kordinat...</div>
                     </div>
                 </div>
                 
                 <!-- SECURITY SHIFT INFO -->
-                <div id="securityShiftInfo" class="mt-4 clay-inset dark:bg-white/5 dark:backdrop-blur-md rounded-xl p-3 border border-slate-200 dark:border-white/10 transition-all duration-300">
-                    <div class="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
-                        <span class="font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Jadwal Shift Minggu Ini</span>
-                        <span id="weekInfoBadge" class="bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded text-[10px] font-semibold">Minggu Ganjil</span>
+                <div id="securityShiftInfo" class="mt-1 bg-slate-50/50 dark:bg-black/25 rounded-2xl p-3 border border-slate-200/50 dark:border-white/5 transition-all duration-300">
+                    <div class="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 mb-1.5">
+                        <span class="font-bold uppercase tracking-wider text-slate-700 dark:text-slate-350">Jadwal Shift Minggu Ini</span>
+                        <span id="weekInfoBadge" class="bg-blue-100/50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider">Minggu Ganjil</span>
                     </div>
-                    <div class="grid grid-cols-2 gap-2 mt-2">
-                        <div class="clay-btn dark:bg-black/30 p-2 rounded-lg text-center">
-                            <div class="text-[10px] text-slate-600 dark:text-slate-500 uppercase font-bold">Shift 1 (Pagi)</div>
-                            <div class="text-slate-900 dark:text-white font-bold text-lg">07:00</div>
+                    <div class="grid grid-cols-2 gap-2 mt-1">
+                        <div class="bg-white/50 dark:bg-white/5 p-2 rounded-xl text-center border border-slate-200/40 dark:border-white/5">
+                            <div class="text-[8px] text-slate-500 dark:text-slate-500 uppercase font-bold tracking-wider">Shift 1 (Pagi)</div>
+                            <div class="text-slate-800 dark:text-white font-extrabold text-sm mt-0.5">07:00</div>
                         </div>
-                        <div class="clay-btn dark:bg-black/30 p-2 rounded-lg text-center">
-                            <div class="text-[10px] text-slate-600 dark:text-slate-500 uppercase font-bold">Shift 2 (Malam)</div>
-                            <div class="text-slate-900 dark:text-white font-bold text-lg">19:00</div>
+                        <div class="bg-white/50 dark:bg-white/5 p-2 rounded-xl text-center border border-slate-200/40 dark:border-white/5">
+                            <div class="text-[8px] text-slate-500 dark:text-slate-500 uppercase font-bold tracking-wider">Shift 2 (Malam)</div>
+                            <div class="text-slate-800 dark:text-white font-extrabold text-sm mt-0.5">19:00</div>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Page 0: Security Self Check-In -->
-            <div id="secGatePage" class="flex-1 flex flex-col items-center justify-center p-6 relative pt-48">
-                <div class="w-full max-w-sm clay-modal dark:bg-slate-800/60 border border-slate-200 dark:border-white/10 rounded-3xl p-6 dark:backdrop-blur-md shadow-2xl">
-                    <div class="w-14 h-14 rounded-2xl bg-blue-100 dark:bg-blue-500/20 border border-blue-300 dark:border-blue-400/30 flex items-center justify-center text-blue-600 dark:text-blue-300 text-2xl mb-4">
+            <div id="secGatePage" class="flex-1 flex flex-col items-center justify-start p-6 relative pt-64 pb-8 z-10 overflow-y-auto w-full">
+                <div class="w-full max-w-sm bg-white/80 dark:bg-slate-900/60 border border-slate-200/50 dark:border-white/10 rounded-[2.5rem] p-6 backdrop-blur-md shadow-2xl text-center">
+                    <div class="w-16 h-16 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500 text-2xl mx-auto mb-4 shadow-[0_8px_25px_rgba(59,130,246,0.15)] relative">
+                        <div class="absolute inset-0 rounded-full border border-blue-500/30 animate-pulse"></div>
                         <i class="fas fa-user-shield"></i>
                     </div>
-                    <h3 class="text-xl font-bold text-slate-900 dark:text-white">Absen Security Dulu</h3>
-                    <p class="text-xs text-slate-600 dark:text-slate-300 mt-2 leading-relaxed">Sebelum scan QR relawan divisi lain, Security yang sedang login wajib absen masuk terlebih dahulu.</p>
-                    <div class="mt-4 text-[11px] text-slate-600 dark:text-slate-300 bg-blue-50 dark:bg-black/30 border border-slate-300 dark:border-white/10 rounded-xl p-3">
-                        <div class="font-bold text-blue-700 dark:text-blue-300">Status Shift Security</div>
-                        <div id="securityEntryStatus" class="mt-1 text-slate-700 dark:text-slate-400">Belum absen masuk.</div>
+                    <h3 class="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">Absen Security Dulu</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">Sebelum scan QR relawan divisi lain, Security yang sedang login wajib absen masuk terlebih dahulu.</p>
+                    
+                    <div class="mt-5 text-left bg-slate-50/60 dark:bg-black/35 border border-slate-200/60 dark:border-white/5 rounded-2xl p-4">
+                        <div class="flex items-center gap-1.5 font-bold text-xs text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1.5">
+                            <i class="fas fa-user-check"></i> Status Shift Security
+                        </div>
+                        <div id="securityEntryStatus" class="text-xs font-semibold text-slate-700 dark:text-slate-350">Belum absen masuk.</div>
                     </div>
-                    <button onclick="startSecuritySelfCheck()" class="mt-5 w-full py-3.5 rounded-2xl bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white font-bold shadow-lg shadow-blue-600/30 transition active:scale-95">
+                    
+                    <button onclick="startSecuritySelfCheck()" class="mt-6 w-full py-4 rounded-2xl bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white font-extrabold shadow-lg shadow-blue-500/20 active:scale-98 transition duration-200 border-t border-white/20 uppercase tracking-wider text-xs">
                         Mulai Absen Saya
                     </button>
                 </div>
-                <div class="absolute bottom-4 text-[10px] text-slate-500 dark:text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
+                <div class="mt-6 text-[10px] text-slate-500 dark:text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
             </div>
 
             <!-- Page 1: QR Scanner -->
-            <div id="secPage1" class="flex-1 flex flex-col items-center justify-center p-6 relative pt-48">
+            <div id="secPage1" class="flex-1 flex flex-col items-center justify-start p-6 relative pt-64 pb-8 z-10 overflow-y-auto w-full">
                 <!-- Camera Frame -->
-                <div class="relative w-full max-w-sm aspect-square bg-black rounded-[3rem] overflow-hidden shadow-2xl shadow-black/50 border-[6px] border-slate-800 group mb-8">
-                    <video id="scanVideo" autoplay playsinline class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition duration-500"></video>
+                <div class="relative w-full max-w-sm aspect-square bg-black rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-[6px] border-slate-900 dark:border-slate-950 shadow-[0_0_35px_rgba(59,130,246,0.2)] group mb-6">
+                    <video id="scanVideo" autoplay playsinline class="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition duration-500"></video>
                     
                     <!-- Scanner Animation Overlay -->
                     <div class="absolute inset-0 p-10 flex items-center justify-center pointer-events-none">
-                         <div class="w-full h-full border-2 border-white/30 rounded-2xl relative">
+                         <div class="w-full h-full border-2 border-white/20 rounded-2xl relative">
                             <div class="absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 border-blue-500 rounded-tl-2xl"></div>
                             <div class="absolute top-0 right-0 w-12 h-12 border-t-4 border-r-4 border-blue-500 rounded-tr-2xl"></div>
                             <div class="absolute bottom-0 left-0 w-12 h-12 border-b-4 border-l-4 border-blue-500 rounded-bl-2xl"></div>
                             <div class="absolute bottom-0 right-0 w-12 h-12 border-b-4 border-r-4 border-blue-500 rounded-br-2xl"></div>
-                            <div class="absolute top-1/2 left-6 right-6 h-0.5 bg-red-500/80 shadow-[0_0_20px_#ef4444] animate-[scan_2s_ease-in-out_infinite]"></div>
+                            <div class="absolute left-6 right-6 h-0.5 bg-blue-500 shadow-[0_0_20px_#3b82f6] animate-[scan_2s_ease-in-out_infinite]"></div>
                          </div>
                     </div>
                     
                     <!-- Status Text -->
                     <div class="absolute bottom-6 left-0 right-0 text-center">
-                        <span class="bg-black/50 text-white/80 text-[10px] px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10 font-medium">
-                            Scan QR Relawan
+                        <span class="bg-slate-950/70 text-blue-400 text-[10px] px-4 py-1.5 rounded-full backdrop-blur-md border border-blue-500/20 font-bold uppercase tracking-wider">
+                            Scan Volunteer QR
                         </span>
                     </div>
                 </div>
 
-                <div class="absolute bottom-4 text-[10px] text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
+                <div class="mt-2 text-[10px] text-slate-500 dark:text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
             </div>
 
             <!-- Page 2: Selfie Verification -->
-            <!-- UPDATED: Adjusted padding and layout for cleaner look after minimize -->
-            <div id="secPage2" class="hidden flex-1 flex flex-col bg-slate-900 overflow-y-auto">
+            <div id="secPage2" class="hidden flex-1 flex flex-col bg-transparent overflow-y-auto">
                 <!-- Profile Header - Reduced top padding from pt-48 to pt-32 -->
-                <div class="pt-32 px-6 pb-6">
-                    <div class="bg-slate-800/50 border border-white/5 p-5 rounded-2xl flex items-center gap-5 backdrop-blur-sm shadow-xl">
-                        <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center text-2xl text-white shadow-lg shadow-blue-600/20 shrink-0">
+                <div class="pt-[220px] px-6 pb-4">
+                    <div class="bg-white/80 dark:bg-slate-900/60 border border-slate-200/50 dark:border-white/10 p-5 rounded-[2.2rem] flex items-center gap-5 backdrop-blur-md shadow-2xl">
+                        <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center text-2xl text-white shadow-lg shadow-blue-600/20 shrink-0">
                             <i class="fas fa-user-check"></i>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <h2 id="confirmName" class="text-xl font-bold text-slate-900 dark:text-white leading-tight truncate">Nama Relawan</h2>
-                            <div class="flex items-center gap-2 mt-1.5 flex-wrap">
-                                <span id="confirmDiv" class="text-xs font-bold text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-500/10 px-2 py-0.5 rounded-md border border-blue-300 dark:border-blue-500/20">Divisi</span>
-                                <span id="confirmShift" class="text-[10px] text-slate-600 dark:text-slate-400 flex items-center gap-1">
-                                    <i class="far fa-clock"></i> <span class="truncate">Jam Masuk: --:--</span>
+                            <h2 id="confirmName" class="text-lg font-extrabold text-slate-900 dark:text-white leading-tight truncate">Nama Relawan</h2>
+                            <div class="flex items-center gap-2 mt-2 flex-wrap">
+                                <span id="confirmDiv" class="text-[10px] font-bold text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-500/10 px-2.5 py-0.5 rounded-lg border border-blue-300/50 dark:border-blue-500/20 uppercase tracking-wide">Divisi</span>
+                                <span id="confirmShift" class="text-[9px] text-slate-500 dark:text-slate-400 flex items-center gap-1 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-lg border border-slate-200/30 dark:border-white/5 font-semibold">
+                                    <i class="far fa-clock"></i> <span class="truncate">Shift: --:--</span>
                                 </span>
-                                <span id="confirmKitchen" class="text-[10px] text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                                <span id="confirmKitchen" class="text-[9px] text-slate-500 dark:text-slate-400 flex items-center gap-1 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-lg border border-slate-200/30 dark:border-white/5 font-semibold">
                                     <i class="fas fa-store-alt text-blue-500"></i> SPPG Rawa Bunga 1
                                 </span>
                             </div>
@@ -2984,165 +3036,181 @@
                 <!-- Selfie Cam & Buttons - Centered and Spaced -->
                 <div class="px-6 flex-1 flex flex-col justify-start pb-8">
                     <!-- Camera Frame - Optimized Aspect Ratio -->
-                    <div class="relative bg-black rounded-[2.5rem] overflow-hidden border-4 border-slate-800 w-full aspect-[3/4] shadow-2xl mb-6 group shrink-0 max-h-[50vh]">
+                    <div class="relative bg-black rounded-[2.5rem] overflow-hidden border-4 border-slate-900 dark:border-slate-950 w-full aspect-[3/4] shadow-[0_20px_50px_rgba(0,0,0,0.3)] shadow-[0_0_35px_rgba(59,130,246,0.15)] mb-6 group shrink-0 max-h-[50vh]">
                         <video id="faceVideo" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100 transition-transform duration-500"></video>
                         <canvas id="snapCanvas" class="hidden"></canvas>
                         
                         <!-- Toggle Camera Button -->
-                        <button onclick="toggleCamera()" class="absolute top-4 right-4 w-12 h-12 rounded-full bg-black/40 text-white backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-white hover:text-black transition-all shadow-lg active:rotate-180 z-20">
-                            <i class="fas fa-sync-alt"></i>
+                        <button onclick="toggleCamera()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-slate-950/40 text-white backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-white hover:text-black transition shadow-lg active:rotate-180 z-20">
+                            <i class="fas fa-sync-alt text-sm"></i>
                         </button>
                     </div>
 
                     <!-- Action Buttons -->
                     <div class="grid grid-cols-2 gap-4 mb-4">
-                        <button id="btnAbsenIn" onclick="submitAbsence('IN')" disabled class="relative overflow-hidden bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-600/20 active:scale-95 transition-all group border-t border-white/20">
-                            <div class="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 rounded-2xl"></div>
-                            <div class="relative flex flex-col items-center gap-1">
-                                <i class="fas fa-sign-in-alt text-xl mb-0.5"></i> 
-                                <span class="text-[10px] tracking-widest uppercase">Absen</span>
+                        <button id="btnAbsenIn" onclick="submitAbsence('IN')" disabled class="relative overflow-hidden bg-gradient-to-b from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-2xl font-extrabold shadow-lg shadow-blue-500/20 active:scale-95 transition-all group border-t border-white/20 uppercase tracking-wider text-xs">
+                             <div class="relative flex flex-col items-center gap-1.5">
+                                <i class="fas fa-sign-in-alt text-base"></i> 
+                                <span>Absen Masuk</span>
                             </div>
                         </button>
-                        <button id="btnAbsenOut" onclick="submitAbsence('OUT')" disabled class="relative overflow-hidden bg-gradient-to-b from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-2xl font-bold shadow-lg shadow-amber-500/20 active:scale-95 transition-all group border-t border-white/20">
-                             <div class="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 rounded-2xl"></div>
-                            <div class="relative flex flex-col items-center gap-1">
-                                <i class="fas fa-sign-out-alt text-xl mb-0.5"></i> 
-                                <span class="text-[10px] tracking-widest uppercase">Absen Pulang</span>
+                        <button id="btnAbsenOut" onclick="submitAbsence('OUT')" disabled class="relative overflow-hidden bg-gradient-to-b from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-2xl font-extrabold shadow-lg shadow-amber-500/20 active:scale-95 transition-all group border-t border-white/20 uppercase tracking-wider text-xs">
+                             <div class="relative flex flex-col items-center gap-1.5">
+                                <i class="fas fa-sign-out-alt text-base"></i> 
+                                <span>Absen Pulang</span>
                             </div>
                         </button>
                     </div>
                     
-                    <button onclick="resetSecurityFlow()" class="w-full py-4 text-slate-600 dark:text-slate-500 text-xs font-bold bg-slate-200 dark:bg-slate-800/50 hover:bg-slate-300 dark:hover:bg-slate-800 rounded-2xl active:scale-95 border border-slate-300 dark:border-white/5 transition uppercase tracking-widest">
+                    <button onclick="resetSecurityFlow()" class="w-full py-3.5 text-slate-500 dark:text-slate-400 text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 rounded-2xl active:scale-95 border border-slate-200/50 dark:border-white/5 transition uppercase tracking-widest">
                         Batal / Scan Ulang
                     </button>
                     
-                    <div class="mt-auto pt-6 text-center text-[10px] text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
+                    <div class="mt-auto pt-6 text-center text-[10px] text-slate-500 dark:text-slate-600 font-medium font-sans">© 2026 by EnjoyCreamID</div>
                 </div>
+            </div>
             </div>
         </div>
 
         <!-- 4. VOLUNTEER SELF-ATTENDANCE LAYOUT -->
         <div id="volunteerLayout" class="transition-view view-hidden hidden flex flex-col h-full clay-bg dark:bg-slate-900 text-slate-900 dark:text-white font-sans relative transition-colors duration-300">
-            <!-- Header Bar -->
-            <div class="absolute top-0 left-0 w-full z-20 px-6 py-4 bg-gradient-to-b from-white/30 dark:from-black/80 to-transparent dark:to-transparent flex flex-col gap-2">
-                <div class="flex justify-between items-start">
+            <!-- Background Decorative Ambient Glows -->
+            <div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                <div class="absolute -top-[10%] -left-[20%] w-[350px] h-[350px] bg-emerald-500/10 dark:bg-emerald-500/5 rounded-full blur-[120px]"></div>
+                <div class="absolute top-[40%] -right-[20%] w-[300px] h-[300px] bg-teal-500/10 dark:bg-teal-500/5 rounded-full blur-[100px]"></div>
+                <div class="absolute -bottom-[10%] left-[10%] w-[250px] h-[250px] bg-blue-500/5 dark:bg-blue-500/3 rounded-full blur-[80px]"></div>
+            </div>
+
+            <!-- Unified Floating Glassmorphic Status Header -->
+            <div class="absolute top-4 left-4 right-4 z-20 p-4 bg-white/70 dark:bg-slate-950/45 border border-slate-200/50 dark:border-white/10 backdrop-blur-md rounded-[2rem] shadow-xl flex flex-col gap-2.5">
+                <div class="flex justify-between items-center">
                     <div class="flex items-center gap-2">
                         <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_#10b981]"></span>
-                        <span class="text-emerald-600 dark:text-emerald-400 font-bold text-xs tracking-widest uppercase">Absensi Relawan</span>
+                        <span class="text-emerald-600 dark:text-emerald-400 font-extrabold text-xs tracking-wider uppercase">Absensi Relawan</span>
                     </div>
-                    <div class="flex gap-2 items-center">
-                        <button onclick="toggleDarkMode()" class="w-8 h-8 rounded-full clay-btn dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all hover:scale-110" title="Toggle Dark Mode">
+                    <div class="flex gap-1.5 items-center">
+                        <button onclick="toggleDarkMode()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 flex items-center justify-center transition hover:scale-105 active:scale-95" title="Toggle Dark Mode">
                             <i id="darkModeIcon" class="fas fa-moon text-xs"></i>
                         </button>
-                        <button onclick="setSyncButtonLoading(this,true); fetchData(true)" class="w-8 h-8 rounded-full clay-btn dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all hover:scale-110" title="Sync Data">
+                        <button onclick="setSyncButtonLoading(this,true); fetchData(true)" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 flex items-center justify-center transition hover:scale-105 active:scale-95" title="Sync Data">
                             <i class="fas fa-sync-alt text-xs"></i>
                         </button>
-                        <button onclick="volExitToLogin()" class="w-8 h-8 rounded-full clay-btn dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 flex items-center justify-center transition-all" title="Keluar">
+                        <button onclick="volExitToLogin()" class="w-8 h-8 rounded-full bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 flex items-center justify-center transition hover:scale-105 active:scale-95" title="Keluar">
                             <i class="fas fa-power-off text-xs"></i>
                         </button>
                     </div>
                 </div>
-                <div class="flex justify-between items-end">
+                
+                <div class="flex justify-between items-center border-t border-slate-200/40 dark:border-white/5 pt-2.5">
                     <div>
-                        <div id="volLiveTime" class="text-3xl font-extrabold font-mono leading-none tracking-tight text-slate-900 dark:text-white">00:00:00</div>
-                        <div id="volLiveDate" class="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">Senin, 1 Januari 2026</div>
+                        <div id="volLiveTime" class="text-2xl font-extrabold font-mono tracking-tight text-slate-900 dark:text-white leading-none">00:00:00</div>
+                        <div id="volLiveDate" class="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-1">Senin, 1 Januari 2026</div>
                     </div>
-                    <div class="text-right max-w-[50%]">
-                        <div class="flex items-center justify-end gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 uppercase tracking-wider font-bold mb-0.5">
+                    <div class="text-right max-w-[50%] flex flex-col items-end">
+                        <div class="flex items-center gap-1 text-[9px] text-emerald-600 dark:text-emerald-400 uppercase tracking-wider font-bold">
                             <i class="fas fa-map-marker-alt"></i> <span id="volGpsStatus">Mencari GPS...</span>
                         </div>
-                        <div id="volLiveLoc" class="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">Menunggu Koordinat...</div>
+                        <div id="volLiveLoc" class="text-[9px] text-slate-400 dark:text-slate-500 font-mono truncate max-w-[150px] mt-0.5">Menunggu Koordinat...</div>
                     </div>
                 </div>
+
                 <!-- Volunteer Profile Card (hidden in guest mode) -->
-                <div id="volProfileCard" class="mt-3 clay-inset dark:bg-white/10 dark:backdrop-blur-md rounded-2xl p-4 border border-slate-200 dark:border-white/10 flex items-center gap-4">
-                    <div id="volProfileAvatar" class="w-12 h-12 rounded-full bg-emerald-600 flex items-center justify-center text-white text-lg font-bold shrink-0 border-2 border-emerald-400/50 shadow-lg shadow-emerald-500/20">
+                <div id="volProfileCard" class="mt-1 bg-slate-50/50 dark:bg-black/25 rounded-2xl p-3 border border-slate-200/50 dark:border-white/5 flex items-center gap-3.5">
+                    <div id="volProfileAvatar" class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-base font-bold shrink-0 border border-emerald-400/20 shadow-md">
                         <i class="fas fa-user"></i>
                     </div>
                     <div class="flex-1 min-w-0">
-                        <div id="volProfileName" class="font-bold text-slate-900 dark:text-white text-sm leading-tight truncate">Nama Relawan</div>
-                        <div class="flex items-center gap-2 mt-1 flex-wrap">
-                            <span id="volProfileDiv" class="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-500/15 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-400/20">Divisi</span>
-                            <span id="volProfileShift" class="text-[10px] text-slate-600 dark:text-slate-400"><i class="far fa-clock mr-1"></i>--:-- - --:--</span>
+                        <div id="volProfileName" class="font-extrabold text-slate-900 dark:text-white text-xs leading-none truncate">Nama Relawan</div>
+                        <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                            <span id="volProfileDiv" class="text-[9px] text-emerald-700 dark:text-emerald-400 font-bold uppercase tracking-wider bg-emerald-100/50 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-200/40 dark:border-emerald-500/20 leading-none">Divisi</span>
+                            <span id="volProfileShift" class="text-[9px] text-slate-500 dark:text-slate-400 flex items-center gap-1"><i class="far fa-clock"></i> --:-- - --:--</span>
                         </div>
                     </div>
                 </div>
+
                 <!-- Geofence Status -->
-                <div id="volGeofenceBar" class="hidden mt-1.5 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-100 dark:bg-red-500/15 border border-red-300 dark:border-red-400/20 text-[10px] text-red-700 dark:text-red-300 font-bold transition-all duration-300">
-                    <i class="fas fa-shield-alt"></i>
-                    <span id="volGeofenceText">Geofence: Menunggu lokasi...</span>
+                <div id="volGeofenceBar" class="hidden flex items-center gap-2 px-3 py-2 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200/55 dark:border-red-500/20 text-[9px] text-red-600 dark:text-red-400 font-bold transition-all duration-300">
+                    <i class="fas fa-shield-alt text-xs"></i>
+                    <span id="volGeofenceText" class="leading-none">Geofence: Menunggu lokasi...</span>
                 </div>
             </div>
 
             <!-- Vol Page 0: Dashboard / Home -->
-            <div id="volPageHome" class="flex-1 flex flex-col items-center p-6 relative pt-52 pb-6">
-                <div class="w-full max-w-sm space-y-3">
+            <div id="volPageHome" class="flex-1 flex flex-col items-center justify-start p-6 relative pt-64 pb-8 z-10 overflow-y-auto w-full">
+                <div class="w-full max-w-sm space-y-4">
                     <!-- Status Card -->
-                    <div id="volStatusCard" class="bg-slate-800/60 border border-white/10 rounded-2xl p-5 backdrop-blur-md shadow-2xl text-center">
-                        <div id="volStatusIcon" class="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300 text-2xl mx-auto mb-3">
-                            <i class="fas fa-fingerprint"></i>
+                    <div id="volStatusCard" class="bg-white/80 dark:bg-slate-900/60 border border-slate-200/50 dark:border-white/10 rounded-[2.5rem] p-6 backdrop-blur-md shadow-2xl text-center transition-all duration-300">
+                        <div id="volStatusIcon" class="w-20 h-20 rounded-full bg-emerald-500/10 dark:bg-emerald-500/5 border border-emerald-500/20 flex items-center justify-center text-emerald-500 text-3xl mx-auto mb-5 shadow-[0_10px_30px_rgba(16,185,129,0.15)] relative group-hover:scale-105 transition-transform">
+                            <!-- Circular pulse ring -->
+                            <div class="absolute inset-0 rounded-full border border-emerald-500/30 animate-ping opacity-75"></div>
+                            <i class="fas fa-fingerprint relative z-10"></i>
                         </div>
-                        <h3 id="volStatusTitle" class="text-lg font-bold text-white">Absensi Relawan</h3>
-                        <p id="volStatusDesc" class="text-[11px] text-slate-300 mt-1.5 leading-relaxed">Scan QR Code dan verifikasi selfie untuk absen.</p>
-                        <div id="volTodayStatus" class="mt-3 bg-black/30 border border-white/10 rounded-xl p-3 text-left text-[11px] text-slate-300">
-                            <div class="font-bold text-emerald-300 mb-1">Status Hari Ini</div>
-                            <div id="volTodayInfo">Belum absen hari ini.</div>
+                        <h3 id="volStatusTitle" class="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">Absensi Relawan</h3>
+                        <p id="volStatusDesc" class="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed max-w-[250px] mx-auto">Scan QR Code dan verifikasi selfie untuk melakukan pencatatan kehadiran.</p>
+                        
+                        <div id="volTodayStatus" class="mt-6 bg-slate-50/60 dark:bg-black/35 border border-slate-200/60 dark:border-white/5 rounded-2xl p-4 text-left transition-colors duration-300">
+                            <div class="flex items-center gap-2 font-bold text-xs text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-2">
+                                <i class="fas fa-calendar-check"></i> Status Hari Ini
+                            </div>
+                            <div id="volTodayInfo" class="text-xs font-semibold text-slate-700 dark:text-slate-200 leading-normal">Belum absen hari ini.</div>
                         </div>
                     </div>
+                    
                     <!-- Single Smart Absen Button -->
-                    <button id="volBtnAbsen" onclick="volStartAbsen()" class="w-full py-4 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-bold shadow-lg shadow-emerald-600/30 transition active:scale-95 flex items-center justify-center gap-3 border-t border-white/20">
-                        <i id="volBtnAbsenIcon" class="fas fa-sign-in-alt text-lg"></i>
-                        <span id="volBtnAbsenLabel" class="text-sm uppercase tracking-wider">Absen Masuk</span>
+                    <button id="volBtnAbsen" onclick="volStartAbsen()" class="w-full py-4.5 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-extrabold shadow-lg shadow-emerald-500/20 transition duration-200 active:scale-98 flex items-center justify-center gap-3 border-t border-white/20 uppercase tracking-wider text-xs">
+                        <i id="volBtnAbsenIcon" class="fas fa-sign-in-alt text-base"></i>
+                        <span id="volBtnAbsenLabel">Absen Masuk</span>
                     </button>
                 </div>
-                <div class="mt-4 text-[10px] text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
+                <div class="mt-6 text-[10px] text-slate-500 dark:text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
             </div>
 
             <!-- Vol Page 1: QR Scan -->
-            <div id="volPageQR" class="hidden flex-1 flex flex-col items-center p-6 relative pt-52">
-                <div class="relative w-full max-w-sm aspect-square bg-black rounded-[3rem] overflow-hidden shadow-2xl shadow-black/50 border-[6px] border-slate-800 dark:border-slate-800 group mb-6">
-                    <video id="volScanVideo" autoplay playsinline class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition duration-500"></video>
+            <div id="volPageQR" class="hidden flex-1 flex flex-col items-center justify-start p-6 relative pt-64 pb-8 z-10 overflow-y-auto w-full">
+                <div class="relative w-full max-w-sm aspect-square bg-black rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-[6px] border-slate-900 dark:border-slate-950 shadow-[0_0_30px_rgba(16,185,129,0.2)] group mb-6 z-10">
+                    <video id="volScanVideo" autoplay playsinline class="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition duration-500"></video>
                     <div class="absolute inset-0 p-10 flex items-center justify-center pointer-events-none">
-                        <div class="w-full h-full border-2 border-white/30 rounded-2xl relative">
+                        <div class="w-full h-full border-2 border-white/20 rounded-2xl relative">
                             <div class="absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 border-emerald-500 rounded-tl-2xl"></div>
                             <div class="absolute top-0 right-0 w-12 h-12 border-t-4 border-r-4 border-emerald-500 rounded-tr-2xl"></div>
                             <div class="absolute bottom-0 left-0 w-12 h-12 border-b-4 border-l-4 border-emerald-500 rounded-bl-2xl"></div>
                             <div class="absolute bottom-0 right-0 w-12 h-12 border-b-4 border-r-4 border-emerald-500 rounded-br-2xl"></div>
-                            <div class="absolute top-1/2 left-6 right-6 h-0.5 bg-emerald-500/80 shadow-[0_0_20px_#10b981] animate-[scan_2s_ease-in-out_infinite]"></div>
+                            <div class="absolute left-6 right-6 h-0.5 bg-emerald-500 shadow-[0_0_20px_#10b981] animate-[scan_2s_ease-in-out_infinite]"></div>
                         </div>
                     </div>
                     <div class="absolute bottom-6 left-0 right-0 text-center">
-                        <span class="bg-black/50 text-white/80 text-[10px] px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10 font-medium">
-                            Scan QR Code Anda
+                        <span class="bg-slate-950/70 text-emerald-400 text-[10px] px-4 py-1.5 rounded-full backdrop-blur-md border border-emerald-500/20 font-bold uppercase tracking-wider">
+                            Ready to Scan
                         </span>
                     </div>
                 </div>
-                <p class="text-xs text-slate-600 dark:text-slate-400 text-center max-w-xs mb-4">Arahkan kamera ke QR Code pribadi Anda untuk verifikasi identitas.</p>
-                <div class="w-full max-w-sm flex gap-2 mb-3">
-                    <button onclick="volCancelFlow()" class="flex-1 py-3 text-slate-600 dark:text-slate-500 text-xs font-bold bg-slate-200 dark:bg-slate-800/50 hover:bg-slate-300 dark:hover:bg-slate-800 rounded-2xl active:scale-95 border border-slate-300 dark:border-white/5 transition uppercase tracking-widest">
+                <p class="text-xs text-slate-500 dark:text-slate-400 text-center max-w-xs mb-6 z-10">Arahkan kamera ke QR Code pribadi Anda untuk memverifikasi identitas.</p>
+                
+                <div class="w-full max-w-sm flex gap-3 mb-4 z-10">
+                    <button onclick="volCancelFlow()" class="flex-1 py-3.5 text-slate-500 dark:text-slate-400 text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 rounded-2xl active:scale-95 border border-slate-200/50 dark:border-white/5 transition uppercase tracking-widest">
                         Batal
                     </button>
-                    <label class="flex-1 py-3 text-emerald-700 dark:text-emerald-400 text-xs font-bold bg-emerald-100 dark:bg-emerald-500/10 hover:bg-emerald-200 dark:hover:bg-emerald-500/20 rounded-2xl active:scale-95 border border-emerald-300 dark:border-emerald-500/20 transition uppercase tracking-widest cursor-pointer flex items-center justify-center gap-2">
+                    <label class="flex-1 py-3.5 text-emerald-600 dark:text-emerald-400 text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 rounded-2xl active:scale-95 border border-emerald-500/20 transition uppercase tracking-widest cursor-pointer flex items-center justify-center gap-2">
                         <i class="fas fa-image"></i> Upload QR
                         <input type="file" accept="image/*" onchange="volUploadQR(event)" class="hidden">
                     </label>
                 </div>
-                <div class="absolute bottom-4 text-[10px] text-slate-500 dark:text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
+                <div class="mt-2 text-[10px] text-slate-500 dark:text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
             </div>
 
             <!-- Vol Page 2: Selfie Verification -->
-            <div id="volPageSelfie" class="hidden flex-1 flex flex-col bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-800 overflow-y-auto transition-colors duration-300">
-                <div class="pt-44 px-6 pb-2">
-                    <div class="clay-modal dark:bg-slate-800/50 dark:border-white/5 p-3 rounded-2xl flex items-center gap-3 dark:backdrop-blur-sm shadow-xl border border-slate-200 dark:border-white/5">
+            <div id="volPageSelfie" class="hidden flex-1 flex flex-col bg-transparent overflow-y-auto transition-colors duration-300">
+                <div class="pt-[220px] px-6 pb-3">
+                    <div class="bg-white/80 dark:bg-slate-900/60 border border-slate-200/50 dark:border-white/10 p-5 rounded-[2.2rem] flex items-center gap-4 backdrop-blur-md shadow-2xl">
                         <div id="volSelfieTypeIcon" class="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center text-2xl text-white shadow-lg shadow-emerald-500/20 shrink-0">
                             <i class="fas fa-sign-in-alt"></i>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <h2 id="volSelfieName" class="text-lg font-bold text-slate-900 dark:text-white leading-tight truncate">Nama Relawan</h2>
-                            <div class="flex items-center gap-2 mt-1 flex-wrap">
-                                <span id="volSelfieDiv" class="text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-300 dark:border-emerald-500/20">Divisi</span>
-                                <span id="volSelfieType" class="text-[10px] font-bold text-white bg-emerald-500 px-2 py-0.5 rounded">CLOCK IN</span>
-                                <span id="volSelfieKitchen" class="text-[10px] text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                            <h2 id="volSelfieName" class="text-lg font-extrabold text-slate-900 dark:text-white leading-tight truncate">Nama Relawan</h2>
+                            <div class="flex items-center gap-2 mt-2 flex-wrap">
+                                <span id="volSelfieDiv" class="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/10 px-2.5 py-0.5 rounded-lg border border-emerald-300/50 dark:border-emerald-500/20 uppercase tracking-wide">Divisi</span>
+                                <span id="volSelfieType" class="text-[9px] font-extrabold text-white bg-emerald-500 px-2 py-0.5 rounded shadow-sm">CLOCK IN</span>
+                                <span id="volSelfieKitchen" class="text-[9px] text-slate-500 dark:text-slate-400 flex items-center gap-1 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-lg border border-slate-200/30 dark:border-white/5">
                                     <i class="fas fa-store-alt text-emerald-500"></i> SPPG Rawa Bunga 1
                                 </span>
                             </div>
@@ -3151,30 +3219,30 @@
                 </div>
                 <div class="px-6 flex-1 flex flex-col justify-start pb-8">
                     <!-- Live Camera -->
-                    <div class="relative bg-black rounded-[2.5rem] overflow-hidden border-4 border-slate-800 dark:border-slate-800 w-full aspect-[3/4] shadow-2xl mb-4 group shrink-0 max-h-[50vh]">
+                    <div class="relative bg-black rounded-[2.5rem] overflow-hidden border-4 border-slate-900 dark:border-slate-950 w-full aspect-[3/4] shadow-[0_20px_50px_rgba(0,0,0,0.3)] shadow-[0_0_35px_rgba(16,185,129,0.15)] mb-5 group shrink-0 max-h-[50vh]">
                         <video id="volFaceVideo" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100 transition-transform duration-500"></video>
                         <canvas id="volSnapCanvas" class="hidden"></canvas>
                         <!-- Watermark preview overlay -->
-                        <div id="volWatermarkPreview" class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/70 to-transparent pointer-events-none">
-                            <div class="text-[9px] font-mono text-white/90 leading-relaxed">
-                                <div id="volWmTime" class="font-bold">--:--:-- DD/MM/YYYY</div>
-                                <div id="volWmLoc">Lat: -.---- Lon: -.---- Alt: -m</div>
+                        <div id="volWatermarkPreview" class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent pointer-events-none">
+                            <div class="text-[9px] font-mono text-white/80 leading-relaxed">
+                                <div id="volWmTime" class="font-bold flex items-center gap-1"><i class="far fa-clock text-emerald-400"></i> --:--:-- DD/MM/YYYY</div>
+                                <div id="volWmLoc" class="flex items-center gap-1 mt-0.5"><i class="fas fa-map-marker-alt text-emerald-400"></i> Lat: -.---- Lon: -.---- Alt: -m</div>
                             </div>
                         </div>
                         <!-- Toggle Camera -->
-                        <button onclick="volToggleCamera()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/40 text-white backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-white hover:text-black transition-all shadow-lg active:rotate-180 z-20">
+                        <button onclick="volToggleCamera()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-slate-950/40 text-white backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-white hover:text-black transition shadow-lg active:rotate-180 z-20">
                             <i class="fas fa-sync-alt text-sm"></i>
                         </button>
                     </div>
 
-                    <button id="volBtnSubmit" onclick="volSubmitSelfie()" disabled class="w-full py-4 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold shadow-lg shadow-emerald-600/30 transition active:scale-95 flex items-center justify-center gap-3 border-t border-white/20 mb-3">
-                        <i class="fas fa-camera text-lg"></i>
-                        <span class="text-sm uppercase tracking-wider">Ambil Foto & Kirim</span>
+                    <button id="volBtnSubmit" onclick="volSubmitSelfie()" disabled class="w-full py-4 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold shadow-lg shadow-emerald-600/30 transition duration-200 active:scale-98 flex items-center justify-center gap-3 border-t border-white/20 mb-3 uppercase tracking-wider text-xs">
+                        <i class="fas fa-camera text-base"></i>
+                        <span>Ambil Foto & Absen</span>
                     </button>
-                    <button onclick="volCancelFlow()" class="w-full py-3 text-slate-600 dark:text-slate-500 text-xs font-bold bg-slate-200 dark:bg-slate-800/50 hover:bg-slate-300 dark:hover:bg-slate-800 rounded-2xl active:scale-95 border border-slate-300 dark:border-white/5 transition uppercase tracking-widest">
+                    <button onclick="volCancelFlow()" class="w-full py-3 text-slate-500 dark:text-slate-400 text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 rounded-2xl active:scale-95 border border-slate-200/50 dark:border-white/5 transition uppercase tracking-widest">
                         Batal
                     </button>
-                    <div class="mt-auto pt-4 text-center text-[10px] text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
+                    <div class="mt-auto pt-6 text-center text-[10px] text-slate-500 dark:text-slate-600 font-medium">© 2026 by EnjoyCreamID</div>
                 </div>
             </div>
         </div>
@@ -4000,9 +4068,7 @@
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- MAIN SCRIPT -->
-    <script src="script.js?v=2.9.6"></script>
+    </div>    <!-- MAIN SCRIPT -->
+    <script src="script.js?v=3.0.0"></script>
 </body>
 </html>
