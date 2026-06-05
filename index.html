@@ -251,7 +251,7 @@
         </div>
         
         <!-- Success State -->
-        <div id="loaderSuccess" class="flex flex-col items-center gap-4 opacity-0 scale-75 transition-all duration-500">
+        <div id="loaderSuccess" class="hidden flex flex-col items-center gap-4 opacity-0 scale-75 transition-all duration-500">
             <!-- Success Icon -->
             <div class="relative w-24 h-24 flex items-center justify-center">
                 <!-- Success glow -->
@@ -767,7 +767,7 @@
                         <i class="fas fa-moon dark:hidden text-xs"></i>
                         <i class="fas fa-sun hidden dark:block text-xs"></i>
                     </button>
-                    <button onclick="showLoginScreen()" class="px-5 py-2.5 rounded-full text-xs font-bold bg-slate-900 text-white dark:bg-white dark:text-slate-950 hover:opacity-90 active:scale-95 transition shadow-md shadow-indigo-500/5">
+                    <button onclick="showLoginScreen()" class="px-5 py-2.5 rounded-full text-xs font-bold bg-slate-900 text-white dark:bg-white dark:!text-slate-950 hover:opacity-90 active:scale-95 transition shadow-md shadow-indigo-500/5">
                         Masuk Sistem
                     </button>
                 </div>
@@ -1818,7 +1818,7 @@
                                         </div>
                                         <div class="flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-white/50 transition">
                                             <span class="text-xs font-extrabold text-orange-100">Rp</span>
-                                            <input type="number" id="configOvertimeRate" value="15000" onchange="saveConfig()" class="w-full bg-transparent border-none text-white text-lg font-extrabold focus:ring-0 p-0 placeholder-orange-200/50">
+                                            <input type="number" id="configOvertimeRate" value="15000" onchange="saveConfig()" class="w-full bg-transparent border-none text-white text-lg font-extrabold focus:ring-0 p-0 placeholder-orange-200/50" style="background-color: transparent !important; color: white !important;">
                                             <span class="text-[10px] font-bold text-orange-100 uppercase tracking-wider">/Jam</span>
                                         </div>
                                     </div>
@@ -1902,7 +1902,7 @@
                             </div>
                             <div class="overflow-x-auto">
                                 <table class="w-full text-sm text-left">
-                                    <thead class="text-xs text-slate-400 uppercase bg-slate-50/50">
+                                    <thead class="text-xs text-slate-400 uppercase bg-slate-100/50 dark:bg-slate-950/40 border-b border-slate-200/60 dark:border-white/5">
                                         <tr>
                                             <th class="px-6 py-4 font-bold text-center w-20">Foto</th>
                                             <th class="px-6 py-4 font-bold">Waktu</th>
@@ -1918,7 +1918,7 @@
                                 </table>
                             </div>
                             <!-- PAGINATION CONTROLS -->
-                            <div class="p-6 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between">
+                            <div class="p-6 border-t border-slate-100/50 dark:border-white/5 bg-slate-50/40 dark:bg-slate-950/20 backdrop-blur-md flex items-center justify-between">
                                 <div class="text-sm text-slate-600">
                                     Halaman <span id="currentPage" class="font-bold text-slate-800">1</span> dari <span id="totalPages" class="font-bold text-slate-800">1</span>
                                 </div>
@@ -2187,7 +2187,7 @@
                             </div>
                             <div class="overflow-x-auto">
                                 <table class="w-full text-sm text-left">
-                                    <thead class="text-xs text-slate-400 uppercase bg-slate-50/50">
+                                    <thead class="text-xs text-slate-400 uppercase bg-slate-100/50 dark:bg-slate-950/40 border-b border-slate-200/60 dark:border-white/5">
                                         <tr>
                                             <th class="px-6 py-3 font-bold">Tanggal</th>
                                             <th class="px-6 py-3 font-bold">Nama</th>
@@ -2255,8 +2255,8 @@
                             <!-- Table -->
                             <div class="overflow-x-auto rounded-2xl border border-slate-100">
                                 <table class="w-full text-sm">
-                                    <thead>
-                                        <tr class="bg-slate-50 text-slate-400 text-[10px] uppercase tracking-wider">
+                                    <thead class="bg-slate-100/50 dark:bg-slate-950/40 text-slate-400 text-[10px] uppercase tracking-wider border-b border-slate-200/60 dark:border-white/5">
+                                        <tr>
                                             <th class="px-4 py-3 font-bold text-left">Tanggal</th>
                                             <th class="px-4 py-3 font-bold text-left">Nama</th>
                                             <th class="px-4 py-3 font-bold text-center">Jenis</th>
@@ -2334,8 +2334,8 @@
                                 <p style="text-align:center; font-size:11px; color:#555; margin:0 0 16px;" id="printPeriodeGaji">Periode: -</p>
                             </div>
                             <div class="overflow-x-auto">
-                                <table class="w-full text-sm text-left border border-slate-200 rounded-lg">
-                                    <thead class="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-slate-100/50 dark:bg-slate-950/40 text-slate-700 dark:text-slate-300 font-bold border-b border-slate-200/60 dark:border-white/5">
                                         <tr>
                                             <th class="border-r border-slate-200 p-4 w-10 text-center">No</th>
                                             <th class="border-r border-slate-200 p-4">Nama & Divisi</th>
@@ -2362,7 +2362,7 @@
                                 </div>
                                 <div class="overflow-x-auto border border-slate-200 rounded-xl">
                                     <table class="w-full text-xs text-left">
-                                        <thead id="dailySalaryTableHeader" class="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                                        <thead id="dailySalaryTableHeader" class="bg-slate-100/50 dark:bg-slate-950/40 text-slate-700 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-white/5">
                                         </thead>
                                         <tbody id="dailySalaryTableBody" class="divide-y divide-slate-100 bg-white">
                                             <!-- Diisi JS -->
@@ -2376,7 +2376,7 @@
                                 <h4 class="font-bold text-slate-800 mb-3 text-sm">Rincian Perhitungan Lembur (Detail)</h4>
                                 <div class="overflow-x-auto border border-slate-200 rounded-lg">
                                     <table class="w-full text-xs text-left">
-                                        <thead class="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+                                        <thead class="bg-slate-100/50 dark:bg-slate-950/40 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-200/60 dark:border-white/5">
                                             <tr>
                                                 <th class="p-3">Nama</th>
                                                 <th class="p-3">Tanggal</th>
@@ -2398,7 +2398,7 @@
                                 <h4 class="font-bold text-slate-800 mb-3 text-sm">Rincian Keterlambatan (Detail)</h4>
                                 <div class="overflow-x-auto border border-slate-200 rounded-lg">
                                     <table class="w-full text-xs text-left">
-                                        <thead class="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+                                        <thead class="bg-slate-100/50 dark:bg-slate-950/40 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-200/60 dark:border-white/5">
                                             <tr>
                                                 <th class="p-3">Nama</th>
                                                 <th class="p-3">Tanggal</th>
@@ -2688,7 +2688,7 @@
                                     </div>
                                     <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                         <input type="checkbox" id="toggleBoth" onchange="handleToggleBoth(this.checked)" class="sr-only peer">
-                                        <div class="w-11 h-6 bg-slate-200 peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                        <div class="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-900 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 dark:after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 dark:peer-checked:bg-indigo-500"></div>
                                     </label>
                                 </div>
                                 <div id="bothReasonWrap" class="hidden mt-4">
@@ -2708,7 +2708,7 @@
                                     </div>
                                     <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                         <input type="checkbox" id="toggleLate" onchange="handleToggleLate(this.checked)" class="sr-only peer">
-                                        <div class="w-11 h-6 bg-slate-200 peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                                        <div class="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-900 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 dark:after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 dark:peer-checked:bg-indigo-500"></div>
                                     </label>
                                 </div>
                                 <div id="lateReasonWrap" class="hidden mt-4">
@@ -2728,7 +2728,7 @@
                                     </div>
                                     <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                         <input type="checkbox" id="toggleEarly" onchange="handleToggleEarly(this.checked)" class="sr-only peer">
-                                        <div class="w-11 h-6 bg-slate-200 peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                                        <div class="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-900 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 dark:after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 dark:peer-checked:bg-indigo-500"></div>
                                     </label>
                                 </div>
                                 <div id="earlyReasonWrap" class="hidden mt-4">
@@ -2748,7 +2748,7 @@
                                     </div>
                                     <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                         <input type="checkbox" id="toggleGeofence" onchange="handleToggleGeofence(this.checked)" class="sr-only peer">
-                                        <div class="w-11 h-6 bg-slate-200 peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500"></div>
+                                        <div class="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-900 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 dark:after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 dark:peer-checked:bg-indigo-500"></div>
                                     </label>
                                 </div>
                             </div>
@@ -2763,7 +2763,7 @@
                                 </div>
                                 <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                     <input type="checkbox" id="toggleHideOvertime" class="sr-only peer">
-                                    <div class="w-11 h-6 bg-slate-200 peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                                    <div class="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-900 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 dark:after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 dark:peer-checked:bg-indigo-500"></div>
                                 </label>
                             </div>
 
@@ -2777,7 +2777,7 @@
                                 </div>
                                 <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                     <input type="checkbox" id="toggleMultipleIn" class="sr-only peer">
-                                    <div class="w-11 h-6 bg-slate-200 peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                                    <div class="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-900 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 dark:after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 dark:peer-checked:bg-indigo-500"></div>
                                 </label>
                             </div>
 
@@ -3644,7 +3644,7 @@
                         <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
                             <div class="overflow-x-auto">
                                 <table class="w-full text-xs text-left" id="nDbTable">
-                                    <thead class="text-[10px] text-slate-400 uppercase bg-slate-50/50 border-b border-slate-100">
+                                    <thead class="text-[10px] text-slate-400 uppercase bg-slate-100/50 dark:bg-slate-950/40 border-b border-slate-200/60 dark:border-white/5">
                                         <tr>
                                             <th class="px-5 py-3.5 font-extrabold">Bahan Makanan</th>
                                             <th class="px-4 py-3.5 font-extrabold text-center">Kategori</th>
@@ -3687,7 +3687,7 @@
                         <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
                             <div class="overflow-x-auto">
                                 <table class="w-full text-xs text-left" id="nHistoryTable">
-                                    <thead class="text-[10px] text-slate-400 uppercase bg-slate-50/50 border-b border-slate-100">
+                                    <thead class="text-[10px] text-slate-400 uppercase bg-slate-100/50 dark:bg-slate-950/40 border-b border-slate-200/60 dark:border-white/5">
                                         <tr>
                                             <th class="px-5 py-3.5 font-extrabold">Nama Perencanaan Menu</th>
                                             <th class="px-4 py-3.5 font-extrabold text-center">Kelompok Sasaran</th>
@@ -4068,7 +4068,43 @@
                 </div>
             </div>
         </div>
-    </div>    <!-- MAIN SCRIPT -->
-    <script src="script.js?v=3.0.0"></script>
+    </div>
+
+    <!-- CLEAN DUPLICATE CONFIRMATION MODAL -->
+    <div id="confirmDuplicateModal" class="fixed inset-0 z-[350] bg-slate-950/60 backdrop-blur-md hidden flex items-center justify-center p-4 transition-all duration-300 opacity-0">
+        <div class="clay-modal w-full max-w-sm rounded-3xl overflow-hidden animate-slide-up transform scale-95 transition-all duration-300 bg-white dark:bg-slate-900 shadow-2xl border border-slate-100/50 dark:border-white/5 p-6">
+            <div class="flex flex-col items-center text-center">
+                <div class="w-16 h-16 rounded-full bg-red-500/10 dark:bg-red-500/20 flex items-center justify-center text-red-500 mb-4 animate-pulse">
+                    <i class="fas fa-trash-alt text-2xl"></i>
+                </div>
+                <h3 class="font-extrabold text-lg text-slate-800 dark:text-white mb-2">Hapus Duplikat?</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed" id="confirmDupMessage">Apakah Anda yakin ingin membersihkan data duplikat?</p>
+                <div class="flex items-center gap-3 w-full">
+                    <button onclick="closeConfirmDupModal()" class="flex-1 px-4 py-3 rounded-2xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 font-bold text-xs transition active:scale-95">Batal</button>
+                    <button onclick="executeCleanDuplicateLogs()" class="flex-1 px-4 py-3 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-bold text-xs shadow-lg shadow-red-500/30 transition active:scale-95">Ya, Hapus</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MANUAL ATTENDANCE CONFIRMATION MODAL -->
+    <div id="confirmMaSubmitModal" class="fixed inset-0 z-[350] bg-slate-950/60 backdrop-blur-md hidden flex items-center justify-center p-4 transition-all duration-300 opacity-0">
+        <div class="clay-modal w-full max-w-sm rounded-3xl overflow-hidden animate-slide-up transform scale-95 transition-all duration-300 bg-white dark:bg-slate-900 shadow-2xl border border-slate-100/50 dark:border-white/5 p-6">
+            <div class="flex flex-col items-center text-center">
+                <div class="w-16 h-16 rounded-full bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center text-blue-500 mb-4 animate-pulse">
+                    <i class="fas fa-paper-plane text-2xl"></i>
+                </div>
+                <h3 class="font-extrabold text-lg text-slate-800 dark:text-white mb-2">Kirim Absen Manual?</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed" id="confirmMaMessage">Apakah Anda yakin ingin mengirim absen manual ini?</p>
+                <div class="flex items-center gap-3 w-full">
+                    <button onclick="closeConfirmMaModal()" class="flex-1 px-4 py-3 rounded-2xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 font-bold text-xs transition active:scale-95">Batal</button>
+                    <button onclick="executeMaSubmit()" class="flex-1 px-4 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-600/30 transition active:scale-95">Ya, Kirim</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN SCRIPT -->
+    <script src="script.js?v=3.0.2"></script>
 </body>
 </html>

@@ -460,11 +460,12 @@ function toggleLoader(show, text="Menghubungkan...") {
     
     if(show) {
         textEl.innerText = text;
-        // Reset success state
-        loaderSuccess.classList.add('opacity-0', 'scale-75');
-        loaderSuccess.classList.remove('opacity-100', 'scale-100');
-        loaderContent.classList.remove('opacity-0', 'scale-75');
-        loaderContent.classList.add('opacity-100', 'scale-100');
+        // Reset success state and show loading state
+        loaderSuccess.classList.add('hidden', 'opacity-0', 'scale-75');
+        loaderSuccess.classList.remove('flex', 'opacity-100', 'scale-100');
+        
+        loaderContent.classList.remove('hidden', 'opacity-0', 'scale-75');
+        loaderContent.classList.add('flex', 'opacity-100', 'scale-100');
         
         el.classList.remove('hidden');
         // Show progress bar if text contains upload keywords
@@ -485,6 +486,11 @@ function toggleLoader(show, text="Menghubungkan...") {
         setTimeout(() => {
             el.classList.add('hidden');
             progEl?.classList.add('hidden');
+            // Restore default visibility classes
+            loaderContent.classList.remove('hidden');
+            loaderContent.classList.add('flex');
+            loaderSuccess.classList.add('hidden');
+            loaderSuccess.classList.remove('flex');
         }, 500);
     }
 }
@@ -509,10 +515,18 @@ function showLoaderSuccess(successMsg = "Berhasil!") {
     loaderContent.classList.add('opacity-0', 'scale-75');
     loaderContent.classList.remove('opacity-100', 'scale-100');
     
-    // Fade in success content
+    // Switch visibility and fade in success content
     setTimeout(() => {
-        loaderSuccess.classList.remove('opacity-0', 'scale-75');
-        loaderSuccess.classList.add('opacity-100', 'scale-100');
+        loaderContent.classList.add('hidden');
+        loaderContent.classList.remove('flex');
+        
+        loaderSuccess.classList.remove('hidden');
+        loaderSuccess.classList.add('flex');
+        
+        setTimeout(() => {
+            loaderSuccess.classList.remove('opacity-0', 'scale-75');
+            loaderSuccess.classList.add('opacity-100', 'scale-100');
+        }, 50);
     }, 200);
     
     // Hide loader after 1.8 seconds
@@ -1283,25 +1297,25 @@ function renderSalary(filteredLogsOverride) {
     if (dailyHeaderEl) {
         let row1 = `
         <tr>
-            <th rowspan="2" class="border-r border-b border-slate-200 p-3 w-10 text-center align-middle">No</th>
-            <th rowspan="2" class="border-r border-b border-slate-200 p-3 text-left align-middle min-w-[120px]">Divisi</th>
-            <th rowspan="2" class="border-r border-b border-slate-200 p-3 text-left align-middle min-w-[150px]">Nama Relawan</th>
-            <th colspan="14" class="border-r border-b border-slate-200 p-2 text-center align-middle bg-blue-50 text-blue-700 font-extrabold uppercase tracking-wider text-[10px]">Absensi Harian (2 Minggu)</th>
-            <th rowspan="2" class="border-r border-b border-slate-200 p-3 text-right align-middle min-w-[140px]">Honoranium Sukarelawan</th>
-            <th rowspan="2" class="border-r border-b border-slate-200 p-3 text-right align-middle min-w-[100px] text-slate-500">Iuran BPJS</th>
-            <th rowspan="2" class="border-r border-b border-slate-200 p-3 text-right align-middle min-w-[80px] text-slate-500">TK</th>
-            <th rowspan="2" class="border-r border-b border-slate-200 p-3 text-right align-middle min-w-[80px] text-slate-500">PJ</th>
-            <th rowspan="2" class="border-b border-slate-200 p-3 text-right align-middle min-w-[140px] text-blue-600 font-extrabold bg-blue-50/50">Total Upah</th>
+            <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 w-10 text-center align-middle">No</th>
+            <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 text-left align-middle min-w-[120px]">Divisi</th>
+            <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 text-left align-middle min-w-[150px]">Nama Relawan</th>
+            <th colspan="14" class="border-r border-b border-slate-200/60 dark:border-white/5 p-2 text-center align-middle bg-blue-50 dark:bg-indigo-500/10 text-blue-700 dark:text-indigo-300 font-extrabold uppercase tracking-wider text-[10px]">Absensi Harian (2 Minggu)</th>
+            <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 text-right align-middle min-w-[140px]">Honoranium Sukarelawan</th>
+            <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 text-right align-middle min-w-[100px] text-slate-500 dark:text-slate-400">Iuran BPJS</th>
+            <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 text-right align-middle min-w-[80px] text-slate-500 dark:text-slate-400">TK</th>
+            <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 text-right align-middle min-w-[80px] text-slate-500 dark:text-slate-400">PJ</th>
+            <th rowspan="2" class="border-b border-slate-200/60 dark:border-white/5 p-3 text-right align-middle min-w-[140px] text-blue-600 dark:text-indigo-400 font-extrabold bg-blue-50/50 dark:bg-indigo-500/5">Total Upah</th>
         </tr>`;
         
         let row2 = `<tr>`;
         for (let i = 0; i < 14; i++) {
             const isWeekend = dayNames[i] === 'Minggu' || dayNames[i] === 'Sabtu';
-            const textClass = isWeekend ? 'text-rose-600 font-bold' : 'text-slate-700 font-medium';
+            const textClass = isWeekend ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300 font-medium';
             row2 += `
-            <th class="border-r border-b border-slate-200 p-1.5 text-center align-middle text-[9px] min-w-[45px] bg-slate-50/30">
+            <th class="border-r border-b border-slate-200/60 dark:border-white/5 p-1.5 text-center align-middle text-[9px] min-w-[45px] bg-slate-50/30 dark:bg-white/[0.02]">
                 <div class="${textClass}">${dayNames[i]}</div>
-                <div class="text-[10px] font-bold text-slate-500 mt-0.5">${dateNumbers[i]}</div>
+                <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">${dateNumbers[i]}</div>
             </th>`;
         }
         row2 += `</tr>`;
@@ -1494,25 +1508,25 @@ function renderSalary(filteredLogsOverride) {
                     const cellContent = val > 0 
                         ? `<span class="text-emerald-600 font-extrabold">${val.toLocaleString()}</span>` 
                         : `<span class="text-slate-300">-</span>`;
-                    dailyCellsHtml += `<td class="border-r border-slate-200 p-1.5 text-center font-mono text-[10px]">${cellContent}</td>`;
+                    dailyCellsHtml += `<td class="border-r border-slate-200/60 dark:border-white/5 p-1.5 text-center font-mono text-[10px]">${cellContent}</td>`;
                 }
 
                 // Divisi cell is only rendered on the first row of the group with rowspan=K
                 const divisionCellHtml = memberIdx === 0 
-                    ? `<td rowspan="${K}" class="border-r border-slate-200 p-2 font-bold text-slate-700 bg-slate-50/50 align-middle text-center">${divName}</td>`
+                    ? `<td rowspan="${K}" class="border-r border-slate-200/60 dark:border-white/5 p-2 font-bold text-slate-700 dark:text-slate-300 bg-slate-50/20 dark:bg-slate-900/10 align-middle text-center">${divName}</td>`
                     : '';
 
                 rowsHtml += `
-                <tr class="border-b border-slate-100 hover:bg-slate-50 break-inside-avoid text-[11px] bg-white">
-                    <td class="border-r border-slate-200 p-2 text-center text-slate-400 font-mono">${globalIndex}</td>
+                <tr class="border-b border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/[0.02] break-inside-avoid text-[11px] bg-white">
+                    <td class="border-r border-slate-200/60 dark:border-white/5 p-2 text-center text-slate-400 font-mono">${globalIndex}</td>
                     ${divisionCellHtml}
-                    <td class="border-r border-slate-200 p-2 font-bold text-slate-700">${item.name}</td>
+                    <td class="border-r border-slate-200/60 dark:border-white/5 p-2 font-bold text-slate-700 dark:text-slate-300">${item.name}</td>
                     ${dailyCellsHtml}
-                    <td class="border-r border-slate-200 p-2 text-right font-extrabold text-slate-800">Rp ${item.honoranium.toLocaleString()}</td>
-                    <td class="border-r border-slate-200 p-2 text-right text-slate-500">Rp 16.800</td>
-                    <td class="border-r border-slate-200 p-2 text-right text-slate-400">Rp 0</td>
-                    <td class="border-r border-slate-200 p-2 text-right text-slate-400">Rp 0</td>
-                    <td class="p-2 text-right font-extrabold text-blue-700 bg-blue-50/20">Rp ${item.totalUpah.toLocaleString()}</td>
+                    <td class="border-r border-slate-200/60 dark:border-white/5 p-2 text-right font-extrabold text-slate-800 dark:text-slate-100">Rp ${item.honoranium.toLocaleString()}</td>
+                    <td class="border-r border-slate-200/60 dark:border-white/5 p-2 text-right text-slate-500 dark:text-slate-400">Rp 16.800</td>
+                    <td class="border-r border-slate-200/60 dark:border-white/5 p-2 text-right text-slate-400">Rp 0</td>
+                    <td class="border-r border-slate-200/60 dark:border-white/5 p-2 text-right text-slate-400">Rp 0</td>
+                    <td class="p-2 text-right font-extrabold text-blue-700 dark:text-indigo-400 bg-blue-50/20 dark:bg-indigo-500/10">Rp ${item.totalUpah.toLocaleString()}</td>
                 </tr>`;
             });
         });
@@ -3372,7 +3386,27 @@ function _cleanDupMarkStepDone(stepId) {
     if (label) label.classList.remove('text-slate-400');
 }
 
-async function cleanDuplicateLogs() {
+function openConfirmDupModal() {
+    const modal = document.getElementById('confirmDuplicateModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            modal.querySelector('.clay-modal')?.classList.remove('scale-95');
+        }, 10);
+    }
+}
+
+function closeConfirmDupModal() {
+    const modal = document.getElementById('confirmDuplicateModal');
+    if (modal) {
+        modal.classList.add('opacity-0');
+        modal.querySelector('.clay-modal')?.classList.add('scale-95');
+        setTimeout(() => modal.classList.add('hidden'), 300);
+    }
+}
+
+function cleanDuplicateLogs() {
     // Hitung duplikat lokal untuk konfirmasi
     const seen = {};
     let localDupes = 0;
@@ -3383,10 +3417,16 @@ async function cleanDuplicateLogs() {
     });
 
     const msg = localDupes > 0
-        ? `Ditemukan ${localDupes} data duplikat di sesi ini.\nLanjutkan bersihkan Spreadsheet?\n\n(Baris pertama dipertahankan, duplikat dihapus)`
-        : `Tidak ada duplikat terdeteksi secara lokal.\nTetap jalankan pengecekan di server?`;
+        ? `Ditemukan ${localDupes} data duplikat di sesi ini. Lanjutkan bersihkan Spreadsheet? (Baris pertama dipertahankan, duplikat dihapus)`
+        : `Tidak ada duplikat terdeteksi secara lokal. Tetap jalankan pengecekan di server?`;
 
-    if (!confirm(msg)) return;
+    const msgEl = document.getElementById('confirmDupMessage');
+    if (msgEl) msgEl.textContent = msg;
+    openConfirmDupModal();
+}
+
+async function executeCleanDuplicateLogs() {
+    closeConfirmDupModal();
 
     // Reset modal ke state awal
     document.getElementById('cleanDupScanning').classList.remove('hidden');
@@ -4738,6 +4778,38 @@ async function maSendEntries(entries, startIndex = 0, successCount = 0, failCoun
     maSending = false;
 }
 
+let _pendingMaEntries = null;
+
+function openConfirmMaModal() {
+    const modal = document.getElementById('confirmMaSubmitModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            modal.querySelector('.clay-modal')?.classList.remove('scale-95');
+        }, 10);
+    }
+}
+
+function closeConfirmMaModal() {
+    const modal = document.getElementById('confirmMaSubmitModal');
+    if (modal) {
+        modal.classList.add('opacity-0');
+        modal.querySelector('.clay-modal')?.classList.add('scale-95');
+        setTimeout(() => modal.classList.add('hidden'), 300);
+    }
+}
+
+function executeMaSubmit() {
+    closeConfirmMaModal();
+    if (!_pendingMaEntries || _pendingMaEntries.length === 0) return;
+    
+    // Save initial checkpoint and start sending
+    maSaveCheckpoint(_pendingMaEntries, 0, 0, 0);
+    maSendEntries(_pendingMaEntries, 0, 0, 0);
+    _pendingMaEntries = null;
+}
+
 async function maSubmit() {
     if (maSending) { showToast('Proses sedang berjalan.', 'error'); return; }
     if (maSelectedEmployees.size === 0) { showToast('Pilih minimal 1 relawan.', 'error'); return; }
@@ -4754,7 +4826,7 @@ async function maSubmit() {
     const defaultLoc = `${GEOFENCE_CONFIG.lat}, ${GEOFENCE_CONFIG.lng}`;
 
     const typeLabel = type === 'BOTH' ? 'IN + OUT' : type;
-    if (!confirm(`Kirim ${totalEntries} entri absen ${typeLabel} untuk ${empIds.length} relawan × ${dates.length} tanggal?`)) return;
+    const msg = `Kirim ${totalEntries} entri absen ${typeLabel} untuk ${empIds.length} relawan × ${dates.length} tanggal?`;
 
     // Build list of entries to send
     const entries = [];
@@ -4795,9 +4867,10 @@ async function maSubmit() {
         }
     }
 
-    // Save initial checkpoint and start sending
-    maSaveCheckpoint(entries, 0, 0, 0);
-    maSendEntries(entries, 0, 0, 0);
+    _pendingMaEntries = entries;
+    const msgEl = document.getElementById('confirmMaMessage');
+    if (msgEl) msgEl.textContent = msg;
+    openConfirmMaModal();
 }
 
 function initAdmin() {
@@ -7592,29 +7665,33 @@ function renderPaginationNumbers(currentPage, totalPages) {
         startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
     
+    const activeBtnClass = "px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-600 dark:bg-indigo-500 text-white shadow-sm shadow-indigo-600/20 transition-all duration-200 active:scale-95";
+    const inactiveBtnClass = "px-2 py-1 rounded-lg text-xs font-bold bg-white dark:bg-white/5 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 dark:hover:border-indigo-500/30 transition-all duration-200 active:scale-95";
+    const dotsSpan = `<span class="px-1 text-slate-400 dark:text-slate-500">...</span>`;
+    
     // First page button
     if (startPage > 1) {
-        html += `<button onclick="goToLogsPage(1)" class="px-2 py-1 rounded-lg text-xs font-bold bg-white text-slate-500 border border-slate-200 hover:border-blue-300 hover:text-blue-600 transition">1</button>`;
+        html += `<button onclick="goToLogsPage(1)" class="${inactiveBtnClass}">1</button>`;
         if (startPage > 2) {
-            html += `<span class="px-1 text-slate-400">...</span>`;
+            html += dotsSpan;
         }
     }
     
     // Page number buttons
     for (let i = startPage; i <= endPage; i++) {
         if (i === currentPage) {
-            html += `<button class="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-sm shadow-blue-600/20">${i}</button>`;
+            html += `<button class="${activeBtnClass}">${i}</button>`;
         } else {
-            html += `<button onclick="goToLogsPage(${i})" class="px-2 py-1 rounded-lg text-xs font-bold bg-white text-slate-500 border border-slate-200 hover:border-blue-300 hover:text-blue-600 transition">${i}</button>`;
+            html += `<button onclick="goToLogsPage(${i})" class="${inactiveBtnClass}">${i}</button>`;
         }
     }
     
     // Last page button
     if (endPage < totalPages) {
         if (endPage < totalPages - 1) {
-            html += `<span class="px-1 text-slate-400">...</span>`;
+            html += dotsSpan;
         }
-        html += `<button onclick="goToLogsPage(${totalPages})" class="px-2 py-1 rounded-lg text-xs font-bold bg-white text-slate-500 border border-slate-200 hover:border-blue-300 hover:text-blue-600 transition">${totalPages}</button>`;
+        html += `<button onclick="goToLogsPage(${totalPages})" class="${inactiveBtnClass}">${totalPages}</button>`;
     }
     
     container.innerHTML = html;
