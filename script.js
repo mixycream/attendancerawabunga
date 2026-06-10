@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwGoQiTNLQBNSikxt-I6NwbqodUNSOvkv6vIiZ274SyQ3wILlEnhNyd27h7tiASUH7I/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx7M2Y83k4PTP6i5pqOFj2mlpzmMSZJYjBSnmkEHC3et8qJwEAHTK1wD3VGTkXfQ6Lo/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -178,7 +178,18 @@ let appConfig = {
     disableBothReason: '',
     disableGeofence: false,
     hideOvertime: false,
-    allowMultipleIn: false
+    allowMultipleIn: false,
+    geofenceLat: -6.21973,
+    geofenceLng: 106.87015,
+    geofenceRadius: 15,
+    lateTolerance: 5,
+    lateReasonThreshold: 25,
+    lateWaThreshold: 35,
+    lateMaxThreshold: 60,
+    adminWhatsApp: "6282114806765",
+    autoOutType: "global",
+    autoOutGlobalMinutes: 240,
+    autoOutDivisionsConfig: "{}"
 }; 
 let sortState = {
     logs: 'time_desc',
@@ -630,6 +641,22 @@ async function fetchData(force = false) {
                     appConfig.disableGeofence = data.config.disableGeofence === true || data.config.disableGeofence === 'true';
                     appConfig.hideOvertime = data.config.hideOvertime === true || data.config.hideOvertime === 'true';
                     appConfig.allowMultipleIn = data.config.allowMultipleIn === true || data.config.allowMultipleIn === 'true';
+                    appConfig.geofenceLat = parseFloat(data.config.geofenceLat || "-6.21973");
+                    appConfig.geofenceLng = parseFloat(data.config.geofenceLng || "106.87015");
+                    appConfig.geofenceRadius = parseInt(data.config.geofenceRadius || "15");
+                    appConfig.lateTolerance = parseInt(data.config.lateTolerance || "5");
+                    appConfig.lateReasonThreshold = parseInt(data.config.lateReasonThreshold || "25");
+                    appConfig.lateWaThreshold = parseInt(data.config.lateWaThreshold || "35");
+                    appConfig.lateMaxThreshold = parseInt(data.config.lateMaxThreshold || "60");
+                    appConfig.adminWhatsApp = data.config.adminWhatsApp || "6282114806765";
+                    appConfig.autoOutType = data.config.autoOutType || "global";
+                    appConfig.autoOutGlobalMinutes = parseInt(data.config.autoOutGlobalMinutes || "240");
+                    appConfig.autoOutDivisionsConfig = data.config.autoOutDivisionsConfig || "{}";
+
+                    // Update GEOFENCE_CONFIG
+                    GEOFENCE_CONFIG.lat = appConfig.geofenceLat;
+                    GEOFENCE_CONFIG.lng = appConfig.geofenceLng;
+                    GEOFENCE_CONFIG.radius = appConfig.geofenceRadius;
                 }
 
                 refreshUI();
@@ -2569,19 +2596,24 @@ async function submitAbsence(type) {
                     forcedTime = null;
                     toastMessage = reason ? `Absen Masuk (${reason})` : 'Absen Masuk.';
                     lateMinutes = 0;
-                } else if (diffMin < 5) {
-                    // Tier 1: 1–5 menit → Toleransi, tidak dicatat sebagai pelanggaran
+                } else if (diffMin >= appConfig.lateMaxThreshold) {
+                    // Blocked completely
+                    showToast(`Gagal Absen! Keterlambatan (${diffMin}m) melebihi batas maksimal (${appConfig.lateMaxThreshold}m).`, 'error');
+                    setTimeout(resetSecurityFlow, 1500);
+                    return;
+                } else if (diffMin < appConfig.lateTolerance) {
+                    // Tier 1: Toleransi
                     lateMinutes = 0;
                     toastMessage = `Telat ${diffMin}m (Toleransi).`;
-                } else if (diffMin < 25) {
-                    // Tier 2: 5–25 menit → Terlambat, langsung simpan tanpa alasan
+                } else if (diffMin < appConfig.lateReasonThreshold) {
+                    // Tier 2: Terlambat
                     toastMessage = `Terlambat ${diffMin} menit.`;
-                } else if (diffMin < 35) {
-                    // Tier 3: 25–35 menit → Wajib isi alasan, tanpa WA
+                } else if (diffMin < appConfig.lateWaThreshold) {
+                    // Tier 3: Wajib Alasan
                     needsReason = 'late';
                     toastMessage = `Terlambat ${diffMin} menit — isi alasan.`;
                 } else {
-                    // Tier 4: 35+ menit → Wajib alasan + konfirmasi WA ke Admin
+                    // Tier 4: Wajib Alasan + WA
                     needsReason = 'blocked';
                     toastMessage = `Terlambat ${diffMin} menit — konfirmasi ke Admin.`;
                 }
@@ -2746,7 +2778,7 @@ function showLateBlockedModal(name, division, shiftStart) {
     const xIcon = document.getElementById('lateBlockedXIcon');
     const msg = document.getElementById('lateBlockedMsg');
 
-    msg.textContent = `Maaf ${name}, kamu terlambat lebih dari 35 menit dari jam kerja divisi ${division} (${shiftStart}). Wajib isi alasan & konfirmasi ke Admin via WhatsApp.`;
+    msg.textContent = `Maaf ${name}, kamu terlambat lebih dari ${appConfig.lateWaThreshold} menit dari jam kerja divisi ${division} (${shiftStart}). Wajib isi alasan & konfirmasi ke Admin via WhatsApp.`;
     document.getElementById('lateBlockedReasonInput').value = '';
 
     // Reset animation state
@@ -2803,7 +2835,7 @@ async function sendLateWA() {
     }
 
     const lateMin = pendingAttendancePayload._lateMinutes || 0;
-    pendingAttendancePayload.note = `[Telat ${lateMin} mnt >35m] ${reason}`;
+    pendingAttendancePayload.note = `[Telat ${lateMin} mnt >${appConfig.lateWaThreshold}m] ${reason}`;
     delete pendingAttendancePayload._lateMinutes;
 
     const isVolunteer = pendingAttendancePayload.absentBy === 'Mandiri';
@@ -2853,7 +2885,7 @@ Selamat ${greeting} Admin SPPG Rawa Bunga 1.
 
 Saya *${name}* dari divisi *${division}*.
 
-Dengan ini saya menginformasikan bahwa pada hari *${dateStr}* pukul *${timeStr} WIB*, saya terlambat hadir melebihi 35 menit dari jadwal shift pukul *${shiftStart} WIB*.
+Dengan ini saya menginformasikan bahwa pada hari *${dateStr}* pukul *${timeStr} WIB*, saya terlambat hadir melebihi ${appConfig.lateWaThreshold} menit dari jadwal shift pukul *${shiftStart} WIB*.
 
 Adapun alasan keterlambatan saya:
 _${reason}_
@@ -2863,7 +2895,7 @@ Absensi saya telah *otomatis tercatat* di sistem dengan catatan terlambat. Mohon
 Atas perhatiannya saya ucapkan terima kasih.
 Wassalamualaikum Warahmatullahi Wabarakatuh.`;
 
-    const phone = '6282114806765';
+    const phone = appConfig.adminWhatsApp || '6282114806765';
     const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(waUrl, '_blank');
 
@@ -3569,7 +3601,11 @@ async function autoClockOutForgotten() {
 
             // Tentukan outTime & outDate: jika clock-in sangat malam (outTime <= lastIN.time), set OUT pada keesokan harinya
             const shift = appConfig.shifts?.[emp.division];
-            let outTime = shift ? shift.end : '17:00';
+            if (!shift) return null;
+            const startVal = typeof shift === 'string' ? shift : shift.start;
+            const endVal = typeof shift === 'string' ? '17:00' : shift.end;
+
+            let outTime = endVal;
             let outDate = lastIN.date;
             if (outTime <= lastIN.time) {
                 const d = new Date(lastIN.date + 'T00:00:00');
@@ -3587,12 +3623,41 @@ async function autoClockOutForgotten() {
 
             const inTime = new Date(`${lastIN.date}T${lastIN.time}`);
             const diffHours = (now - inTime) / 3600000;
+            const [startH, startM] = startVal.split(':').map(Number);
+            const [endH, endM] = endVal.split(':').map(Number);
 
-            const div = (emp.division || '').toLowerCase();
-            const isCook = div.includes('cook'); // Support Helper Cook, Cook, dll.
-            const maxHours = isCook ? 13 : 12;
+            const [yr, mo, dy] = lastIN.date.split('-').map(Number);
+            let expectedEnd = new Date(yr, mo - 1, dy, endH, endM, 0, 0);
 
-            if (diffHours < maxHours) return null;
+            if (endH <= startH) {
+                expectedEnd.setDate(expectedEnd.getDate() + 1);
+            }
+
+            let autoOutMs = 240 * 60 * 1000;
+            if (appConfig.autoOutType === 'division') {
+                let divConfig = {};
+                try {
+                    divConfig = typeof appConfig.autoOutDivisionsConfig === 'string' 
+                        ? JSON.parse(appConfig.autoOutDivisionsConfig) 
+                        : (appConfig.autoOutDivisionsConfig || {});
+                } catch(e) {
+                    divConfig = {};
+                }
+                const conf = divConfig[emp.division];
+                if (!conf || conf.enabled !== true) {
+                    return null;
+                }
+                const divMin = parseInt(conf.minutes) || 240;
+                autoOutMs = divMin * 60 * 1000;
+            } else {
+                const globalMin = parseInt(appConfig.autoOutGlobalMinutes) || 240;
+                autoOutMs = globalMin * 60 * 1000;
+            }
+
+            // Guard: Jangan auto out jika baru absen kurang dari 2 jam
+            if (now - inTime < 2 * 3600000) return null;
+
+            if (now.getTime() < expectedEnd.getTime() + autoOutMs) return null;
 
             return { emp, lastIN, outDate, outTime, diffHours };
         }).filter(Boolean);
@@ -3719,7 +3784,115 @@ function loadSettingsUI() {
     if (lReason) lReason.value = appConfig.disableLateReason || '';
     if (eReason) eReason.value = appConfig.disableEarlyReason || '';
 
+    // Geofence inputs
+    const gLat = document.getElementById('geofenceLat');
+    const gLng = document.getElementById('geofenceLng');
+    const gRadius = document.getElementById('geofenceRadius');
+    if (gLat) gLat.value = appConfig.geofenceLat;
+    if (gLng) gLng.value = appConfig.geofenceLng;
+    if (gRadius) gRadius.value = appConfig.geofenceRadius;
+
+    // Lateness inputs
+    const lTol = document.getElementById('lateTolerance');
+    const lReasonThresh = document.getElementById('lateReasonThreshold');
+    const lWaThresh = document.getElementById('lateWaThreshold');
+    const lMaxThresh = document.getElementById('lateMaxThreshold');
+    const adminWA = document.getElementById('adminWhatsApp');
+    if (lTol) lTol.value = appConfig.lateTolerance;
+    if (lReasonThresh) lReasonThresh.value = appConfig.lateReasonThreshold;
+    if (lWaThresh) lWaThresh.value = appConfig.lateWaThreshold;
+    if (lMaxThresh) lMaxThresh.value = appConfig.lateMaxThreshold;
+    if (adminWA) adminWA.value = appConfig.adminWhatsApp;
+
+    // Auto Out type state initialization
+    setAutoOutType(appConfig.autoOutType || 'global');
+    const autoOutGlobalMin = document.getElementById('autoOutGlobalMinutes');
+    if (autoOutGlobalMin) autoOutGlobalMin.value = appConfig.autoOutGlobalMinutes || 240;
+
+    // Render per-division auto-out options dynamically
+    let divConfig = {};
+    try {
+        divConfig = typeof appConfig.autoOutDivisionsConfig === 'string' 
+            ? JSON.parse(appConfig.autoOutDivisionsConfig) 
+            : (appConfig.autoOutDivisionsConfig || {});
+    } catch(e) {
+        divConfig = {};
+    }
+
+    const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Admin Gudang", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2", "Cuci Ompreng", "Leader Ompreng", "Leader Packing", "Leader Helper Cook", "Admin Yayasan", "Koordinasi Lapangan"];
+    const filteredDivisions = orderedKeys.filter(key => !key.toLowerCase().includes('keamanan') && !key.toLowerCase().includes('security'));
+
+    const divisionsListContainer = document.getElementById('autoOutDivisionsList');
+    if (divisionsListContainer) {
+        divisionsListContainer.innerHTML = '';
+        filteredDivisions.forEach(div => {
+            const conf = divConfig[div] || { enabled: false, minutes: 240 };
+            const isChecked = conf.enabled === true;
+            const minutesVal = conf.minutes !== undefined ? conf.minutes : 240;
+            const inputId = `input-autoout-${div.replace(/\s/g, '-')}`;
+            const toggleId = `toggle-autoout-${div.replace(/\s/g, '-')}`;
+            
+            divisionsListContainer.innerHTML += `
+            <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 transition-all duration-200 ${!isChecked ? 'opacity-80' : ''}" id="card-autoout-${div.replace(/\s/g, '-')}">
+                <div class="flex-1 mr-3">
+                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300 block">${div}</span>
+                    <label class="relative inline-flex items-center cursor-pointer mt-1">
+                        <input type="checkbox" id="${toggleId}" class="sr-only peer" ${isChecked ? 'checked' : ''} onchange="toggleDivisionAutoOut('${div.replace(/\s/g, '-')}', this.checked)">
+                        <div class="w-7 h-4 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-600"></div>
+                        <span class="ml-1.5 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider peer-checked:text-purple-600">Auto Out</span>
+                    </label>
+                </div>
+                <div class="w-24 text-right flex flex-col items-end">
+                    <label class="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Batas (Menit)</label>
+                    <input type="number" id="${inputId}" class="w-full text-center text-xs font-bold text-slate-700 bg-white border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white rounded-xl px-2 py-1 focus:ring-2 focus:ring-purple-400 outline-none transition-all duration-200 ${!isChecked ? 'opacity-40 pointer-events-none' : ''}" value="${minutesVal}" placeholder="240">
+                </div>
+            </div>`;
+        });
+    }
+
     updateSettingsVisibility();
+}
+
+function toggleDivisionAutoOut(key, checked) {
+    const input = document.getElementById(`input-autoout-${key}`);
+    const card = document.getElementById(`card-autoout-${key}`);
+    if (input) {
+        if (checked) {
+            input.classList.remove('opacity-40', 'pointer-events-none');
+            if (card) card.classList.remove('opacity-80');
+        } else {
+            input.classList.add('opacity-40', 'pointer-events-none');
+            if (card) card.classList.add('opacity-80');
+        }
+    }
+}
+
+function setAutoOutType(type) {
+    appConfig.autoOutType = type;
+    const btnGlobal = document.getElementById('btnAutoOutTypeGlobal');
+    const btnDivision = document.getElementById('btnAutoOutTypeDivision');
+    const wrapGlobal = document.getElementById('autoOutGlobalWrap');
+    const wrapDivision = document.getElementById('autoOutDivisionWrap');
+
+    if (type === 'global') {
+        if (btnGlobal) {
+            btnGlobal.className = 'px-4 py-2 rounded-xl text-xs font-bold transition-all border border-purple-600 bg-purple-600 text-white shadow-md shadow-purple-600/20';
+        }
+        if (btnDivision) {
+            btnDivision.className = 'px-4 py-2 rounded-xl text-xs font-bold transition-all border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-800';
+        }
+        if (wrapGlobal) wrapGlobal.classList.remove('hidden');
+        if (wrapDivision) wrapDivision.classList.add('hidden');
+    } else {
+        if (btnGlobal) {
+            btnGlobal.className = 'px-4 py-2 rounded-xl text-xs font-bold transition-all border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-800';
+        }
+        if (btnDivision) {
+            btnDivision.className = 'px-4 py-2 rounded-xl text-xs font-bold transition-all border border-purple-600 bg-purple-600 text-white shadow-md shadow-purple-600/20';
+        }
+        if (wrapGlobal) wrapGlobal.classList.add('hidden');
+        if (wrapDivision) wrapDivision.classList.remove('hidden');
+    }
 }
 
 function updateSettingsVisibility() {
@@ -3770,6 +3943,43 @@ async function saveFeatureSettings() {
     const hideOvertime = document.getElementById('toggleHideOvertime')?.checked || false;
     const allowMultipleIn = document.getElementById('toggleMultipleIn')?.checked || false;
 
+    const geofenceLat = document.getElementById('geofenceLat')?.value.trim() || "-6.21973";
+    const geofenceLng = document.getElementById('geofenceLng')?.value.trim() || "106.87015";
+    const geofenceRadius = parseInt(document.getElementById('geofenceRadius')?.value) || 15;
+    const lateTolerance = parseInt(document.getElementById('lateTolerance')?.value) || 5;
+    const lateReasonThreshold = parseInt(document.getElementById('lateReasonThreshold')?.value) || 25;
+    const lateWaThreshold = parseInt(document.getElementById('lateWaThreshold')?.value) || 35;
+    const lateMaxThreshold = parseInt(document.getElementById('lateMaxThreshold')?.value) || 60;
+    const adminWhatsApp = document.getElementById('adminWhatsApp')?.value.trim() || "6282114806765";
+    
+    const autoOutType = appConfig.autoOutType || 'global';
+    const autoOutGlobalMinutes = parseInt(document.getElementById('autoOutGlobalMinutes')?.value) || 240;
+
+    // Gather per-division configurations
+    const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Admin Gudang", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2", "Cuci Ompreng", "Leader Ompreng", "Leader Packing", "Leader Helper Cook", "Admin Yayasan", "Koordinasi Lapangan"];
+    const filteredDivisions = orderedKeys.filter(key => !key.toLowerCase().includes('keamanan') && !key.toLowerCase().includes('security'));
+    let divConfig = {};
+    filteredDivisions.forEach(div => {
+        const key = div.replace(/\s/g, '-');
+        const toggle = document.getElementById(`toggle-autoout-${key}`);
+        const input = document.getElementById(`input-autoout-${key}`);
+        if (toggle && input) {
+            divConfig[div] = {
+                enabled: toggle.checked,
+                minutes: parseInt(input.value) || 240
+            };
+        } else {
+            let existing = {};
+            try {
+                existing = typeof appConfig.autoOutDivisionsConfig === 'string' 
+                    ? JSON.parse(appConfig.autoOutDivisionsConfig) 
+                    : (appConfig.autoOutDivisionsConfig || {});
+            } catch(e) {}
+            divConfig[div] = existing[div] || { enabled: false, minutes: 240 };
+        }
+    });
+    const autoOutDivisionsConfig = JSON.stringify(divConfig);
+
     appConfig.disableBoth = disableBoth;
     appConfig.disableLate = disableLate;
     appConfig.disableEarly = disableEarly;
@@ -3780,11 +3990,30 @@ async function saveFeatureSettings() {
     appConfig.hideOvertime = hideOvertime;
     appConfig.allowMultipleIn = allowMultipleIn;
 
+    appConfig.geofenceLat = parseFloat(geofenceLat);
+    appConfig.geofenceLng = parseFloat(geofenceLng);
+    appConfig.geofenceRadius = geofenceRadius;
+    appConfig.lateTolerance = lateTolerance;
+    appConfig.lateReasonThreshold = lateReasonThreshold;
+    appConfig.lateWaThreshold = lateWaThreshold;
+    appConfig.lateMaxThreshold = lateMaxThreshold;
+    appConfig.adminWhatsApp = adminWhatsApp;
+    appConfig.autoOutGlobalMinutes = autoOutGlobalMinutes;
+    appConfig.autoOutDivisionsConfig = autoOutDivisionsConfig;
+
+    // Update GEOFENCE_CONFIG immediately
+    GEOFENCE_CONFIG.lat = appConfig.geofenceLat;
+    GEOFENCE_CONFIG.lng = appConfig.geofenceLng;
+    GEOFENCE_CONFIG.radius = appConfig.geofenceRadius;
+
     toggleLoader(true, 'Menyimpan pengaturan...');
     const success = await postData('saveFeatureSettings', {
         disableBoth, disableLate, disableEarly,
         disableBothReason, disableLateReason, disableEarlyReason,
-        disableGeofence, hideOvertime, allowMultipleIn
+        disableGeofence, hideOvertime, allowMultipleIn,
+        geofenceLat, geofenceLng, geofenceRadius,
+        lateTolerance, lateReasonThreshold, lateWaThreshold, lateMaxThreshold,
+        adminWhatsApp, autoOutType, autoOutGlobalMinutes, autoOutDivisionsConfig
     });
     toggleLoader(false);
     if (success) {
@@ -6542,7 +6771,7 @@ function openEditEmployee(id) {
 function closeEditEmployee() { document.getElementById('editEmployeeModal').classList.add('opacity-0'); setTimeout(() => document.getElementById('editEmployeeModal').classList.add('hidden'), 300); editingEmployeeId = null; }
 // ===== VOLUNTEER SELF-ATTENDANCE (Absensi Mandiri Relawan) =====
 // Geofence config — set the center coordinates for Rawa Bunga location
-const GEOFENCE_CONFIG = {
+let GEOFENCE_CONFIG = {
     lat: -6.21973,    // Latitude titik pusat (ubah sesuai lokasi)
     lng: 106.87015,   // Longitude titik pusat (ubah sesuai lokasi)
     radius: 15          // Radius toleransi dalam meter
@@ -7145,19 +7374,24 @@ async function volSubmitSelfie() {
                     forcedTime = null;
                     toastMsg = reason ? `Absen Masuk (${reason})` : 'Absen Masuk.';
                     lateMinutes = 0;
-                } else if (diffMin < 5) {
-                    // Tier 1: 1–5 menit → Toleransi, tidak dicatat sebagai pelanggaran
+                } else if (diffMin >= appConfig.lateMaxThreshold) {
+                    // Blocked completely
+                    showToast(`Gagal Absen! Keterlambatan (${diffMin}m) melebihi batas maksimal (${appConfig.lateMaxThreshold}m).`, 'error');
+                    volCancelFlow();
+                    return;
+                } else if (diffMin < appConfig.lateTolerance) {
+                    // Tier 1: Toleransi
                     lateMinutes = 0;
                     toastMsg = `Telat ${diffMin}m (Toleransi).`;
-                } else if (diffMin < 25) {
-                    // Tier 2: 5–25 menit → Terlambat, langsung simpan tanpa alasan
+                } else if (diffMin < appConfig.lateReasonThreshold) {
+                    // Tier 2: Terlambat
                     toastMsg = `Terlambat ${diffMin} menit.`;
-                } else if (diffMin < 35) {
-                    // Tier 3: 25–35 menit → Wajib isi alasan, tanpa WA
+                } else if (diffMin < appConfig.lateWaThreshold) {
+                    // Tier 3: Wajib Alasan
                     needsReason = 'late';
                     toastMsg = `Terlambat ${diffMin} menit — isi alasan.`;
                 } else {
-                    // Tier 4: 35+ menit → Wajib alasan + konfirmasi WA ke Admin
+                    // Tier 4: Wajib Alasan + WA
                     needsReason = 'blocked';
                     toastMsg = `Terlambat ${diffMin} menit — konfirmasi ke Admin.`;
                 }
