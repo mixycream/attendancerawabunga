@@ -4169,7 +4169,10 @@
                     <i class="fas fa-trash-alt text-2xl"></i>
                 </div>
                 <h3 class="font-extrabold text-lg text-slate-800 dark:text-white mb-2">Hapus Duplikat?</h3>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed" id="confirmDupMessage">Apakah Anda yakin ingin membersihkan data duplikat?</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed" id="confirmDupMessage">Apakah Anda yakin ingin membersihkan data duplikat?</p>
+                <div id="confirmDupDetailsList" class="w-full max-h-[150px] overflow-y-auto mb-6 text-left text-[11px] space-y-1.5 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 hidden">
+                    <!-- List of duplicate records -->
+                </div>
                 <div class="flex items-center gap-3 w-full">
                     <button onclick="closeConfirmDupModal()" class="flex-1 px-4 py-3 rounded-2xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 font-bold text-xs transition active:scale-95">Batal</button>
                     <button onclick="executeCleanDuplicateLogs()" class="flex-1 px-4 py-3 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-bold text-xs shadow-lg shadow-red-500/30 transition active:scale-95">Ya, Hapus</button>
@@ -4186,10 +4189,31 @@
                     <i class="fas fa-paper-plane text-2xl"></i>
                 </div>
                 <h3 class="font-extrabold text-lg text-slate-800 dark:text-white mb-2">Kirim Absen Manual?</h3>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed" id="confirmMaMessage">Apakah Anda yakin ingin mengirim absen manual ini?</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed" id="confirmMaMessage">Apakah Anda yakin ingin mengirim absen manual ini?</p>
+                <div id="confirmMaSkippedList" class="w-full max-h-[120px] overflow-y-auto mb-6 text-left text-[10px] space-y-1 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 hidden">
+                    <div class="font-bold text-red-500 mb-1"><i class="fas fa-exclamation-triangle"></i> Duplikat dilewati:</div>
+                    <div id="confirmMaSkippedItems" class="space-y-1 text-slate-600 dark:text-slate-400 font-semibold"></div>
+                </div>
                 <div class="flex items-center gap-3 w-full">
                     <button onclick="closeConfirmMaModal()" class="flex-1 px-4 py-3 rounded-2xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 font-bold text-xs transition active:scale-95">Batal</button>
                     <button onclick="executeMaSubmit()" class="flex-1 px-4 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-600/30 transition active:scale-95">Ya, Kirim</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CUSTOM CONFIRMATION MODAL -->
+    <div id="customConfirmModal" class="fixed inset-0 z-[400] bg-slate-950/60 backdrop-blur-md hidden flex items-center justify-center p-4 transition-all duration-300 opacity-0">
+        <div class="clay-modal w-full max-w-sm rounded-3xl overflow-hidden animate-slide-up transform scale-95 transition-all duration-300 bg-white dark:bg-slate-900 shadow-2xl border border-slate-100/50 dark:border-white/5 p-6">
+            <div class="flex flex-col items-center text-center">
+                <div id="customConfirmIconWrap" class="w-16 h-16 rounded-full bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center text-blue-500 mb-4 animate-pulse">
+                    <i id="customConfirmIcon" class="fas fa-question text-2xl"></i>
+                </div>
+                <h3 id="customConfirmTitle" class="font-extrabold text-lg text-slate-800 dark:text-white mb-2">Konfirmasi Tindakan</h3>
+                <p id="customConfirmMessage" class="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">Apakah Anda yakin ingin melakukan tindakan ini?</p>
+                <div class="flex items-center gap-3 w-full">
+                    <button onclick="closeCustomConfirm(false)" class="flex-1 px-4 py-3 rounded-2xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 font-bold text-xs transition active:scale-95">Batal</button>
+                    <button onclick="closeCustomConfirm(true)" id="customConfirmYesBtn" class="flex-1 px-4 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-600/30 transition active:scale-95">Ya</button>
                 </div>
             </div>
         </div>

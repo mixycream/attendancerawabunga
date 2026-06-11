@@ -1018,7 +1018,15 @@ function refreshUI() {
 
 async function confirmLate(row, newStatus) {
     const logIndex = logs.findIndex(l => l.row == row);
-    if(!confirm(`Konfirmasi status menjadi ${newStatus}?`)) return;
+    const ok = await showCustomConfirm({
+        title: 'Konfirmasi Status?',
+        message: `Apakah Anda yakin ingin mengubah status menjadi ${newStatus}?`,
+        icon: 'fa-check-circle',
+        iconClass: 'bg-emerald-500/10 text-emerald-500',
+        confirmText: 'Ya, Konfirmasi',
+        confirmClass: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30'
+    });
+    if(!ok) return;
     if(logIndex !== -1) {
         logs[logIndex].type = newStatus;
         refreshUI();
@@ -1027,7 +1035,15 @@ async function confirmLate(row, newStatus) {
 }
 
 async function deleteAttendanceLog(row, name) {
-    if (!confirm(`Hapus data absensi ${name} pada baris ini?\nAbsensi akan dihapus dan tidak dihitung gaji.`)) return;
+    const ok = await showCustomConfirm({
+        title: 'Hapus Data Absensi?',
+        message: `Hapus data absensi ${name} pada baris ini? Absensi akan dihapus dan tidak dihitung gaji.`,
+        icon: 'fa-trash-alt',
+        iconClass: 'bg-red-500/10 text-red-500',
+        confirmText: 'Ya, Hapus',
+        confirmClass: 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30'
+    });
+    if (!ok) return;
     const logIndex = logs.findIndex(l => l.row == row);
     if (logIndex !== -1) {
         logs.splice(logIndex, 1);
@@ -1038,7 +1054,15 @@ async function deleteAttendanceLog(row, name) {
 }
 
 async function rejectViolation(empId, date, name) {
-    if (!confirm(`Tolak absensi ${name} pada ${date}?\nSemua data absen (Masuk & Pulang) di hari itu akan dihapus dan tidak dihitung gaji.`)) return;
+    const ok = await showCustomConfirm({
+        title: 'Tolak Absensi?',
+        message: `Tolak absensi ${name} pada ${date}? Semua data absen (Masuk & Pulang) di hari itu akan dihapus dan tidak dihitung gaji.`,
+        icon: 'fa-times-circle',
+        iconClass: 'bg-red-500/10 text-red-500',
+        confirmText: 'Tolak Absen',
+        confirmClass: 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30'
+    });
+    if (!ok) return;
     // Remove all logs for this empId + date locally
     const toRemove = logs.filter(l => String(l.empId) === String(empId) && l.date === date);
     toRemove.forEach(l => {
@@ -1052,7 +1076,15 @@ async function rejectViolation(empId, date, name) {
 }
 
 async function confirmViolation(empId, date, name) {
-    if (!confirm(`Konfirmasi absensi ${name} pada ${date}?\nAbsensi tetap dihitung gaji. Data pelanggaran tetap tercatat.`)) return;
+    const ok = await showCustomConfirm({
+        title: 'Konfirmasi Absensi?',
+        message: `Konfirmasi absensi ${name} pada ${date}? Absensi tetap dihitung gaji dan data pelanggaran tetap tercatat.`,
+        icon: 'fa-exclamation-triangle',
+        iconClass: 'bg-amber-500/10 text-amber-500',
+        confirmText: 'Ya, Konfirmasi',
+        confirmClass: 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/30'
+    });
+    if (!ok) return;
     // Mark as confirmed by adding [OK] prefix to note — keep lateMinutes & note data visible
     const related = logs.filter(l => String(l.empId) === String(empId) && l.date === date);
     related.forEach(l => {
@@ -3314,7 +3346,15 @@ function openModalList(title, mode, filterParam = null) {
     if(mode === 'active') activeWorkerTimer = setInterval(render, 1000); 
 }
 async function adminClockOut(empId, empName) {
-    if (!confirm(`Absen OUT untuk ${empName}? Waktu OUT akan dicatat sekarang oleh Admin.`)) return;
+    const ok = await showCustomConfirm({
+        title: 'Absen OUT Relawan?',
+        message: `Absen OUT untuk ${empName}? Waktu OUT akan dicatat sekarang oleh Admin.`,
+        icon: 'fa-sign-out-alt',
+        iconClass: 'bg-amber-500/10 text-amber-500',
+        confirmText: 'Ya, OUT',
+        confirmClass: 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/30'
+    });
+    if (!ok) return;
     const now = new Date();
     const date = getLocalDateStr(now);
     const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -3345,7 +3385,15 @@ async function adminClockOut(empId, empName) {
 }
 
 async function adminDeleteAbsen(empId, empName) {
-    if (!confirm(`HAPUS semua absen hari ini untuk ${empName}?\nData IN & OUT hari ini akan dihapus dari database.`)) return;
+    const ok = await showCustomConfirm({
+        title: 'Hapus Semua Absen Hari Ini?',
+        message: `Hapus semua absen hari ini untuk ${empName}? Data IN & OUT hari ini akan dihapus dari database.`,
+        icon: 'fa-trash-alt',
+        iconClass: 'bg-red-500/10 text-red-500',
+        confirmText: 'Ya, Hapus',
+        confirmClass: 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30'
+    });
+    if (!ok) return;
     const today = getLocalDateStr();
     try {
         await postData('deleteAttendanceByEmpDate', { empId, date: today });
@@ -3418,6 +3466,51 @@ function _cleanDupMarkStepDone(stepId) {
     if (label) label.classList.remove('text-slate-400');
 }
 
+let customConfirmResolve = null;
+
+function showCustomConfirm({ title, message, icon = 'fa-question', iconClass = 'bg-blue-500/10 text-blue-500', confirmText = 'Ya', confirmClass = 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/30' }) {
+    return new Promise((resolve) => {
+        customConfirmResolve = resolve;
+
+        const titleEl = document.getElementById('customConfirmTitle');
+        const msgEl = document.getElementById('customConfirmMessage');
+        const iconEl = document.getElementById('customConfirmIcon');
+        const iconWrap = document.getElementById('customConfirmIconWrap');
+        const yesBtn = document.getElementById('customConfirmYesBtn');
+        const modal = document.getElementById('customConfirmModal');
+
+        if (titleEl) titleEl.textContent = title;
+        if (msgEl) msgEl.textContent = message;
+        if (iconEl) iconEl.className = `fas ${icon} text-2xl`;
+        if (iconWrap) iconWrap.className = `w-16 h-16 rounded-full flex items-center justify-center mb-4 animate-pulse ${iconClass}`;
+        if (yesBtn) {
+            yesBtn.textContent = confirmText;
+            yesBtn.className = `flex-1 px-4 py-3 rounded-2xl font-bold text-xs shadow-lg transition active:scale-95 ${confirmClass}`;
+        }
+
+        if (modal) {
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.querySelector('.clay-modal')?.classList.remove('scale-95');
+            }, 10);
+        }
+    });
+}
+
+function closeCustomConfirm(result) {
+    const modal = document.getElementById('customConfirmModal');
+    if (modal) {
+        modal.classList.add('opacity-0');
+        modal.querySelector('.clay-modal')?.classList.add('scale-95');
+        setTimeout(() => modal.classList.add('hidden'), 300);
+    }
+    if (customConfirmResolve) {
+        customConfirmResolve(result);
+        customConfirmResolve = null;
+    }
+}
+
 function openConfirmDupModal() {
     const modal = document.getElementById('confirmDuplicateModal');
     if (modal) {
@@ -3441,19 +3534,45 @@ function closeConfirmDupModal() {
 function cleanDuplicateLogs() {
     // Hitung duplikat lokal untuk konfirmasi
     const seen = {};
-    let localDupes = 0;
+    const dupesList = [];
     logs.forEach(l => {
         const key = `${l.empId}|${l.date}|${l.type}`;
-        if (seen[key]) localDupes++;
-        else seen[key] = true;
+        if (seen[key]) {
+            dupesList.push({
+                name: l.name,
+                date: l.date,
+                type: l.type,
+                time: l.time || ''
+            });
+        } else {
+            seen[key] = true;
+        }
     });
 
+    const localDupes = dupesList.length;
     const msg = localDupes > 0
         ? `Ditemukan ${localDupes} data duplikat di sesi ini. Lanjutkan bersihkan Spreadsheet? (Baris pertama dipertahankan, duplikat dihapus)`
         : `Tidak ada duplikat terdeteksi secara lokal. Tetap jalankan pengecekan di server?`;
 
     const msgEl = document.getElementById('confirmDupMessage');
     if (msgEl) msgEl.textContent = msg;
+
+    const detailsContainer = document.getElementById('confirmDupDetailsList');
+    if (detailsContainer) {
+        if (localDupes > 0) {
+            detailsContainer.classList.remove('hidden');
+            detailsContainer.innerHTML = dupesList.map(d => `
+                <div class="flex justify-between items-center bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-100 dark:border-white/5">
+                    <span class="font-bold text-slate-700 dark:text-slate-350">${d.name}</span>
+                    <span class="text-slate-500 text-[10px]">${d.date} (${d.type} - ${d.time})</span>
+                </div>
+            `).join('');
+        } else {
+            detailsContainer.classList.add('hidden');
+            detailsContainer.innerHTML = '';
+        }
+    }
+
     openConfirmDupModal();
 }
 
@@ -4880,8 +4999,16 @@ function maCheckForResume() {
     banner.classList.remove('hidden');
 }
 
-function maDiscardCheckpoint() {
-    if (!confirm('Buang semua data checkpoint? Entri yang belum terkirim akan hilang.')) return;
+async function maDiscardCheckpoint() {
+    const ok = await showCustomConfirm({
+        title: 'Buang Checkpoint?',
+        message: 'Buang semua data checkpoint? Entri yang belum terkirim akan hilang.',
+        icon: 'fa-trash',
+        iconClass: 'bg-red-500/10 text-red-500',
+        confirmText: 'Ya, Buang',
+        confirmClass: 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30'
+    });
+    if (!ok) return;
     maClearCheckpoint();
     document.getElementById('maResumeBanner').classList.add('hidden');
     showToast('Checkpoint dibuang.', 'success');
@@ -5063,15 +5190,12 @@ async function maSubmit() {
     const note = document.getElementById('maNote').value.trim();
     const empIds = [...maSelectedEmployees];
     const dates = [...maSelectedDates].sort();
-    const multiplier = type === 'BOTH' ? 2 : 1;
-    const totalEntries = empIds.length * dates.length * multiplier;
     const defaultLoc = `${GEOFENCE_CONFIG.lat}, ${GEOFENCE_CONFIG.lng}`;
 
-    const typeLabel = type === 'BOTH' ? 'IN + OUT' : type;
-    const msg = `Kirim ${totalEntries} entri absen ${typeLabel} untuk ${empIds.length} relawan × ${dates.length} tanggal?`;
-
-    // Build list of entries to send
+    // Build list of entries to send and track skipped ones
     const entries = [];
+    const skippedDetails = [];
+
     for (const empId of empIds) {
         const emp = employees.find(e => e.id === empId);
         if (!emp) continue;
@@ -5082,12 +5206,21 @@ async function maSubmit() {
 
         for (const dateStr of dates) {
             if (type === 'IN' || type === 'BOTH') {
-                entries.push({
-                    empId: emp.id, name: emp.name, type: 'IN',
-                    date: dateStr, forcedTime: timeIn || defaultIn,
-                    location: defaultLoc, image: '', overtime: 0,
-                    lateMinutes: 0, note: note, absentBy: 'Admin'
-                });
+                const hasIn = !appConfig.allowMultipleIn && logs.some(l => 
+                    String(l.empId) === String(emp.id) && 
+                    l.date === dateStr && 
+                    (l.type === 'IN' || l.type === 'PENDING')
+                );
+                if (hasIn) {
+                    skippedDetails.push(`${emp.name} (IN: ${dateStr})`);
+                } else {
+                    entries.push({
+                        empId: emp.id, name: emp.name, type: 'IN',
+                        date: dateStr, forcedTime: timeIn || defaultIn,
+                        location: defaultLoc, image: '', overtime: 0,
+                        lateMinutes: 0, note: note, absentBy: 'Admin'
+                    });
+                }
             }
             if (type === 'OUT' || type === 'BOTH') {
                 let outDate = dateStr;
@@ -5099,13 +5232,44 @@ async function maSubmit() {
                     const dd = String(d.getDate()).padStart(2, '0');
                     outDate = `${yyyy}-${mm}-${dd}`;
                 }
-                entries.push({
-                    empId: emp.id, name: emp.name, type: 'OUT',
-                    date: outDate, forcedTime: timeOut || defaultOut,
-                    location: defaultLoc, image: '', overtime: 0,
-                    lateMinutes: 0, note: note, absentBy: 'Admin'
-                });
+                const hasOut = !appConfig.allowMultipleIn && logs.some(l => 
+                    String(l.empId) === String(emp.id) && 
+                    l.date === outDate && 
+                    l.type === 'OUT'
+                );
+                if (hasOut) {
+                    skippedDetails.push(`${emp.name} (OUT: ${outDate})`);
+                } else {
+                    entries.push({
+                        empId: emp.id, name: emp.name, type: 'OUT',
+                        date: outDate, forcedTime: timeOut || defaultOut,
+                        location: defaultLoc, image: '', overtime: 0,
+                        lateMinutes: 0, note: note, absentBy: 'Admin'
+                    });
+                }
             }
+        }
+    }
+
+    if (entries.length === 0) {
+        showToast('Semua entri dibatalkan karena sudah ada data absensi di log (duplikat).', 'error');
+        return;
+    }
+
+    const typeLabel = type === 'BOTH' ? 'IN + OUT' : type;
+    let msg = `Kirim ${entries.length} entri absen ${typeLabel} untuk ${empIds.length} relawan × ${dates.length} tanggal?`;
+    
+    // Update skipped container in modal
+    const skippedList = document.getElementById('confirmMaSkippedList');
+    const skippedItems = document.getElementById('confirmMaSkippedItems');
+    if (skippedList && skippedItems) {
+        if (skippedDetails.length > 0) {
+            skippedList.classList.remove('hidden');
+            skippedItems.innerHTML = skippedDetails.map(item => `<div>• ${item}</div>`).join('');
+            msg += ` (${skippedDetails.length} duplikat dilewati)`;
+        } else {
+            skippedList.classList.add('hidden');
+            skippedItems.innerHTML = '';
         }
     }
 
@@ -5802,12 +5966,12 @@ function nOnSasaranChange() {
     nSavePlannerState();
 }
 
-function nTriggerPresetMenuDirect() {
+async function nTriggerPresetMenuDirect() {
     nSwitchTab('planner');
-    nLoadPresetMenu();
+    await nLoadPresetMenu();
 }
 
-function nLoadPresetMenu() {
+async function nLoadPresetMenu() {
     const sasaranSel = document.getElementById('nTargetGroup').value;
     const preset = PRESET_CYCLE_MENUS[sasaranSel];
     if (!preset) {
@@ -5815,8 +5979,16 @@ function nLoadPresetMenu() {
         return;
     }
 
-    if (nMenuIngredients.length > 0 && !confirm('Muat menu standar resmi PDF? Rencana penyusunan bahan saat ini akan diganti.')) {
-        return;
+    if (nMenuIngredients.length > 0) {
+        const ok = await showCustomConfirm({
+            title: 'Muat Menu Standar?',
+            message: 'Muat menu standar resmi PDF? Rencana penyusunan bahan saat ini akan diganti.',
+            icon: 'fa-file-pdf',
+            iconClass: 'bg-blue-500/10 text-blue-500',
+            confirmText: 'Ya, Muat',
+            confirmClass: 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/30'
+        });
+        if (!ok) return;
     }
 
     // Clear current ingredients and populate
@@ -6064,8 +6236,16 @@ function nRecalcPlanner() {
     nRenderOverview();
 }
 
-function nResetPlanner() {
-    if (!confirm('Dereset menu saat ini? Semua progres bahan penyusunan akan hilang.')) return;
+async function nResetPlanner() {
+    const ok = await showCustomConfirm({
+        title: 'Reset Perencanaan Menu?',
+        message: 'Dereset menu saat ini? Semua progres bahan penyusunan akan hilang.',
+        icon: 'fa-undo',
+        iconClass: 'bg-red-500/10 text-red-500',
+        confirmText: 'Ya, Reset',
+        confirmClass: 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30'
+    });
+    if (!ok) return;
     nMenuIngredients = [];
     const nameEl = document.getElementById('nMenuName');
     if (nameEl) nameEl.value = '';
@@ -6260,7 +6440,15 @@ async function nLoadHistoryFromCloud() {
             // Set actions to global
             window.nLoadHistoryPlanDirect = () => { nLoadPlanData(plan); };
             window.nDeleteHistoryPlanDirect = async () => {
-                if (!confirm('Hapus rencana menu ini dari cloud?')) return;
+                const ok = await showCustomConfirm({
+                    title: 'Hapus Rencana Menu?',
+                    message: 'Hapus rencana menu ini dari cloud?',
+                    icon: 'fa-trash-alt',
+                    iconClass: 'bg-red-500/10 text-red-500',
+                    confirmText: 'Ya, Hapus',
+                    confirmClass: 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30'
+                });
+                if (!ok) return;
                 toggleLoader(true, "Menghapus rencana menu dari cloud...");
                 try {
                     const payload = { userId: currentUser?.id || '', username: currentUser?.u || '' };
@@ -6683,7 +6871,15 @@ function addEmployee(e) {
 }
 async function deleteEmployee() {
     if (!editingEmployeeId) return;
-    if (!confirm('Hapus data relawan ini? Tindakan ini tidak bisa dibatalkan.')) return;
+    const ok = await showCustomConfirm({
+        title: 'Hapus Data Relawan?',
+        message: 'Hapus data relawan ini? Tindakan ini tidak bisa dibatalkan.',
+        icon: 'fa-trash-alt',
+        iconClass: 'bg-red-500/10 text-red-500',
+        confirmText: 'Ya, Hapus',
+        confirmClass: 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30'
+    });
+    if (!ok) return;
 
     // Simpan referensi employee untuk rollback jika gagal
     const idToDelete = String(editingEmployeeId);
