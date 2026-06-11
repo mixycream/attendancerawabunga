@@ -3598,20 +3598,43 @@ async function autoClockOutForgotten() {
             if (empLogs.length === 0 || empLogs[0].type !== 'IN') return null;
 
             const lastIN = empLogs[0];
-
-            // Tentukan outTime & outDate: jika clock-in sangat malam (outTime <= lastIN.time), set OUT pada keesokan harinya
             const shift = appConfig.shifts?.[emp.division];
             if (!shift) return null;
             const startVal = typeof shift === 'string' ? shift : shift.start;
             const endVal = typeof shift === 'string' ? '17:00' : shift.end;
 
-            let outTime = endVal;
-            let outDate = lastIN.date;
-            if (outTime <= lastIN.time) {
-                const d = new Date(lastIN.date + 'T00:00:00');
-                d.setDate(d.getDate() + 1);
-                outDate = getLocalDateStr(d);
+            const [startH, startM] = startVal.split(':').map(Number);
+            const [endH, endM] = endVal.split(':').map(Number);
+
+            const inTime = new Date(`${lastIN.date}T${lastIN.time}`);
+            const [inYr, inMo, inDy] = lastIN.date.split('-').map(Number);
+
+            // Find closest shift start date relative to inTime
+            const startCand1 = new Date(inYr, inMo - 1, inDy, startH, startM, 0, 0);
+            const startCand2 = new Date(inYr, inMo - 1, inDy - 1, startH, startM, 0, 0);
+            const startCand3 = new Date(inYr, inMo - 1, inDy + 1, startH, startM, 0, 0);
+
+            const diff1 = Math.abs(inTime - startCand1);
+            const diff2 = Math.abs(inTime - startCand2);
+            const diff3 = Math.abs(inTime - startCand3);
+
+            let actualShiftStart = startCand1;
+            let minDiff = diff1;
+            if (diff2 < minDiff) { actualShiftStart = startCand2; minDiff = diff2; }
+            if (diff3 < minDiff) { actualShiftStart = startCand3; minDiff = diff3; }
+
+            // Determine expectedEnd (the actual shift end date object)
+            let expectedEnd = new Date(actualShiftStart.getTime());
+            expectedEnd.setHours(endH, endM, 0, 0);
+
+            const startMinutes = startH * 60 + startM;
+            const endMinutes = endH * 60 + endM;
+            if (endMinutes <= startMinutes) {
+                expectedEnd.setDate(expectedEnd.getDate() + 1);
             }
+
+            const outDate = getLocalDateStr(expectedEnd);
+            const outTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
 
             // Cek duplikat di sisi client — jika sudah ada OUT di tanggal outDate, skip
             const alreadyHasOUT = logs.some(l =>
@@ -3621,17 +3644,7 @@ async function autoClockOutForgotten() {
             );
             if (alreadyHasOUT) return null;
 
-            const inTime = new Date(`${lastIN.date}T${lastIN.time}`);
             const diffHours = (now - inTime) / 3600000;
-            const [startH, startM] = startVal.split(':').map(Number);
-            const [endH, endM] = endVal.split(':').map(Number);
-
-            const [yr, mo, dy] = lastIN.date.split('-').map(Number);
-            let expectedEnd = new Date(yr, mo - 1, dy, endH, endM, 0, 0);
-
-            if (endH <= startH) {
-                expectedEnd.setDate(expectedEnd.getDate() + 1);
-            }
 
             let autoOutMs = 240 * 60 * 1000;
             if (appConfig.autoOutType === 'division') {
@@ -7575,6 +7588,22 @@ async function startAbsenMandiri() {
                 appConfig.disableGeofence = data.config.disableGeofence === true || data.config.disableGeofence === 'true';
                 appConfig.hideOvertime = data.config.hideOvertime === true || data.config.hideOvertime === 'true';
                 appConfig.allowMultipleIn = data.config.allowMultipleIn === true || data.config.allowMultipleIn === 'true';
+                appConfig.geofenceLat = parseFloat(data.config.geofenceLat || "-6.21973");
+                appConfig.geofenceLng = parseFloat(data.config.geofenceLng || "106.87015");
+                appConfig.geofenceRadius = parseInt(data.config.geofenceRadius || "15");
+                appConfig.lateTolerance = parseInt(data.config.lateTolerance || "5");
+                appConfig.lateReasonThreshold = parseInt(data.config.lateReasonThreshold || "25");
+                appConfig.lateWaThreshold = parseInt(data.config.lateWaThreshold || "35");
+                appConfig.lateMaxThreshold = parseInt(data.config.lateMaxThreshold || "60");
+                appConfig.adminWhatsApp = data.config.adminWhatsApp || "6282114806765";
+                appConfig.autoOutType = data.config.autoOutType || "global";
+                appConfig.autoOutGlobalMinutes = parseInt(data.config.autoOutGlobalMinutes || "240");
+                appConfig.autoOutDivisionsConfig = data.config.autoOutDivisionsConfig || "{}";
+
+                // Update GEOFENCE_CONFIG
+                GEOFENCE_CONFIG.lat = appConfig.geofenceLat;
+                GEOFENCE_CONFIG.lng = appConfig.geofenceLng;
+                GEOFENCE_CONFIG.radius = appConfig.geofenceRadius;
             }
         }
     } catch (e) {
