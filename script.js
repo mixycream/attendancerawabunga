@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwY_3XO9_Aj2Af5MkNsR6hRUkF2FlXgMczbq5d0u0GRUQSOE9ULUk8_3pIKT6M7xOVk/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzSgADgCPqqwUn4OqHUQ6K16m-nsFebP4j9qcYxbI9vgRu2XRZtRuMFi82taoJB8sWO/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -652,6 +652,26 @@ async function fetchData(force = false) {
                     appConfig.autoOutType = data.config.autoOutType || "global";
                     appConfig.autoOutGlobalMinutes = parseInt(data.config.autoOutGlobalMinutes || "240");
                     appConfig.autoOutDivisionsConfig = data.config.autoOutDivisionsConfig || "{}";
+                    
+                    appConfig.divisionRolePresets = {};
+                    if (data.config.divisionRolePresets) {
+                        try {
+                            appConfig.divisionRolePresets = typeof data.config.divisionRolePresets === 'string' 
+                                ? JSON.parse(data.config.divisionRolePresets) 
+                                : data.config.divisionRolePresets;
+                        } catch(e) { console.error(e); }
+                    }
+                    Object.assign(DIVISION_ROLE_PRESETS, appConfig.divisionRolePresets);
+
+                    appConfig.customRoles = {};
+                    if (data.config.customRoles) {
+                        try {
+                            appConfig.customRoles = typeof data.config.customRoles === 'string' 
+                                ? JSON.parse(data.config.customRoles) 
+                                : data.config.customRoles;
+                        } catch(e) { console.error(e); }
+                    }
+                    Object.assign(ROLE_LABELS, appConfig.customRoles);
 
                     // Update GEOFENCE_CONFIG
                     GEOFENCE_CONFIG.lat = appConfig.geofenceLat;
@@ -873,6 +893,8 @@ function refreshUI() {
 
     renderTrendChart();
     renderDivisionGrid();
+    updateDivisionSelects();
+    updateRoleSelects();
 
     // --- RENDER LOGS (TABEL AKTIVITAS) ---
     const sortedLogs = getSortedData(logs, 'logs');
@@ -991,7 +1013,12 @@ function refreshUI() {
                     <div class="flex items-center gap-3">
                         ${profilePic}
                         <div>
-                            <div class="font-bold text-slate-700">${e.name}</div>
+                            <div class="flex items-center gap-1.5">
+                                <div class="font-bold text-slate-700">${e.name}</div>
+                                <button onclick="showVolunteerQRCode('${e.id}', '${e.name.replace(/'/g, "\\'")}', '${e.division.replace(/'/g, "\\'")}')" class="w-6 h-6 rounded-full bg-slate-100 dark:bg-white/5 text-slate-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:text-blue-600 transition flex items-center justify-center" title="Tampilkan QR Code">
+                                    <i class="fas fa-qrcode text-[10px]"></i>
+                                </button>
+                            </div>
                             <div class="text-[10px] text-slate-400 font-mono">${e.id}</div>
                         </div>
                     </div>
@@ -1018,7 +1045,15 @@ function refreshUI() {
 
 async function confirmLate(row, newStatus) {
     const logIndex = logs.findIndex(l => l.row == row);
-    if(!confirm(`Konfirmasi status menjadi ${newStatus}?`)) return;
+    const ok = await showCustomConfirm({
+        title: 'Konfirmasi Status?',
+        message: `Apakah Anda yakin ingin mengubah status menjadi ${newStatus}?`,
+        icon: 'fa-check-circle',
+        iconClass: 'bg-emerald-500/10 text-emerald-500',
+        confirmText: 'Ya, Konfirmasi',
+        confirmClass: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30'
+    });
+    if(!ok) return;
     if(logIndex !== -1) {
         logs[logIndex].type = newStatus;
         refreshUI();
@@ -1027,7 +1062,15 @@ async function confirmLate(row, newStatus) {
 }
 
 async function deleteAttendanceLog(row, name) {
-    if (!confirm(`Hapus data absensi ${name} pada baris ini?\nAbsensi akan dihapus dan tidak dihitung gaji.`)) return;
+    const ok = await showCustomConfirm({
+        title: 'Hapus Data Absensi?',
+        message: `Hapus data absensi ${name} pada baris ini? Absensi akan dihapus dan tidak dihitung gaji.`,
+        icon: 'fa-trash-alt',
+        iconClass: 'bg-red-500/10 text-red-500',
+        confirmText: 'Ya, Hapus',
+        confirmClass: 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30'
+    });
+    if (!ok) return;
     const logIndex = logs.findIndex(l => l.row == row);
     if (logIndex !== -1) {
         logs.splice(logIndex, 1);
@@ -1038,7 +1081,15 @@ async function deleteAttendanceLog(row, name) {
 }
 
 async function rejectViolation(empId, date, name) {
-    if (!confirm(`Tolak absensi ${name} pada ${date}?\nSemua data absen (Masuk & Pulang) di hari itu akan dihapus dan tidak dihitung gaji.`)) return;
+    const ok = await showCustomConfirm({
+        title: 'Tolak Absensi?',
+        message: `Tolak absensi ${name} pada ${date}? Semua data absen (Masuk & Pulang) di hari itu akan dihapus dan tidak dihitung gaji.`,
+        icon: 'fa-times-circle',
+        iconClass: 'bg-red-500/10 text-red-500',
+        confirmText: 'Tolak Absen',
+        confirmClass: 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30'
+    });
+    if (!ok) return;
     // Remove all logs for this empId + date locally
     const toRemove = logs.filter(l => String(l.empId) === String(empId) && l.date === date);
     toRemove.forEach(l => {
@@ -1052,7 +1103,15 @@ async function rejectViolation(empId, date, name) {
 }
 
 async function confirmViolation(empId, date, name) {
-    if (!confirm(`Konfirmasi absensi ${name} pada ${date}?\nAbsensi tetap dihitung gaji. Data pelanggaran tetap tercatat.`)) return;
+    const ok = await showCustomConfirm({
+        title: 'Konfirmasi Absensi?',
+        message: `Konfirmasi absensi ${name} pada ${date}? Absensi tetap dihitung gaji dan data pelanggaran tetap tercatat.`,
+        icon: 'fa-exclamation-triangle',
+        iconClass: 'bg-amber-500/10 text-amber-500',
+        confirmText: 'Ya, Konfirmasi',
+        confirmClass: 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/30'
+    });
+    if (!ok) return;
     // Mark as confirmed by adding [OK] prefix to note — keep lateMinutes & note data visible
     const related = logs.filter(l => String(l.empId) === String(empId) && l.date === date);
     related.forEach(l => {
@@ -3050,20 +3109,183 @@ function openConfigModal() {
     const list = document.getElementById('configList');
     list.innerHTML = '';
     const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Admin Gudang", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2", "Cuci Ompreng", "Leader Ompreng", "Leader Packing", "Leader Helper Cook", "Admin Yayasan", "Koordinasi Lapangan"];
-    orderedKeys.forEach(key => {
+    const allDivs = Array.from(new Set([...orderedKeys, ...Object.keys(appConfig.shifts || {})]));
+    allDivs.forEach(key => {
         const shiftData = appConfig.shifts[key] || { start: "00:00", end: "08:00" };
         const startVal = typeof shiftData === 'string' ? shiftData : shiftData.start; 
         const endVal = typeof shiftData === 'string' ? "00:00" : shiftData.end;
         list.innerHTML += `
-        <div class="grid grid-cols-12 gap-2 items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
-            <div class="col-span-4 text-xs font-bold text-slate-700">${key}</div>
-            <div class="col-span-4"><input type="text" inputmode="numeric" placeholder="HH:mm" maxlength="5" class="shift-start-input w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-emerald-600 focus:border-mbg-500 outline-none text-center" data-division="${key}" value="${startVal}" onchange="validateTimeInput(this); autoCalculateEndTime(this)"></div>
-            <div class="col-span-4"><input type="text" inputmode="numeric" placeholder="HH:mm" maxlength="5" class="shift-end-input w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-amber-600 focus:border-mbg-500 outline-none text-center" data-division="${key}" id="end-${key.replace(/\s/g, '-')}" value="${endVal}" onchange="validateTimeInput(this)"></div>
+        <div class="grid grid-cols-12 gap-2 items-center bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+            <div class="col-span-4 text-xs font-bold text-slate-700 dark:text-slate-350">${key}</div>
+            <div class="col-span-4"><input type="text" inputmode="numeric" placeholder="HH:mm" maxlength="5" class="shift-start-input w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-bold text-emerald-600 focus:border-mbg-500 outline-none text-center" data-division="${key}" value="${startVal}" onchange="validateTimeInput(this); autoCalculateEndTime(this)"></div>
+            <div class="col-span-4"><input type="text" inputmode="numeric" placeholder="HH:mm" maxlength="5" class="shift-end-input w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-bold text-amber-600 focus:border-mbg-500 outline-none text-center" data-division="${key}" id="end-${key.replace(/\s/g, '-')}" value="${endVal}" onchange="validateTimeInput(this)"></div>
         </div>`;
     });
     document.getElementById('configModal').classList.remove('hidden');
     setTimeout(() => document.getElementById('configModal').classList.remove('opacity-0'), 10);
 }
+
+function toggleDivisionForm(show) {
+    const collapsed = document.getElementById('divCardCollapsed');
+    const expanded = document.getElementById('divCardExpanded');
+    if (!collapsed || !expanded) return;
+    
+    if (show) {
+        collapsed.classList.add('hidden');
+        expanded.classList.remove('hidden');
+        document.getElementById('divFormName').value = '';
+        document.getElementById('divFormStart').value = '';
+        document.getElementById('divFormEnd').value = '';
+        document.getElementById('divFormRole').value = 'employee';
+        document.getElementById('divFormCustomRoleWrap').classList.add('hidden');
+        document.getElementById('divFormCustomRoleKey').value = '';
+        document.getElementById('divFormCustomRoleLabel').value = '';
+        document.getElementById('divFormCustomRoleKey').removeAttribute('required');
+        document.getElementById('divFormCustomRoleLabel').removeAttribute('required');
+    } else {
+        expanded.classList.add('hidden');
+        collapsed.classList.remove('hidden');
+    }
+    adjustGridSpans();
+}
+
+function handleDivFormRoleChange(val) {
+    const customWrap = document.getElementById('divFormCustomRoleWrap');
+    const keyInput = document.getElementById('divFormCustomRoleKey');
+    const labelInput = document.getElementById('divFormCustomRoleLabel');
+    if (!customWrap || !keyInput || !labelInput) return;
+    
+    if (val === 'NEW_ROLE') {
+        customWrap.classList.remove('hidden');
+        keyInput.setAttribute('required', 'true');
+        labelInput.setAttribute('required', 'true');
+    } else {
+        customWrap.classList.add('hidden');
+        keyInput.removeAttribute('required');
+        labelInput.removeAttribute('required');
+        keyInput.value = '';
+        labelInput.value = '';
+    }
+}
+
+async function submitNewDivision(e) {
+    e.preventDefault();
+    const divName = document.getElementById('divFormName').value.trim();
+    let startTime = document.getElementById('divFormStart').value.trim();
+    let endTime = document.getElementById('divFormEnd').value.trim();
+    let selectedRole = document.getElementById('divFormRole').value;
+    
+    if (!divName) {
+        showToast("Nama divisi tidak boleh kosong!", "error");
+        return;
+    }
+    
+    if (appConfig.shifts[divName]) {
+        showToast("Divisi sudah terdaftar!", "error");
+        return;
+    }
+    
+    if (!startTime) startTime = "08:00";
+    if (!endTime) endTime = "16:00";
+    
+    if (selectedRole === 'NEW_ROLE') {
+        const customKey = document.getElementById('divFormCustomRoleKey').value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+        const customLabel = document.getElementById('divFormCustomRoleLabel').value.trim();
+        
+        if (!customKey || !customLabel) {
+            showToast("Nama dan Label Akses Baru wajib diisi!", "error");
+            return;
+        }
+        
+        ROLE_LABELS[customKey] = customLabel;
+        
+        if (!appConfig.customRoles) appConfig.customRoles = {};
+        appConfig.customRoles[customKey] = customLabel;
+        
+        selectedRole = customKey;
+    }
+    
+    if (!appConfig.divisionRolePresets) appConfig.divisionRolePresets = {};
+    appConfig.divisionRolePresets[divName] = selectedRole;
+    
+    DIVISION_ROLE_PRESETS[divName] = selectedRole;
+    
+    appConfig.shifts[divName] = { start: startTime, end: endTime };
+    
+    const payload = {
+        shifts: appConfig.shifts,
+        divisionRolePresets: appConfig.divisionRolePresets,
+        customRoles: appConfig.customRoles
+    };
+    
+    toggleLoader(true, "Menyimpan Divisi Baru...");
+    const success = await postData('saveConfig', payload);
+    if (success) {
+        showToast(`Divisi ${divName} berhasil ditambahkan!`, "success");
+        toggleDivisionForm(false);
+    } else {
+        delete appConfig.shifts[divName];
+        delete DIVISION_ROLE_PRESETS[divName];
+        if (appConfig.divisionRolePresets) delete appConfig.divisionRolePresets[divName];
+        toggleLoader(false);
+    }
+}
+
+function updateDivisionSelects() {
+    const newEmpDiv = document.getElementById('newEmpDiv');
+    const editEmpDiv = document.getElementById('editEmpDiv');
+    if (!newEmpDiv || !editEmpDiv) return;
+    
+    const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Admin Gudang", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2", "Cuci Ompreng", "Leader Ompreng", "Leader Packing", "Leader Helper Cook", "Admin Yayasan", "Koordinasi Lapangan"];
+    const allDivs = Array.from(new Set([...orderedKeys, ...Object.keys(appConfig.shifts || {})]));
+    
+    const curNewVal = newEmpDiv.value;
+    const curEditVal = editEmpDiv.value;
+    
+    const html = allDivs.map(div => `<option value="${div}">${div}</option>`).join('');
+    newEmpDiv.innerHTML = html;
+    editEmpDiv.innerHTML = html;
+    
+    if (curNewVal) newEmpDiv.value = curNewVal;
+    if (curEditVal) editEmpDiv.value = curEditVal;
+}
+
+function updateRoleSelects() {
+    const newEmpRole = document.getElementById('newEmpRole');
+    const editEmpRole = document.getElementById('editEmpRole');
+    const divFormRole = document.getElementById('divFormRole');
+    if (!newEmpRole || !editEmpRole) return;
+    
+    const curNewVal = newEmpRole.value;
+    const curEditVal = editEmpRole.value;
+    
+    let html = '';
+    Object.entries(ROLE_LABELS).forEach(([key, label]) => {
+        if (key !== 'admin') {
+            html += `<option value="${key}">${label}</option>`;
+        }
+    });
+    
+    newEmpRole.innerHTML = html;
+    editEmpRole.innerHTML = html;
+    
+    if (curNewVal) newEmpRole.value = curNewVal;
+    if (curEditVal) editEmpRole.value = curEditVal;
+    
+    if (divFormRole) {
+        const curDivRoleVal = divFormRole.value;
+        let divFormHtml = '';
+        Object.entries(ROLE_LABELS).forEach(([key, label]) => {
+            if (key !== 'admin') {
+                divFormHtml += `<option value="${key}">${label}</option>`;
+            }
+        });
+        divFormHtml += `<option value="NEW_ROLE">+ Tambah Akses Baru</option>`;
+        divFormRole.innerHTML = divFormHtml;
+        if (curDivRoleVal) divFormRole.value = curDivRoleVal;
+    }
+}
+
 function validateTimeInput(input) {
     let val = input.value.replace(/[^0-9:]/g, ''); 
     if (!val) return;
@@ -3314,7 +3536,15 @@ function openModalList(title, mode, filterParam = null) {
     if(mode === 'active') activeWorkerTimer = setInterval(render, 1000); 
 }
 async function adminClockOut(empId, empName) {
-    if (!confirm(`Absen OUT untuk ${empName}? Waktu OUT akan dicatat sekarang oleh Admin.`)) return;
+    const ok = await showCustomConfirm({
+        title: 'Absen OUT Relawan?',
+        message: `Absen OUT untuk ${empName}? Waktu OUT akan dicatat sekarang oleh Admin.`,
+        icon: 'fa-sign-out-alt',
+        iconClass: 'bg-amber-500/10 text-amber-500',
+        confirmText: 'Ya, OUT',
+        confirmClass: 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/30'
+    });
+    if (!ok) return;
     const now = new Date();
     const date = getLocalDateStr(now);
     const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -3345,7 +3575,15 @@ async function adminClockOut(empId, empName) {
 }
 
 async function adminDeleteAbsen(empId, empName) {
-    if (!confirm(`HAPUS semua absen hari ini untuk ${empName}?\nData IN & OUT hari ini akan dihapus dari database.`)) return;
+    const ok = await showCustomConfirm({
+        title: 'Hapus Semua Absen Hari Ini?',
+        message: `Hapus semua absen hari ini untuk ${empName}? Data IN & OUT hari ini akan dihapus dari database.`,
+        icon: 'fa-trash-alt',
+        iconClass: 'bg-red-500/10 text-red-500',
+        confirmText: 'Ya, Hapus',
+        confirmClass: 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30'
+    });
+    if (!ok) return;
     const today = getLocalDateStr();
     try {
         await postData('deleteAttendanceByEmpDate', { empId, date: today });
@@ -3418,6 +3656,51 @@ function _cleanDupMarkStepDone(stepId) {
     if (label) label.classList.remove('text-slate-400');
 }
 
+let customConfirmResolve = null;
+
+function showCustomConfirm({ title, message, icon = 'fa-question', iconClass = 'bg-blue-500/10 text-blue-500', confirmText = 'Ya', confirmClass = 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/30' }) {
+    return new Promise((resolve) => {
+        customConfirmResolve = resolve;
+
+        const titleEl = document.getElementById('customConfirmTitle');
+        const msgEl = document.getElementById('customConfirmMessage');
+        const iconEl = document.getElementById('customConfirmIcon');
+        const iconWrap = document.getElementById('customConfirmIconWrap');
+        const yesBtn = document.getElementById('customConfirmYesBtn');
+        const modal = document.getElementById('customConfirmModal');
+
+        if (titleEl) titleEl.textContent = title;
+        if (msgEl) msgEl.textContent = message;
+        if (iconEl) iconEl.className = `fas ${icon} text-2xl`;
+        if (iconWrap) iconWrap.className = `w-16 h-16 rounded-full flex items-center justify-center mb-4 animate-pulse ${iconClass}`;
+        if (yesBtn) {
+            yesBtn.textContent = confirmText;
+            yesBtn.className = `flex-1 px-4 py-3 rounded-2xl font-bold text-xs shadow-lg transition active:scale-95 ${confirmClass}`;
+        }
+
+        if (modal) {
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.querySelector('.clay-modal')?.classList.remove('scale-95');
+            }, 10);
+        }
+    });
+}
+
+function closeCustomConfirm(result) {
+    const modal = document.getElementById('customConfirmModal');
+    if (modal) {
+        modal.classList.add('opacity-0');
+        modal.querySelector('.clay-modal')?.classList.add('scale-95');
+        setTimeout(() => modal.classList.add('hidden'), 300);
+    }
+    if (customConfirmResolve) {
+        customConfirmResolve(result);
+        customConfirmResolve = null;
+    }
+}
+
 function openConfirmDupModal() {
     const modal = document.getElementById('confirmDuplicateModal');
     if (modal) {
@@ -3441,19 +3724,45 @@ function closeConfirmDupModal() {
 function cleanDuplicateLogs() {
     // Hitung duplikat lokal untuk konfirmasi
     const seen = {};
-    let localDupes = 0;
+    const dupesList = [];
     logs.forEach(l => {
         const key = `${l.empId}|${l.date}|${l.type}`;
-        if (seen[key]) localDupes++;
-        else seen[key] = true;
+        if (seen[key]) {
+            dupesList.push({
+                name: l.name,
+                date: l.date,
+                type: l.type,
+                time: l.time || ''
+            });
+        } else {
+            seen[key] = true;
+        }
     });
 
+    const localDupes = dupesList.length;
     const msg = localDupes > 0
         ? `Ditemukan ${localDupes} data duplikat di sesi ini. Lanjutkan bersihkan Spreadsheet? (Baris pertama dipertahankan, duplikat dihapus)`
         : `Tidak ada duplikat terdeteksi secara lokal. Tetap jalankan pengecekan di server?`;
 
     const msgEl = document.getElementById('confirmDupMessage');
     if (msgEl) msgEl.textContent = msg;
+
+    const detailsContainer = document.getElementById('confirmDupDetailsList');
+    if (detailsContainer) {
+        if (localDupes > 0) {
+            detailsContainer.classList.remove('hidden');
+            detailsContainer.innerHTML = dupesList.map(d => `
+                <div class="flex justify-between items-center bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-100 dark:border-white/5">
+                    <span class="font-bold text-slate-700 dark:text-slate-350">${d.name}</span>
+                    <span class="text-slate-500 text-[10px]">${d.date} (${d.type} - ${d.time})</span>
+                </div>
+            `).join('');
+        } else {
+            detailsContainer.classList.add('hidden');
+            detailsContainer.innerHTML = '';
+        }
+    }
+
     openConfirmDupModal();
 }
 
@@ -3598,20 +3907,43 @@ async function autoClockOutForgotten() {
             if (empLogs.length === 0 || empLogs[0].type !== 'IN') return null;
 
             const lastIN = empLogs[0];
-
-            // Tentukan outTime & outDate: jika clock-in sangat malam (outTime <= lastIN.time), set OUT pada keesokan harinya
             const shift = appConfig.shifts?.[emp.division];
             if (!shift) return null;
             const startVal = typeof shift === 'string' ? shift : shift.start;
             const endVal = typeof shift === 'string' ? '17:00' : shift.end;
 
-            let outTime = endVal;
-            let outDate = lastIN.date;
-            if (outTime <= lastIN.time) {
-                const d = new Date(lastIN.date + 'T00:00:00');
-                d.setDate(d.getDate() + 1);
-                outDate = getLocalDateStr(d);
+            const [startH, startM] = startVal.split(':').map(Number);
+            const [endH, endM] = endVal.split(':').map(Number);
+
+            const inTime = new Date(`${lastIN.date}T${lastIN.time}`);
+            const [inYr, inMo, inDy] = lastIN.date.split('-').map(Number);
+
+            // Find closest shift start date relative to inTime
+            const startCand1 = new Date(inYr, inMo - 1, inDy, startH, startM, 0, 0);
+            const startCand2 = new Date(inYr, inMo - 1, inDy - 1, startH, startM, 0, 0);
+            const startCand3 = new Date(inYr, inMo - 1, inDy + 1, startH, startM, 0, 0);
+
+            const diff1 = Math.abs(inTime - startCand1);
+            const diff2 = Math.abs(inTime - startCand2);
+            const diff3 = Math.abs(inTime - startCand3);
+
+            let actualShiftStart = startCand1;
+            let minDiff = diff1;
+            if (diff2 < minDiff) { actualShiftStart = startCand2; minDiff = diff2; }
+            if (diff3 < minDiff) { actualShiftStart = startCand3; minDiff = diff3; }
+
+            // Determine expectedEnd (the actual shift end date object)
+            let expectedEnd = new Date(actualShiftStart.getTime());
+            expectedEnd.setHours(endH, endM, 0, 0);
+
+            const startMinutes = startH * 60 + startM;
+            const endMinutes = endH * 60 + endM;
+            if (endMinutes <= startMinutes) {
+                expectedEnd.setDate(expectedEnd.getDate() + 1);
             }
+
+            const outDate = getLocalDateStr(expectedEnd);
+            const outTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
 
             // Cek duplikat di sisi client — jika sudah ada OUT di tanggal outDate, skip
             const alreadyHasOUT = logs.some(l =>
@@ -3621,17 +3953,7 @@ async function autoClockOutForgotten() {
             );
             if (alreadyHasOUT) return null;
 
-            const inTime = new Date(`${lastIN.date}T${lastIN.time}`);
             const diffHours = (now - inTime) / 3600000;
-            const [startH, startM] = startVal.split(':').map(Number);
-            const [endH, endM] = endVal.split(':').map(Number);
-
-            const [yr, mo, dy] = lastIN.date.split('-').map(Number);
-            let expectedEnd = new Date(yr, mo - 1, dy, endH, endM, 0, 0);
-
-            if (endH <= startH) {
-                expectedEnd.setDate(expectedEnd.getDate() + 1);
-            }
 
             let autoOutMs = 240 * 60 * 1000;
             if (appConfig.autoOutType === 'division') {
@@ -3820,7 +4142,8 @@ function loadSettingsUI() {
     }
 
     const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Admin Gudang", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2", "Cuci Ompreng", "Leader Ompreng", "Leader Packing", "Leader Helper Cook", "Admin Yayasan", "Koordinasi Lapangan"];
-    const filteredDivisions = orderedKeys.filter(key => !key.toLowerCase().includes('keamanan') && !key.toLowerCase().includes('security'));
+    const allDivs = Array.from(new Set([...orderedKeys, ...Object.keys(appConfig.shifts || {})]));
+    const filteredDivisions = allDivs.filter(key => !key.toLowerCase().includes('keamanan') && !key.toLowerCase().includes('security'));
 
     const divisionsListContainer = document.getElementById('autoOutDivisionsList');
     if (divisionsListContainer) {
@@ -3957,7 +4280,8 @@ async function saveFeatureSettings() {
 
     // Gather per-division configurations
     const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Admin Gudang", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2", "Cuci Ompreng", "Leader Ompreng", "Leader Packing", "Leader Helper Cook", "Admin Yayasan", "Koordinasi Lapangan"];
-    const filteredDivisions = orderedKeys.filter(key => !key.toLowerCase().includes('keamanan') && !key.toLowerCase().includes('security'));
+    const allDivs = Array.from(new Set([...orderedKeys, ...Object.keys(appConfig.shifts || {})]));
+    const filteredDivisions = allDivs.filter(key => !key.toLowerCase().includes('keamanan') && !key.toLowerCase().includes('security'));
     let divConfig = {};
     filteredDivisions.forEach(div => {
         const key = div.replace(/\s/g, '-');
@@ -4867,8 +5191,16 @@ function maCheckForResume() {
     banner.classList.remove('hidden');
 }
 
-function maDiscardCheckpoint() {
-    if (!confirm('Buang semua data checkpoint? Entri yang belum terkirim akan hilang.')) return;
+async function maDiscardCheckpoint() {
+    const ok = await showCustomConfirm({
+        title: 'Buang Checkpoint?',
+        message: 'Buang semua data checkpoint? Entri yang belum terkirim akan hilang.',
+        icon: 'fa-trash',
+        iconClass: 'bg-red-500/10 text-red-500',
+        confirmText: 'Ya, Buang',
+        confirmClass: 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30'
+    });
+    if (!ok) return;
     maClearCheckpoint();
     document.getElementById('maResumeBanner').classList.add('hidden');
     showToast('Checkpoint dibuang.', 'success');
@@ -5050,15 +5382,12 @@ async function maSubmit() {
     const note = document.getElementById('maNote').value.trim();
     const empIds = [...maSelectedEmployees];
     const dates = [...maSelectedDates].sort();
-    const multiplier = type === 'BOTH' ? 2 : 1;
-    const totalEntries = empIds.length * dates.length * multiplier;
     const defaultLoc = `${GEOFENCE_CONFIG.lat}, ${GEOFENCE_CONFIG.lng}`;
 
-    const typeLabel = type === 'BOTH' ? 'IN + OUT' : type;
-    const msg = `Kirim ${totalEntries} entri absen ${typeLabel} untuk ${empIds.length} relawan × ${dates.length} tanggal?`;
-
-    // Build list of entries to send
+    // Build list of entries to send and track skipped ones
     const entries = [];
+    const skippedDetails = [];
+
     for (const empId of empIds) {
         const emp = employees.find(e => e.id === empId);
         if (!emp) continue;
@@ -5069,12 +5398,21 @@ async function maSubmit() {
 
         for (const dateStr of dates) {
             if (type === 'IN' || type === 'BOTH') {
-                entries.push({
-                    empId: emp.id, name: emp.name, type: 'IN',
-                    date: dateStr, forcedTime: timeIn || defaultIn,
-                    location: defaultLoc, image: '', overtime: 0,
-                    lateMinutes: 0, note: note, absentBy: 'Admin'
-                });
+                const hasIn = !appConfig.allowMultipleIn && logs.some(l => 
+                    String(l.empId) === String(emp.id) && 
+                    l.date === dateStr && 
+                    (l.type === 'IN' || l.type === 'PENDING')
+                );
+                if (hasIn) {
+                    skippedDetails.push(`${emp.name} (IN: ${dateStr})`);
+                } else {
+                    entries.push({
+                        empId: emp.id, name: emp.name, type: 'IN',
+                        date: dateStr, forcedTime: timeIn || defaultIn,
+                        location: defaultLoc, image: '', overtime: 0,
+                        lateMinutes: 0, note: note, absentBy: 'Admin'
+                    });
+                }
             }
             if (type === 'OUT' || type === 'BOTH') {
                 let outDate = dateStr;
@@ -5086,13 +5424,44 @@ async function maSubmit() {
                     const dd = String(d.getDate()).padStart(2, '0');
                     outDate = `${yyyy}-${mm}-${dd}`;
                 }
-                entries.push({
-                    empId: emp.id, name: emp.name, type: 'OUT',
-                    date: outDate, forcedTime: timeOut || defaultOut,
-                    location: defaultLoc, image: '', overtime: 0,
-                    lateMinutes: 0, note: note, absentBy: 'Admin'
-                });
+                const hasOut = !appConfig.allowMultipleIn && logs.some(l => 
+                    String(l.empId) === String(emp.id) && 
+                    l.date === outDate && 
+                    l.type === 'OUT'
+                );
+                if (hasOut) {
+                    skippedDetails.push(`${emp.name} (OUT: ${outDate})`);
+                } else {
+                    entries.push({
+                        empId: emp.id, name: emp.name, type: 'OUT',
+                        date: outDate, forcedTime: timeOut || defaultOut,
+                        location: defaultLoc, image: '', overtime: 0,
+                        lateMinutes: 0, note: note, absentBy: 'Admin'
+                    });
+                }
             }
+        }
+    }
+
+    if (entries.length === 0) {
+        showToast('Semua entri dibatalkan karena sudah ada data absensi di log (duplikat).', 'error');
+        return;
+    }
+
+    const typeLabel = type === 'BOTH' ? 'IN + OUT' : type;
+    let msg = `Kirim ${entries.length} entri absen ${typeLabel} untuk ${empIds.length} relawan × ${dates.length} tanggal?`;
+    
+    // Update skipped container in modal
+    const skippedList = document.getElementById('confirmMaSkippedList');
+    const skippedItems = document.getElementById('confirmMaSkippedItems');
+    if (skippedList && skippedItems) {
+        if (skippedDetails.length > 0) {
+            skippedList.classList.remove('hidden');
+            skippedItems.innerHTML = skippedDetails.map(item => `<div>• ${item}</div>`).join('');
+            msg += ` (${skippedDetails.length} duplikat dilewati)`;
+        } else {
+            skippedList.classList.add('hidden');
+            skippedItems.innerHTML = '';
         }
     }
 
@@ -5789,12 +6158,12 @@ function nOnSasaranChange() {
     nSavePlannerState();
 }
 
-function nTriggerPresetMenuDirect() {
+async function nTriggerPresetMenuDirect() {
     nSwitchTab('planner');
-    nLoadPresetMenu();
+    await nLoadPresetMenu();
 }
 
-function nLoadPresetMenu() {
+async function nLoadPresetMenu() {
     const sasaranSel = document.getElementById('nTargetGroup').value;
     const preset = PRESET_CYCLE_MENUS[sasaranSel];
     if (!preset) {
@@ -5802,8 +6171,16 @@ function nLoadPresetMenu() {
         return;
     }
 
-    if (nMenuIngredients.length > 0 && !confirm('Muat menu standar resmi PDF? Rencana penyusunan bahan saat ini akan diganti.')) {
-        return;
+    if (nMenuIngredients.length > 0) {
+        const ok = await showCustomConfirm({
+            title: 'Muat Menu Standar?',
+            message: 'Muat menu standar resmi PDF? Rencana penyusunan bahan saat ini akan diganti.',
+            icon: 'fa-file-pdf',
+            iconClass: 'bg-blue-500/10 text-blue-500',
+            confirmText: 'Ya, Muat',
+            confirmClass: 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/30'
+        });
+        if (!ok) return;
     }
 
     // Clear current ingredients and populate
@@ -6051,8 +6428,16 @@ function nRecalcPlanner() {
     nRenderOverview();
 }
 
-function nResetPlanner() {
-    if (!confirm('Dereset menu saat ini? Semua progres bahan penyusunan akan hilang.')) return;
+async function nResetPlanner() {
+    const ok = await showCustomConfirm({
+        title: 'Reset Perencanaan Menu?',
+        message: 'Dereset menu saat ini? Semua progres bahan penyusunan akan hilang.',
+        icon: 'fa-undo',
+        iconClass: 'bg-red-500/10 text-red-500',
+        confirmText: 'Ya, Reset',
+        confirmClass: 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30'
+    });
+    if (!ok) return;
     nMenuIngredients = [];
     const nameEl = document.getElementById('nMenuName');
     if (nameEl) nameEl.value = '';
@@ -6247,7 +6632,15 @@ async function nLoadHistoryFromCloud() {
             // Set actions to global
             window.nLoadHistoryPlanDirect = () => { nLoadPlanData(plan); };
             window.nDeleteHistoryPlanDirect = async () => {
-                if (!confirm('Hapus rencana menu ini dari cloud?')) return;
+                const ok = await showCustomConfirm({
+                    title: 'Hapus Rencana Menu?',
+                    message: 'Hapus rencana menu ini dari cloud?',
+                    icon: 'fa-trash-alt',
+                    iconClass: 'bg-red-500/10 text-red-500',
+                    confirmText: 'Ya, Hapus',
+                    confirmClass: 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30'
+                });
+                if (!ok) return;
                 toggleLoader(true, "Menghapus rencana menu dari cloud...");
                 try {
                     const payload = { userId: currentUser?.id || '', username: currentUser?.u || '' };
@@ -6663,14 +7056,33 @@ function addEmployee(e) {
         if (pwd) payload.password = pwd;
     }
 
+    if (newEmpPhotoBase64) {
+        payload.image = newEmpPhotoBase64;
+    }
+
     postData('addEmployee', payload);
     e.target.reset();
     const creds = document.getElementById('newEmpCreds'); if (creds) creds.classList.add('hidden');
     handleDivisionRolePreset('new');
+    
+    // Clear photo upload fields
+    newEmpPhotoBase64 = '';
+    const preview = document.getElementById('newEmpPhotoPreview');
+    if (preview) preview.innerHTML = `<i class="fas fa-camera text-base"></i>`;
+    const photoInput = document.getElementById('newEmpPhotoInput');
+    if (photoInput) photoInput.value = '';
 }
 async function deleteEmployee() {
     if (!editingEmployeeId) return;
-    if (!confirm('Hapus data relawan ini? Tindakan ini tidak bisa dibatalkan.')) return;
+    const ok = await showCustomConfirm({
+        title: 'Hapus Data Relawan?',
+        message: 'Hapus data relawan ini? Tindakan ini tidak bisa dibatalkan.',
+        icon: 'fa-trash-alt',
+        iconClass: 'bg-red-500/10 text-red-500',
+        confirmText: 'Ya, Hapus',
+        confirmClass: 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30'
+    });
+    if (!ok) return;
 
     // Simpan referensi employee untuk rollback jika gagal
     const idToDelete = String(editingEmployeeId);
@@ -6713,7 +7125,11 @@ function submitEditEmployee(e) {
         payload.oldId = oldId;
     }
 
-    if (oldEmp && oldEmp.photo) payload.photo = oldEmp.photo;
+    if (editEmpPhotoBase64) {
+        payload.image = editEmpPhotoBase64;
+    } else if (oldEmp && oldEmp.photo) {
+        payload.photo = oldEmp.photo;
+    }
 
     if (String(role).toLowerCase() !== 'employee') {
         const uname = document.getElementById('editEmpUsername').value.toLowerCase().trim();
@@ -6740,6 +7156,12 @@ function submitEditEmployee(e) {
         employees[empIndex] = { ...employees[empIndex], ...payload };
         // Clean up temporary oldId from the local object
         delete employees[empIndex].oldId;
+        
+        // Optimistically set the local image if a new one was uploaded
+        if (editEmpPhotoBase64) {
+            employees[empIndex].photo = "data:image/jpeg;base64," + editEmpPhotoBase64;
+        }
+        
         refreshUI();
     }
     
@@ -6748,7 +7170,18 @@ function submitEditEmployee(e) {
 }
 function openEditEmployee(id) {
     const emp = employees.find(e => e.id === id); if (!emp) return;
-    editingEmployeeId = id; document.getElementById('editEmpId').value = id; document.getElementById('editEmpName').value = emp.name; document.getElementById('editEmpDiv').value = emp.division; document.getElementById('editEmpRole').value = emp.role || 'employee'; document.getElementById('editEmpSalary').value = emp.salary;
+    editingEmployeeId = id; 
+    document.getElementById('editEmpId').value = id; 
+    document.getElementById('editEmpName').value = emp.name; 
+    document.getElementById('editEmpDiv').value = emp.division; 
+    document.getElementById('editEmpRole').value = emp.role || 'employee'; 
+    document.getElementById('editEmpSalary').value = emp.salary;
+    
+    // Reset edit photo upload state
+    editEmpPhotoBase64 = '';
+    const editPhotoInput = document.getElementById('editEmpPhotoInput');
+    if (editPhotoInput) editPhotoInput.value = '';
+    
     const previewContainer = document.getElementById('editPreviewContainer');
     if (emp.photo && emp.photo.length > 20) { 
         const photoUrl = convertDriveUrl(emp.photo);
@@ -6768,7 +7201,14 @@ function openEditEmployee(id) {
     }
     document.getElementById('editEmployeeModal').classList.remove('hidden'); setTimeout(() => document.getElementById('editEmployeeModal').classList.remove('opacity-0'), 10);
 }
-function closeEditEmployee() { document.getElementById('editEmployeeModal').classList.add('opacity-0'); setTimeout(() => document.getElementById('editEmployeeModal').classList.add('hidden'), 300); editingEmployeeId = null; }
+function closeEditEmployee() { 
+    document.getElementById('editEmployeeModal').classList.add('opacity-0'); 
+    setTimeout(() => document.getElementById('editEmployeeModal').classList.add('hidden'), 300); 
+    editingEmployeeId = null; 
+    editEmpPhotoBase64 = '';
+    const editPhotoInput = document.getElementById('editEmpPhotoInput');
+    if (editPhotoInput) editPhotoInput.value = '';
+}
 // ===== VOLUNTEER SELF-ATTENDANCE (Absensi Mandiri Relawan) =====
 // Geofence config — set the center coordinates for Rawa Bunga location
 let GEOFENCE_CONFIG = {
@@ -7575,6 +8015,22 @@ async function startAbsenMandiri() {
                 appConfig.disableGeofence = data.config.disableGeofence === true || data.config.disableGeofence === 'true';
                 appConfig.hideOvertime = data.config.hideOvertime === true || data.config.hideOvertime === 'true';
                 appConfig.allowMultipleIn = data.config.allowMultipleIn === true || data.config.allowMultipleIn === 'true';
+                appConfig.geofenceLat = parseFloat(data.config.geofenceLat || "-6.21973");
+                appConfig.geofenceLng = parseFloat(data.config.geofenceLng || "106.87015");
+                appConfig.geofenceRadius = parseInt(data.config.geofenceRadius || "15");
+                appConfig.lateTolerance = parseInt(data.config.lateTolerance || "5");
+                appConfig.lateReasonThreshold = parseInt(data.config.lateReasonThreshold || "25");
+                appConfig.lateWaThreshold = parseInt(data.config.lateWaThreshold || "35");
+                appConfig.lateMaxThreshold = parseInt(data.config.lateMaxThreshold || "60");
+                appConfig.adminWhatsApp = data.config.adminWhatsApp || "6282114806765";
+                appConfig.autoOutType = data.config.autoOutType || "global";
+                appConfig.autoOutGlobalMinutes = parseInt(data.config.autoOutGlobalMinutes || "240");
+                appConfig.autoOutDivisionsConfig = data.config.autoOutDivisionsConfig || "{}";
+
+                // Update GEOFENCE_CONFIG
+                GEOFENCE_CONFIG.lat = appConfig.geofenceLat;
+                GEOFENCE_CONFIG.lng = appConfig.geofenceLng;
+                GEOFENCE_CONFIG.radius = appConfig.geofenceRadius;
             }
         }
     } catch (e) {
@@ -7962,4 +8418,237 @@ function initScrollReveal() {
     document.querySelectorAll('.reveal-element, .reveal-left, .reveal-right, .reveal-scale').forEach(el => {
         revealObserver.observe(el);
     });
+}
+
+// --- Volunteer QR Code Modal Functions ---
+let currentQrData = { id: '', name: '', division: '' };
+
+function showVolunteerQRCode(id, name, division) {
+    currentQrData = { id, name, division };
+    
+    const modal = document.getElementById('volunteerQrModal');
+    const img = document.getElementById('volunteerQrImage');
+    const nameEl = document.getElementById('volunteerQrName');
+    const divEl = document.getElementById('volunteerQrDiv');
+    const idEl = document.getElementById('volunteerQrId');
+    
+    if (!modal || !img || !nameEl || !divEl || !idEl) return;
+    
+    // Generate QR using API QR Server
+    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(id)}`;
+    nameEl.innerText = name;
+    divEl.innerText = division;
+    idEl.innerText = `ID: ${id}`;
+    
+    modal.classList.remove('hidden');
+    setTimeout(() => modal.classList.remove('opacity-0'), 10);
+}
+
+function closeVolunteerQrModal() {
+    const modal = document.getElementById('volunteerQrModal');
+    if (!modal) return;
+    modal.classList.add('opacity-0');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+}
+
+async function triggerDownloadQr() {
+    if (!currentQrData.id) return;
+    toggleLoader(true, "Menyiapkan Unduhan...");
+    try {
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(currentQrData.id)}`;
+        const response = await fetch(qrUrl);
+        if (!response.ok) throw new Error("Network response was not OK");
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = `QR_${currentQrData.name.replace(/\s+/g, '_')}_${currentQrData.id}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+        showToast("QR Code berhasil diunduh!", "success");
+    } catch (e) {
+        console.error(e);
+        showToast("Gagal mengunduh QR Code", "error");
+    } finally {
+        toggleLoader(false);
+    }
+}
+
+function printQrCode() {
+    if (!currentQrData.id) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        showToast("Gagal membuka jendela cetak. Pastikan pop-up diizinkan.", "error");
+        return;
+    }
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(currentQrData.id)}`;
+    
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Cetak QR Code - ${currentQrData.name}</title>
+            <style>
+                body {
+                    font-family: 'Plus Jakarta Sans', 'Outfit', 'Inter', sans-serif;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100vh;
+                    margin: 0;
+                    background-color: #fff;
+                    color: #334155;
+                }
+                .card {
+                    border: 2px solid #e2e8f0;
+                    border-radius: 24px;
+                    padding: 32px;
+                    text-align: center;
+                    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+                    max-width: 320px;
+                }
+                img {
+                    width: 200px;
+                    height: 200px;
+                    margin-bottom: 24px;
+                }
+                h1 {
+                    font-size: 20px;
+                    font-weight: 700;
+                    margin: 0 0 8px 0;
+                }
+                .division {
+                    font-size: 12px;
+                    font-weight: 700;
+                    color: #2563eb;
+                    background-color: #eff6ff;
+                    padding: 4px 12px;
+                    border-radius: 9999px;
+                    display: inline-block;
+                    margin-bottom: 8px;
+                    text-transform: uppercase;
+                }
+                .id {
+                    font-family: monospace;
+                    font-size: 11px;
+                    color: #94a3b8;
+                    margin: 0;
+                }
+                @media print {
+                    body { height: auto; }
+                    .card { border: none; box-shadow: none; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <img src="${qrUrl}" onload="window.print(); window.close();" alt="QR Code">
+                <h1>${currentQrData.name}</h1>
+                <div class="division">${currentQrData.division}</div>
+                <p class="id">ID: ${currentQrData.id}</p>
+            </div>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+}
+
+// --- Volunteer & Division Card Collapsible Toggles & Photo Upload handlers ---
+let newEmpPhotoBase64 = '';
+let editEmpPhotoBase64 = '';
+
+function toggleEmpForm(show) {
+    const collapsed = document.getElementById('empCardCollapsed');
+    const expanded = document.getElementById('empCardExpanded');
+    if (!collapsed || !expanded) return;
+    
+    if (show) {
+        collapsed.classList.add('hidden');
+        expanded.classList.remove('hidden');
+        
+        // Reset form inputs and variables
+        document.getElementById('newEmpName').value = '';
+        document.getElementById('newEmpSalary').value = '';
+        newEmpPhotoBase64 = '';
+        const preview = document.getElementById('newEmpPhotoPreview');
+        if (preview) preview.innerHTML = `<i class="fas fa-camera text-base"></i>`;
+        const photoInput = document.getElementById('newEmpPhotoInput');
+        if (photoInput) photoInput.value = '';
+        
+        // Trigger select defaults
+        document.getElementById('newEmpDiv').selectedIndex = 0;
+        document.getElementById('newEmpRole').selectedIndex = 0;
+        handleDivisionRolePreset('new');
+    } else {
+        expanded.classList.add('hidden');
+        collapsed.classList.remove('hidden');
+    }
+    adjustGridSpans();
+}
+
+function adjustGridSpans() {
+    const empExpanded = !document.getElementById('empCardExpanded').classList.contains('hidden');
+    const divExpanded = !document.getElementById('divCardExpanded').classList.contains('hidden');
+    
+    const empContainerEl = document.getElementById('empCardContainer');
+    const divContainerEl = document.getElementById('divCardContainer');
+    
+    if (!empContainerEl || !divContainerEl) return;
+    
+    // Remove previous classes
+    empContainerEl.classList.remove('lg:col-span-4', 'lg:col-span-6', 'lg:col-span-8');
+    divContainerEl.classList.remove('lg:col-span-4', 'lg:col-span-6', 'lg:col-span-8');
+    
+    if (empExpanded && divExpanded) {
+        // Both expanded
+        empContainerEl.classList.add('lg:col-span-6');
+        divContainerEl.classList.add('lg:col-span-6');
+    } else if (empExpanded && !divExpanded) {
+        // Volunteer expanded, Divisi collapsed
+        empContainerEl.classList.add('lg:col-span-8');
+        divContainerEl.classList.add('lg:col-span-4');
+    } else if (!empExpanded && divExpanded) {
+        // Volunteer collapsed, Divisi expanded
+        empContainerEl.classList.add('lg:col-span-4');
+        divContainerEl.classList.add('lg:col-span-8');
+    } else {
+        // Both collapsed
+        empContainerEl.classList.add('lg:col-span-6');
+        divContainerEl.classList.add('lg:col-span-6');
+    }
+}
+
+function handlePhotoUpload(input, mode) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    // Validate size (limit to 2MB to prevent payload errors)
+    if (file.size > 2 * 1024 * 1024) {
+        showToast("Ukuran foto maksimal 2MB!", "error");
+        input.value = '';
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        const base64Data = e.target.result.split(',')[1]; // Get only the base64 content
+        const previewUrl = e.target.result;
+        
+        if (mode === 'new') {
+            newEmpPhotoBase64 = base64Data;
+            const preview = document.getElementById('newEmpPhotoPreview');
+            if (preview) {
+                preview.innerHTML = `<img src="${previewUrl}" class="w-full h-full object-cover">`;
+            }
+        } else if (mode === 'edit') {
+            editEmpPhotoBase64 = base64Data;
+            const preview = document.getElementById('editPreviewContainer');
+            if (preview) {
+                preview.innerHTML = `<img src="${previewUrl}" class="w-full h-full object-cover">`;
+            }
+        }
+    };
+    reader.readAsDataURL(file);
 }
