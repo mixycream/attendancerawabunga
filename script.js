@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzSgADgCPqqwUn4OqHUQ6K16m-nsFebP4j9qcYxbI9vgRu2XRZtRuMFi82taoJB8sWO/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwcaGQvuFfnb5zXAUWKLmDn8zqAZm_I806w5UdaWtlZjoSNdVxkHM7YgVhOmR-6RkXL/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -286,6 +286,28 @@ window.onload = () => {
     const savedRate = localStorage.getItem('mbg_overtime_rate');
     if(savedRate) appConfig.overtimeRate = parseInt(savedRate);
     
+    // Auto UPPERCASE for new volunteer name
+    const newEmpNameInput = document.getElementById('newEmpName');
+    if (newEmpNameInput) {
+        newEmpNameInput.addEventListener('input', function(e) {
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            this.value = this.value.toUpperCase();
+            this.setSelectionRange(start, end);
+        });
+    }
+
+    // Auto Capitalized for new division name
+    const divFormNameInput = document.getElementById('divFormName');
+    if (divFormNameInput) {
+        divFormNameInput.addEventListener('input', function(e) {
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            this.value = this.value.replace(/\b\w/g, char => char.toUpperCase());
+            this.setSelectionRange(start, end);
+        });
+    }
+
     // Initialize premium entrance scroll-reveal animations
     initScrollReveal();
 };
@@ -999,7 +1021,8 @@ function refreshUI() {
             let profilePic = `<div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400"><i class="fas fa-user"></i></div>`;
             if (e.photo && e.photo.length > 20) {
                  const photoUrl = convertDriveUrl(e.photo);
-                 profilePic = `<img src="${photoUrl}" crossorigin="anonymous" class="w-8 h-8 rounded-full object-cover border border-slate-200" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2260%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2240%22%3E%26%238287;%3C/text%3E%3C/svg%3E';">`;
+                 const safeUrl = photoUrl.replace(/'/g, "\\'");
+                 profilePic = `<img src="${photoUrl}" onclick="previewImage('${safeUrl}'); event.stopPropagation();" crossorigin="anonymous" class="w-8 h-8 rounded-full object-cover border border-slate-200 cursor-pointer hover:scale-110 transition duration-200 shadow-sm" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2260%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2240%22%3E%26%238287;%3C/text%3E%3C/svg%3E';">`;
             }
 
             const shiftTime = getShiftTime(e.division);
@@ -3131,22 +3154,64 @@ function toggleDivisionForm(show) {
     if (!collapsed || !expanded) return;
     
     if (show) {
-        collapsed.classList.add('hidden');
-        expanded.classList.remove('hidden');
-        document.getElementById('divFormName').value = '';
-        document.getElementById('divFormStart').value = '';
-        document.getElementById('divFormEnd').value = '';
-        document.getElementById('divFormRole').value = 'employee';
-        document.getElementById('divFormCustomRoleWrap').classList.add('hidden');
-        document.getElementById('divFormCustomRoleKey').value = '';
-        document.getElementById('divFormCustomRoleLabel').value = '';
-        document.getElementById('divFormCustomRoleKey').removeAttribute('required');
-        document.getElementById('divFormCustomRoleLabel').removeAttribute('required');
+        collapsed.style.transition = 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+        collapsed.style.opacity = '0';
+        collapsed.style.transform = 'scale(0.95)';
+        collapsed.style.pointerEvents = 'none';
+        
+        setTimeout(() => {
+            collapsed.classList.add('hidden');
+            collapsed.style.opacity = '';
+            collapsed.style.transform = '';
+            collapsed.style.pointerEvents = '';
+            
+            expanded.classList.remove('hidden');
+            expanded.style.opacity = '0';
+            expanded.style.transform = 'scale(0.95)';
+            expanded.style.transition = 'none';
+            
+            adjustGridSpans();
+            
+            expanded.offsetHeight; // trigger reflow
+            
+            expanded.style.transition = 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+            expanded.style.opacity = '1';
+            expanded.style.transform = 'scale(1)';
+            
+            document.getElementById('divFormName').value = '';
+            document.getElementById('divFormStart').value = '';
+            document.getElementById('divFormEnd').value = '';
+            document.getElementById('divFormRole').value = 'employee';
+            document.getElementById('divFormCustomRoleWrap').classList.add('hidden');
+            document.getElementById('divFormCustomRoleKey').value = '';
+            document.getElementById('divFormCustomRoleLabel').value = '';
+            document.getElementById('divFormCustomRoleKey').removeAttribute('required');
+            document.getElementById('divFormCustomRoleLabel').removeAttribute('required');
+        }, 200);
     } else {
-        expanded.classList.add('hidden');
-        collapsed.classList.remove('hidden');
+        expanded.style.transition = 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)';
+        expanded.style.opacity = '0';
+        expanded.style.transform = 'scale(0.95)';
+        
+        setTimeout(() => {
+            expanded.classList.add('hidden');
+            expanded.style.opacity = '';
+            expanded.style.transform = '';
+            
+            collapsed.classList.remove('hidden');
+            collapsed.style.opacity = '0';
+            collapsed.style.transform = 'scale(0.95)';
+            collapsed.style.transition = 'none';
+            
+            adjustGridSpans();
+            
+            collapsed.offsetHeight; // trigger reflow
+            
+            collapsed.style.transition = 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+            collapsed.style.opacity = '1';
+            collapsed.style.transform = 'scale(1)';
+        }, 150);
     }
-    adjustGridSpans();
 }
 
 function handleDivFormRoleChange(val) {
@@ -3212,10 +3277,27 @@ async function submitNewDivision(e) {
     
     appConfig.shifts[divName] = { start: startTime, end: endTime };
     
+    // Also initialize auto-out config for this new division
+    let originalAutoOutConfig = appConfig.autoOutDivisionsConfig;
+    let divConfig = {};
+    try {
+        divConfig = typeof appConfig.autoOutDivisionsConfig === 'string'
+            ? JSON.parse(appConfig.autoOutDivisionsConfig)
+            : (appConfig.autoOutDivisionsConfig || {});
+    } catch(e) {
+        divConfig = {};
+    }
+    if (!divConfig[divName]) {
+        const defaultMin = parseInt(appConfig.autoOutGlobalMinutes) || 240;
+        divConfig[divName] = { enabled: true, minutes: defaultMin };
+        appConfig.autoOutDivisionsConfig = JSON.stringify(divConfig);
+    }
+    
     const payload = {
         shifts: appConfig.shifts,
         divisionRolePresets: appConfig.divisionRolePresets,
-        customRoles: appConfig.customRoles
+        customRoles: appConfig.customRoles,
+        autoOutDivisionsConfig: appConfig.autoOutDivisionsConfig
     };
     
     toggleLoader(true, "Menyimpan Divisi Baru...");
@@ -3227,6 +3309,7 @@ async function submitNewDivision(e) {
         delete appConfig.shifts[divName];
         delete DIVISION_ROLE_PRESETS[divName];
         if (appConfig.divisionRolePresets) delete appConfig.divisionRolePresets[divName];
+        appConfig.autoOutDivisionsConfig = originalAutoOutConfig;
         toggleLoader(false);
     }
 }
@@ -3965,8 +4048,8 @@ async function autoClockOutForgotten() {
                 } catch(e) {
                     divConfig = {};
                 }
-                const conf = divConfig[emp.division];
-                if (!conf || conf.enabled !== true) {
+                const conf = divConfig[emp.division] || { enabled: true, minutes: (parseInt(appConfig.autoOutGlobalMinutes) || 240) };
+                if (conf.enabled !== true) {
                     return null;
                 }
                 const divMin = parseInt(conf.minutes) || 240;
@@ -7185,8 +7268,8 @@ function openEditEmployee(id) {
     const previewContainer = document.getElementById('editPreviewContainer');
     if (emp.photo && emp.photo.length > 20) { 
         const photoUrl = convertDriveUrl(emp.photo);
-        previewContainer.innerHTML = `<img src="${photoUrl}" crossorigin="anonymous" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2260%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2240%22%3E%26%238287;%3C/text%3E%3C/svg%3E';"> 
-    `; 
+        const safeUrl = photoUrl.replace(/'/g, "\\'");
+        previewContainer.innerHTML = `<img src="${photoUrl}" onclick="previewImage('${safeUrl}'); event.stopPropagation();" crossorigin="anonymous" class="w-full h-full object-cover cursor-pointer hover:scale-105 transition duration-200" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2260%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2240%22%3E%26%238287;%3C/text%3E%3C/svg%3E';">`; 
     } else { 
         previewContainer.innerHTML = '<i class="fas fa-user text-slate-300 text-2xl"></i>'; 
     }
@@ -8565,27 +8648,68 @@ function toggleEmpForm(show) {
     if (!collapsed || !expanded) return;
     
     if (show) {
-        collapsed.classList.add('hidden');
-        expanded.classList.remove('hidden');
+        collapsed.style.transition = 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+        collapsed.style.opacity = '0';
+        collapsed.style.transform = 'scale(0.95)';
+        collapsed.style.pointerEvents = 'none';
         
-        // Reset form inputs and variables
-        document.getElementById('newEmpName').value = '';
-        document.getElementById('newEmpSalary').value = '';
-        newEmpPhotoBase64 = '';
-        const preview = document.getElementById('newEmpPhotoPreview');
-        if (preview) preview.innerHTML = `<i class="fas fa-camera text-base"></i>`;
-        const photoInput = document.getElementById('newEmpPhotoInput');
-        if (photoInput) photoInput.value = '';
-        
-        // Trigger select defaults
-        document.getElementById('newEmpDiv').selectedIndex = 0;
-        document.getElementById('newEmpRole').selectedIndex = 0;
-        handleDivisionRolePreset('new');
+        setTimeout(() => {
+            collapsed.classList.add('hidden');
+            collapsed.style.opacity = '';
+            collapsed.style.transform = '';
+            collapsed.style.pointerEvents = '';
+            
+            expanded.classList.remove('hidden');
+            expanded.style.opacity = '0';
+            expanded.style.transform = 'scale(0.95)';
+            expanded.style.transition = 'none';
+            
+            adjustGridSpans();
+            
+            expanded.offsetHeight; // trigger reflow
+            
+            expanded.style.transition = 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+            expanded.style.opacity = '1';
+            expanded.style.transform = 'scale(1)';
+            
+            // Reset form inputs and variables
+            document.getElementById('newEmpName').value = '';
+            document.getElementById('newEmpSalary').value = '';
+            newEmpPhotoBase64 = '';
+            const preview = document.getElementById('newEmpPhotoPreview');
+            if (preview) preview.innerHTML = `<i class="fas fa-camera text-base"></i>`;
+            const photoInput = document.getElementById('newEmpPhotoInput');
+            if (photoInput) photoInput.value = '';
+            
+            // Trigger select defaults
+            document.getElementById('newEmpDiv').selectedIndex = 0;
+            document.getElementById('newEmpRole').selectedIndex = 0;
+            handleDivisionRolePreset('new');
+        }, 200);
     } else {
-        expanded.classList.add('hidden');
-        collapsed.classList.remove('hidden');
+        expanded.style.transition = 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)';
+        expanded.style.opacity = '0';
+        expanded.style.transform = 'scale(0.95)';
+        
+        setTimeout(() => {
+            expanded.classList.add('hidden');
+            expanded.style.opacity = '';
+            expanded.style.transform = '';
+            
+            collapsed.classList.remove('hidden');
+            collapsed.style.opacity = '0';
+            collapsed.style.transform = 'scale(0.95)';
+            collapsed.style.transition = 'none';
+            
+            adjustGridSpans();
+            
+            collapsed.offsetHeight; // trigger reflow
+            
+            collapsed.style.transition = 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+            collapsed.style.opacity = '1';
+            collapsed.style.transform = 'scale(1)';
+        }, 150);
     }
-    adjustGridSpans();
 }
 
 function adjustGridSpans() {
@@ -8640,13 +8764,13 @@ function handlePhotoUpload(input, mode) {
             newEmpPhotoBase64 = base64Data;
             const preview = document.getElementById('newEmpPhotoPreview');
             if (preview) {
-                preview.innerHTML = `<img src="${previewUrl}" class="w-full h-full object-cover">`;
+                preview.innerHTML = `<img src="${previewUrl}" onclick="previewImage('${previewUrl.replace(/'/g, "\\'")}'); event.stopPropagation();" class="w-full h-full object-cover cursor-pointer hover:scale-105 transition duration-200">`;
             }
         } else if (mode === 'edit') {
             editEmpPhotoBase64 = base64Data;
             const preview = document.getElementById('editPreviewContainer');
             if (preview) {
-                preview.innerHTML = `<img src="${previewUrl}" class="w-full h-full object-cover">`;
+                preview.innerHTML = `<img src="${previewUrl}" onclick="previewImage('${previewUrl.replace(/'/g, "\\'")}'); event.stopPropagation();" class="w-full h-full object-cover cursor-pointer hover:scale-105 transition duration-200">`;
             }
         }
     };

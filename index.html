@@ -1944,79 +1944,6 @@
                     <div id="tab-employees" class="hidden animate-fade-in space-y-6">
                         <!-- ... (Keep Tab 2 Content) ... -->
                         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                            <!-- Input Relawan Baru Container -->
-                            <div id="empCardContainer" class="lg:col-span-6 flex flex-col">
-                                <!-- Collapsed Card -->
-                                <div id="empCardCollapsed" onclick="toggleEmpForm(true)" class="cursor-pointer flex-1 bg-gradient-to-br from-emerald-600 via-emerald-700 to-green-600 p-6 rounded-3xl shadow-lg shadow-emerald-500/15 text-white relative overflow-hidden group hover:scale-[1.01] transition-all duration-300 active:scale-95 hover:shadow-emerald-500/25 flex flex-col justify-between min-h-[220px]">
-                                    <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/20 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
-                                    <div>
-                                        <div class="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center mb-4 backdrop-blur-sm border border-white/10">
-                                            <i class="fas fa-user-plus text-xl text-white"></i>
-                                        </div>
-                                        <h3 class="font-extrabold text-lg">Input Relawan Baru</h3>
-                                        <p class="text-xs text-emerald-100/80 mt-1">Daftarkan relawan baru ke sistem, setel divisi, hak akses login, dan gaji harian.</p>
-                                    </div>
-                                    <div class="flex items-center justify-between mt-6">
-                                        <span class="text-xs font-bold text-emerald-100/90 flex items-center gap-1.5">Mulai Daftar <i class="fas fa-arrow-right text-[10px] transition-transform group-hover:translate-x-1"></i></span>
-                                    </div>
-                                </div>
-                                
-                                <!-- Expanded Card -->
-                                <div id="empCardExpanded" class="hidden clay-card p-6 md:p-8 relative overflow-hidden flex-1 flex flex-col animate-zoom-in">
-                                    <div class="relative z-10 flex flex-col h-full">
-                                        <div class="flex justify-between items-center mb-6">
-                                            <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2"><i class="fas fa-user-plus text-blue-600"></i> Relawan Baru</h3>
-                                            <button type="button" onclick="toggleEmpForm(false)" class="w-7 h-7 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition"><i class="fas fa-times text-xs"></i></button>
-                                        </div>
-                                        
-                                        <form onsubmit="addEmployee(event)" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                                            <div class="md:col-span-3 space-y-1">
-                                                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Nama Lengkap</label>
-                                                <input type="text" id="newEmpName" class="input-field" placeholder="Contoh: Budi Santoso" required>
-                                            </div>
-                                            <div class="md:col-span-3 space-y-1">
-                                                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Divisi</label>
-                                                <select id="newEmpDiv" onchange="handleDivisionRolePreset('new')" class="input-field cursor-pointer">
-                                                    <!-- Dinonaktifkan hardcoded karena diisi oleh JS -->
-                                                </select>
-                                            </div>
-                                            <div class="md:col-span-3 space-y-1">
-                                                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Akses Login</label>
-                                                <select id="newEmpRole" onchange="toggleNewEmpCreds(this.value)" class="input-field cursor-pointer">
-                                                    <!-- Dinonaktifkan hardcoded karena diisi oleh JS -->
-                                                </select>
-                                            </div>
-                                            <div class="md:col-span-3 space-y-1">
-                                                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Gaji Harian</label>
-                                                <input type="number" id="newEmpSalary" class="input-field" placeholder="Contoh: 150000" required>
-                                            </div>
-                                            <div class="md:col-span-6 space-y-1">
-                                                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block">Foto Profil</label>
-                                                <div class="flex items-center gap-3">
-                                                    <div id="newEmpPhotoPreview" class="w-[46px] h-[46px] rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-350 overflow-hidden shadow-inner">
-                                                        <i class="fas fa-camera text-base"></i>
-                                                    </div>
-                                                    <label class="flex-1 cursor-pointer h-[46px] flex items-center justify-center border border-dashed border-slate-200 dark:border-white/10 rounded-xl px-3 hover:bg-slate-50 dark:hover:bg-white/5 hover:border-slate-300 transition-all text-xs font-bold text-slate-500 dark:text-slate-400">
-                                                        <i class="fas fa-upload mr-1.5 text-blue-500"></i> Pilih Foto
-                                                        <input type="file" id="newEmpPhotoInput" accept="image/*" class="hidden" onchange="handlePhotoUpload(this, 'new')">
-                                                    </label>
-                                                </div>
-                                            </div>
-                                            <div class="md:col-span-6">
-                                                <button type="submit" class="w-full bg-slate-900 text-white font-bold h-[46px] rounded-xl hover:bg-slate-800 transition shadow-lg shadow-slate-200">Simpan</button>
-                                            </div>
-                                            <div id="newEmpCreds" class="md:col-span-12 hidden space-y-1">
-                                                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Akun Login Khusus (username / password)</label>
-                                                <div class="grid grid-cols-2 gap-2">
-                                                    <input type="text" id="newEmpUsername" placeholder="Username login" class="input-field" autocomplete="off">
-                                                    <input type="password" id="newEmpPassword" placeholder="Password login" class="input-field" autocomplete="new-password">
-                                                </div>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                            
                             <!-- Tambah Divisi Baru Container -->
                             <div id="divCardContainer" class="lg:col-span-6 flex flex-col">
                                 <!-- Collapsed Card -->
@@ -2035,7 +1962,7 @@
                                 </div>
                                 
                                 <!-- Expanded Card -->
-                                <div id="divCardExpanded" class="hidden clay-card p-6 md:p-8 relative overflow-hidden flex-1 flex flex-col animate-zoom-in">
+                                <div id="divCardExpanded" class="hidden clay-card p-6 md:p-8 relative overflow-hidden flex-1 flex flex-col">
                                     <div class="relative z-10 flex flex-col h-full">
                                         <div class="flex justify-between items-center mb-6">
                                             <h3 class="font-bold text-slate-800 text-base flex items-center gap-2"><i class="fas fa-sitemap text-blue-600"></i> Divisi Baru</h3>
@@ -2089,6 +2016,79 @@
                                             </div>
                                             
                                             <button type="submit" class="w-full bg-slate-900 text-white font-bold py-3.5 rounded-xl hover:bg-slate-800 transition shadow-lg shadow-slate-200 mt-4">Tambah Divisi</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Input Relawan Baru Container -->
+                            <div id="empCardContainer" class="lg:col-span-6 flex flex-col">
+                                <!-- Collapsed Card -->
+                                <div id="empCardCollapsed" onclick="toggleEmpForm(true)" class="cursor-pointer flex-1 bg-gradient-to-br from-emerald-600 via-emerald-700 to-green-600 p-6 rounded-3xl shadow-lg shadow-emerald-500/15 text-white relative overflow-hidden group hover:scale-[1.01] transition-all duration-300 active:scale-95 hover:shadow-emerald-500/25 flex flex-col justify-between min-h-[220px]">
+                                    <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/20 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
+                                    <div>
+                                        <div class="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center mb-4 backdrop-blur-sm border border-white/10">
+                                            <i class="fas fa-user-plus text-xl text-white"></i>
+                                        </div>
+                                        <h3 class="font-extrabold text-lg">Input Relawan Baru</h3>
+                                        <p class="text-xs text-emerald-100/80 mt-1">Daftarkan relawan baru ke sistem, setel divisi, hak akses login, dan gaji harian.</p>
+                                    </div>
+                                    <div class="flex items-center justify-between mt-6">
+                                        <span class="text-xs font-bold text-emerald-100/90 flex items-center gap-1.5">Mulai Daftar <i class="fas fa-arrow-right text-[10px] transition-transform group-hover:translate-x-1"></i></span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Expanded Card -->
+                                <div id="empCardExpanded" class="hidden clay-card p-6 md:p-8 relative overflow-hidden flex-1 flex flex-col">
+                                    <div class="relative z-10 flex flex-col h-full">
+                                        <div class="flex justify-between items-center mb-6">
+                                            <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2"><i class="fas fa-user-plus text-blue-600"></i> Relawan Baru</h3>
+                                            <button type="button" onclick="toggleEmpForm(false)" class="w-7 h-7 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition"><i class="fas fa-times text-xs"></i></button>
+                                        </div>
+                                        
+                                        <form onsubmit="addEmployee(event)" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                                            <div class="md:col-span-3 space-y-1">
+                                                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Nama Lengkap</label>
+                                                <input type="text" id="newEmpName" class="input-field" placeholder="Contoh: Budi Santoso" required>
+                                            </div>
+                                            <div class="md:col-span-3 space-y-1">
+                                                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Divisi</label>
+                                                <select id="newEmpDiv" onchange="handleDivisionRolePreset('new')" class="input-field cursor-pointer">
+                                                    <!-- Dinonaktifkan hardcoded karena diisi oleh JS -->
+                                                </select>
+                                            </div>
+                                            <div class="md:col-span-3 space-y-1">
+                                                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Akses Login</label>
+                                                <select id="newEmpRole" onchange="toggleNewEmpCreds(this.value)" class="input-field cursor-pointer">
+                                                    <!-- Dinonaktifkan hardcoded karena diisi oleh JS -->
+                                                </select>
+                                            </div>
+                                            <div class="md:col-span-3 space-y-1">
+                                                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Gaji Harian</label>
+                                                <input type="number" id="newEmpSalary" class="input-field" placeholder="Contoh: 150000" required>
+                                            </div>
+                                            <div class="md:col-span-6 space-y-1">
+                                                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 block">Foto Profil</label>
+                                                <div class="flex items-center gap-3">
+                                                    <div id="newEmpPhotoPreview" class="w-[46px] h-[46px] rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-350 overflow-hidden shadow-inner">
+                                                        <i class="fas fa-camera text-base"></i>
+                                                    </div>
+                                                    <label class="flex-1 cursor-pointer h-[46px] flex items-center justify-center border border-dashed border-slate-200 dark:border-white/10 rounded-xl px-3 hover:bg-slate-50 dark:hover:bg-white/5 hover:border-slate-300 transition-all text-xs font-bold text-slate-500 dark:text-slate-400">
+                                                        <i class="fas fa-upload mr-1.5 text-blue-500"></i> Pilih Foto
+                                                        <input type="file" id="newEmpPhotoInput" accept="image/*" class="hidden" onchange="handlePhotoUpload(this, 'new')">
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="md:col-span-6">
+                                                <button type="submit" class="w-full bg-slate-900 text-white font-bold h-[46px] rounded-xl hover:bg-slate-800 transition shadow-lg shadow-slate-200">Simpan</button>
+                                            </div>
+                                            <div id="newEmpCreds" class="md:col-span-12 hidden space-y-1">
+                                                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Akun Login Khusus (username / password)</label>
+                                                <div class="grid grid-cols-2 gap-2">
+                                                    <input type="text" id="newEmpUsername" placeholder="Username login" class="input-field" autocomplete="off">
+                                                    <input type="password" id="newEmpPassword" placeholder="Password login" class="input-field" autocomplete="new-password">
+                                                </div>
+                                            </div>
                                         </form>
                                     </div>
                                 </div>
