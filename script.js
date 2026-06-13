@@ -574,11 +574,12 @@ function setSyncButtonLoading(btn, loading) {
     if (!btn) return;
     const icon = btn.querySelector('i.fas, svg');
     if (loading) {
-        btn.disabled = true;
-        btn.classList.add('pointer-events-none', 'animate-pulse');
         _syncingButton = btn;
         btn._origHTML = btn.innerHTML;
-        btn._origClasses = btn.className;
+        btn._origClasses = btn.className; // Simpan kelas asli SEBELUM dimodifikasi
+        
+        btn.disabled = true;
+        btn.classList.add('pointer-events-none', 'animate-pulse');
         
         // Apply clay loading style
         btn.classList.add('bg-emerald-50', 'dark:bg-emerald-900/20', 'border-emerald-300', 'dark:border-emerald-700/50');
@@ -639,7 +640,7 @@ async function fetchData(force = false) {
 
     while (retries > 0) {
         try {
-            const res = await fetch(SCRIPT_URL + "?action=getData", { timeout: 10000 });
+            const res = await fetch(SCRIPT_URL + "?action=getData&_t=" + Date.now(), { timeout: 10000 });
             const data = await res.json();
 
             if(data.status === 'success') {
@@ -701,8 +702,28 @@ async function fetchData(force = false) {
                     GEOFENCE_CONFIG.radius = appConfig.geofenceRadius;
                 }
 
-                refreshUI();
+                try {
+                    refreshUI();
+                } catch(uiErr) {
+                    console.error('Error in refreshUI:', uiErr);
+                }
                 autoClockOutForgotten(); // Auto OUT relawan yang lupa
+
+                // Re-render the active admin tab to ensure all logs and settings are up-to-date
+                try {
+                    const activeTab = ['dashboard', 'employees', 'salaries', 'manual_attendance', 'violations', 'settings', 'pengumuman']
+                        .find(t => {
+                            const el = document.getElementById('tab-' + t);
+                            return el && !el.classList.contains('hidden');
+                        });
+                    if (activeTab === 'manual_attendance') maInit();
+                    else if (activeTab === 'violations') renderViolationsTab();
+                    else if (activeTab === 'settings') loadSettingsUI();
+                    else if (activeTab === 'pengumuman') initPengumumanTab();
+                } catch(tabErr) {
+                    console.error('Error re-rendering active tab:', tabErr);
+                }
+
                 if (force && triggerBtn) {
                     setSyncButtonLoading(triggerBtn, false);
                     showSyncSuccess(triggerBtn);
@@ -944,30 +965,32 @@ function refreshUI() {
         let badge = '', statusText = '';
         
         if (l.type === 'IN') {
-            badge = 'bg-emerald-100 text-emerald-700';
+            badge = 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-500/20';
             statusText = 'IN';
         } else if (l.type === 'OUT') {
             const hasEarlyNote = l.note && l.note.includes('[Pulang');
-            badge = hasEarlyNote ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
+            badge = hasEarlyNote 
+                ? 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-100/50 dark:border-purple-500/20' 
+                : 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100/50 dark:border-blue-500/20';
             statusText = 'OUT';
         } else if (l.type === 'REJECTED') {
-            badge = 'bg-slate-200 text-slate-500 line-through';
+            badge = 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700/50 line-through';
             statusText = 'DITOLAK';
         } else {
-            badge = 'bg-slate-100 text-slate-500';
+            badge = 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-150 dark:border-slate-700/30';
             statusText = l.type;
         }
 
         let actionArea = `<span class="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide ${badge}">${statusText}</span>`;
         if (l.type === 'IN' && l.lateMinutes >= 5) {
             actionArea = `<div class="flex flex-col items-center gap-0.5">
-                <span class="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-red-100 text-red-600">TELAT</span>
-                <span class="text-[9px] text-red-400">${formatDuration(l.lateMinutes)}</span>
+                <span class="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100/50 dark:border-rose-500/20">TELAT</span>
+                <span class="text-[9px] text-rose-400 dark:text-rose-400/80">${formatDuration(l.lateMinutes)}</span>
             </div>`;
         }
         if (l.type === 'OUT' && l.note && l.note.includes('[Pulang')) {
             actionArea = `<div class="flex flex-col items-center gap-0.5">
-                <span class="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-purple-100 text-purple-600">PULANG AWAL</span>
+                <span class="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-100/50 dark:border-purple-500/20">PULANG AWAL</span>
             </div>`;
         }
 
@@ -1247,11 +1270,11 @@ function renderViolationsTab() {
         if (empList.length > 0) {
             summarySection.classList.remove('hidden');
             summaryGrid.innerHTML = empList.map(e => `
-                <div class="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-2.5 border border-slate-100">
-                    <span class="font-bold text-xs text-slate-700 truncate mr-2">${e.name}</span>
+                <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-900/40 rounded-xl px-4 py-2.5 border border-slate-100 dark:border-white/5 shadow-sm">
+                    <span class="font-bold text-xs text-slate-700 dark:text-slate-350 truncate mr-2">${e.name}</span>
                     <div class="flex gap-2 shrink-0">
-                        ${e.lateCount > 0 ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-600">${e.lateCount} Telat</span>` : ''}
-                        ${e.earlyCount > 0 ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-600">${e.earlyCount} Awal</span>` : ''}
+                        ${e.lateCount > 0 ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100/50 dark:border-rose-500/20">${e.lateCount} Telat</span>` : ''}
+                        ${e.earlyCount > 0 ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-100/50 dark:border-amber-500/20">${e.earlyCount} Awal</span>` : ''}
                     </div>
                 </div>
             `).join('');
@@ -1272,12 +1295,12 @@ function renderViolationsTab() {
     body.innerHTML = violations.map(v => {
         let typeBadge;
         if (v.vType === 'late') {
-            typeBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-600">TERLAMBAT</span>';
+            typeBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-500/20">TERLAMBAT</span>';
         } else {
             if (v.duration <= 90) {
-                typeBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-100 text-purple-600">PULANG AWAL</span>';
+                typeBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-500/20">PULANG AWAL</span>';
             } else {
-                typeBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-600">PULANG AWAL</span>';
+                typeBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-500/20">PULANG AWAL</span>';
             }
         }
         const durationText = v.duration > 0 ? formatDuration(v.duration) : '-';
@@ -3574,38 +3597,38 @@ function openModalList(title, mode, filterParam = null) {
                 const hrs = Math.floor(diffMs / 3600000);
                 const mins = Math.floor((diffMs % 3600000) / 60000);
                 const secs = Math.floor((diffMs % 60000) / 1000); 
-                statusBadge = '<span class="bg-emerald-100 text-emerald-600 text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse">Sedang Bekerja</span>';
-                timeInfo = `<div class="font-mono font-bold text-emerald-600 text-sm">${hrs}j ${mins}m ${secs}d</div>`; 
+                statusBadge = '<span class="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse">Sedang Bekerja</span>';
+                timeInfo = `<div class="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">${hrs}j ${mins}m ${secs}d</div>`; 
             } else if (mode === 'present') {
-                statusBadge = '<span class="bg-blue-100 text-blue-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Hadir</span>';
-                timeInfo = `<div class="text-[10px] text-slate-400">Masuk: <span class="font-bold text-slate-700">${w.inTime}</span></div>`;
+                statusBadge = '<span class="bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100/50 dark:border-blue-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Hadir</span>';
+                timeInfo = `<div class="text-[10px] text-slate-400">Masuk: <span class="font-bold text-slate-700 dark:text-slate-300">${w.inTime}</span></div>`;
             } else if (mode === 'absent') {
-                statusBadge = '<span class="bg-rose-100 text-rose-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Tidak Hadir</span>';
-                timeInfo = `<div class="text-[10px] text-slate-400">Shift: <span class="font-bold text-slate-700">${getShiftTime(w.division)}</span></div>`;
+                statusBadge = '<span class="bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100/50 dark:border-rose-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Tidak Hadir</span>';
+                timeInfo = `<div class="text-[10px] text-slate-400">Shift: <span class="font-bold text-slate-700 dark:text-slate-300">${getShiftTime(w.division)}</span></div>`;
             } else if (mode === 'belum_hadir') {
-                statusBadge = '<span class="bg-slate-100 text-slate-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Belum Hadir</span>';
-                timeInfo = `<div class="text-[10px] text-slate-400">Shift: <span class="font-bold text-slate-700">${getShiftTime(w.division)}</span></div>`;
+                statusBadge = '<span class="bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 border border-slate-100/50 dark:border-white/5 text-[10px] px-2 py-0.5 rounded-full font-bold">Belum Hadir</span>';
+                timeInfo = `<div class="text-[10px] text-slate-400">Shift: <span class="font-bold text-slate-700 dark:text-slate-300">${getShiftTime(w.division)}</span></div>`;
             } else if (mode === 'overtime') {
-                statusBadge = '<span class="bg-amber-100 text-amber-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Lembur</span>';
-                timeInfo = `<div class="text-sm font-bold text-amber-600">${w.extraInfo}</div>`;
+                statusBadge = '<span class="bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-100/50 dark:border-amber-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Lembur</span>';
+                timeInfo = `<div class="text-sm font-bold text-amber-600 dark:text-amber-400">${w.extraInfo}</div>`;
             } else if (mode === 'late') {
-                statusBadge = '<span class="bg-red-100 text-red-600 text-[10px] px-2 py-0.5 rounded-full font-bold">Terlambat</span>';
-                timeInfo = `<div class="text-sm font-bold text-red-600">${w.extraInfo}</div>`;
+                statusBadge = '<span class="bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100/50 dark:border-rose-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Terlambat</span>';
+                timeInfo = `<div class="text-sm font-bold text-rose-600 dark:text-rose-400">${w.extraInfo}</div>`;
             } else {
-                statusBadge = `<span class="bg-slate-100 text-slate-500 text-[10px] px-2 py-0.5 rounded-full font-bold">ID: ${w.id}</span>`;
+                statusBadge = `<span class="bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-slate-400 border border-slate-100/50 dark:border-white/5 text-[10px] px-2 py-0.5 rounded-full font-bold">ID: ${w.id}</span>`;
             }
             let actionBtns = '';
             if (mode === 'active') {
                 actionBtns = `<div class="flex gap-1.5 mt-2">
-                    <button onclick="adminClockOut('${w.id}','${w.name}')" class="px-2.5 py-1 rounded-lg bg-blue-500 text-white text-[10px] font-bold hover:bg-blue-600 transition"><i class="fas fa-sign-out-alt mr-1"></i>Absen Out</button>
-                    <button onclick="adminDeleteAbsen('${w.id}','${w.name}')" class="px-2.5 py-1 rounded-lg bg-red-500 text-white text-[10px] font-bold hover:bg-red-600 transition"><i class="fas fa-trash-alt mr-1"></i>Hapus Absen</button>
+                    <button onclick="adminClockOut('${w.id}','${w.name}')" class="px-2.5 py-1 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-bold transition"><i class="fas fa-sign-out-alt mr-1"></i>Absen Out</button>
+                    <button onclick="adminDeleteAbsen('${w.id}','${w.name}')" class="px-2.5 py-1 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold transition"><i class="fas fa-trash-alt mr-1"></i>Hapus Absen</button>
                 </div>`;
             }
             return `
-            <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+            <div class="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-100 dark:border-white/5 shadow-sm">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-400"><i class="fas fa-user"></i></div>
-                    <div class="flex-1"><div class="font-bold text-sm text-slate-800">${w.name}</div><div class="flex items-center gap-2 mt-0.5">${statusBadge}</div></div>
+                    <div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500"><i class="fas fa-user"></i></div>
+                    <div class="flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-200">${w.name}</div><div class="flex items-center gap-2 mt-0.5">${statusBadge}</div></div>
                     <div class="text-right">${timeInfo}</div>
                 </div>
                 ${actionBtns}
@@ -3717,7 +3740,7 @@ function _cleanDupActivateStep(stepId) {
             // swap icon to spinner
             const iconWrap = el.querySelector('div');
             if (iconWrap && id !== 'stepScan') {
-                iconWrap.className = 'w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0';
+                iconWrap.className = 'w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center flex-shrink-0';
                 iconWrap.innerHTML = '<svg class="w-3 h-3 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"></circle><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" stroke-linecap="round" class="opacity-90"></path></svg>';
             }
         } else {
@@ -3732,7 +3755,7 @@ function _cleanDupMarkStepDone(stepId) {
     el.classList.remove('opacity-40');
     const iconWrap = el.querySelector('div');
     if (iconWrap) {
-        iconWrap.className = 'w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0';
+        iconWrap.className = 'w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center flex-shrink-0';
         iconWrap.innerHTML = '<i class="fas fa-check text-[10px] text-emerald-600"></i>';
     }
     const label = el.querySelector('span');
@@ -3861,7 +3884,7 @@ async function executeCleanDuplicateLogs() {
     document.getElementById('cleanDupResultBadge').classList.add('hidden');
     document.getElementById('cleanDupTitle').textContent = 'Membersihkan Data Duplikat';
     document.getElementById('cleanDupSubtitle').textContent = 'Sedang memindai Spreadsheet...';
-    document.getElementById('cleanDupIconWrap').className = 'w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-red-500 flex-shrink-0 transition-all duration-500';
+    document.getElementById('cleanDupIconWrap').className = 'w-10 h-10 rounded-xl bg-red-100 dark:bg-rose-500/20 flex items-center justify-center text-red-500 dark:text-rose-400 flex-shrink-0 transition-all duration-500';
     document.getElementById('cleanDupIcon').className = 'fas fa-broom text-sm';
     ['stepScan','stepDelete','stepSync'].forEach(id => {
         const el = document.getElementById(id);
@@ -3873,7 +3896,7 @@ async function executeCleanDuplicateLogs() {
         scanEl.classList.remove('opacity-40');
         const iconWrap = scanEl.querySelector('div');
         if (iconWrap) {
-            iconWrap.className = 'w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0';
+            iconWrap.className = 'w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center flex-shrink-0';
             iconWrap.innerHTML = '<svg class="w-3 h-3 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"></circle><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" stroke-linecap="round" class="opacity-90"></path></svg>';
         }
     }
@@ -3939,7 +3962,7 @@ async function executeCleanDuplicateLogs() {
             }
 
             // Update icon header ke centang hijau
-            document.getElementById('cleanDupIconWrap').className = 'w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0 transition-all duration-500';
+            document.getElementById('cleanDupIconWrap').className = 'w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 flex-shrink-0 transition-all duration-500';
             document.getElementById('cleanDupIcon').className = 'fas fa-check text-sm';
 
         } else {
@@ -3955,7 +3978,7 @@ async function executeCleanDuplicateLogs() {
         document.getElementById('cleanDupErrorMsg').textContent = err.message || 'Gagal terhubung ke server.';
         document.getElementById('cleanDupTitle').textContent = 'Terjadi Kesalahan';
         document.getElementById('cleanDupSubtitle').textContent = 'Proses dibatalkan';
-        document.getElementById('cleanDupIconWrap').className = 'w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-red-500 flex-shrink-0 transition-all duration-500';
+        document.getElementById('cleanDupIconWrap').className = 'w-10 h-10 rounded-xl bg-red-100 dark:bg-rose-500/20 flex items-center justify-center text-red-500 dark:text-rose-400 flex-shrink-0 transition-all duration-500';
         document.getElementById('cleanDupIcon').className = 'fas fa-exclamation-triangle text-sm';
     } finally {
         // Selalu tampilkan tombol Tutup
@@ -4899,8 +4922,10 @@ function cetakPengumuman() {
 // MANUAL ATTENDANCE (Absen Manual) System
 // =============================================
 let maSelectedEmployees = new Set();
-let maSelectedDates = new Set();
-let maCalendarDate = new Date();
+let maSelectedDatesIn = new Set();
+let maSelectedDatesOut = new Set();
+let maCalendarDateIn = new Date();
+let maCalendarDateOut = new Date();
 let maSelectionMode = 'all'; // 'all' | 'division' | 'individual'
 let maSelectedDivisions = new Set();
 let maPaused = false;
@@ -4982,7 +5007,8 @@ function getHoliday(dateStr) {
 
 function maInit() {
     maSetMode('all');
-    maRenderCalendar();
+    maRenderCalendarIn();
+    maRenderCalendarOut();
     maRenderHistory();
     maTypeChanged();
     maCheckForResume();
@@ -5133,20 +5159,34 @@ function maUpdateCount() {
     document.getElementById('maSelectedCount').textContent = maSelectedEmployees.size + ' dipilih';
 }
 
-function maChangeMonth(delta) {
-    maCalendarDate.setMonth(maCalendarDate.getMonth() + delta);
-    maRenderCalendar();
+function maChangeMonthIn(delta) {
+    maCalendarDateIn.setMonth(maCalendarDateIn.getMonth() + delta);
+    maRenderCalendarIn();
 }
 
-function maRenderCalendar() {
-    const year = maCalendarDate.getFullYear();
-    const month = maCalendarDate.getMonth();
+function maChangeMonthOut(delta) {
+    maCalendarDateOut.setMonth(maCalendarDateOut.getMonth() + delta);
+    maRenderCalendarOut();
+}
+
+function maRenderCalendarGeneric(type) {
+    const dateObj = type === 'IN' ? maCalendarDateIn : maCalendarDateOut;
+    const selectedDatesSet = type === 'IN' ? maSelectedDatesIn : maSelectedDatesOut;
+    const gridId = type === 'IN' ? 'maCalendarGridIn' : 'maCalendarGridOut';
+    const monthLabelId = type === 'IN' ? 'maCalendarMonthIn' : 'maCalendarMonthOut';
+    const legendId = type === 'IN' ? 'maHolidayLegendIn' : 'maHolidayLegendOut';
+
+    const year = dateObj.getFullYear();
+    const month = dateObj.getMonth();
     const monthNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-    document.getElementById('maCalendarMonth').textContent = monthNames[month] + ' ' + year;
+    
+    const monthLabel = document.getElementById(monthLabelId);
+    if (monthLabel) monthLabel.textContent = monthNames[month] + ' ' + year;
 
     const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const grid = document.getElementById('maCalendarGrid');
+    const grid = document.getElementById(gridId);
+    if (!grid) return;
     let html = '';
 
     for (let i = 0; i < firstDay; i++) html += '<div></div>';
@@ -5155,7 +5195,7 @@ function maRenderCalendar() {
 
     for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-        const isSelected = maSelectedDates.has(dateStr);
+        const isSelected = selectedDatesSet.has(dateStr);
         const dayOfWeek = new Date(year, month, d).getDay();
         const isSunday = dayOfWeek === 0;
         const holiday = getHoliday(dateStr);
@@ -5166,64 +5206,86 @@ function maRenderCalendar() {
         if (isSelected) {
             btnClass += 'bg-blue-600 text-white shadow-md shadow-blue-600/30';
         } else if (holiday) {
-            btnClass += 'bg-red-50 text-red-600 hover:bg-red-100 ring-1 ring-red-200';
+            btnClass += 'bg-red-50 dark:bg-rose-500/10 text-red-600 dark:text-rose-400 hover:bg-red-100 dark:hover:bg-rose-500/20 ring-1 ring-red-200 dark:ring-rose-500/20';
         } else if (isSunday) {
-            btnClass += 'text-red-500 hover:bg-red-50';
+            btnClass += 'text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10';
         } else {
-            btnClass += 'text-slate-600 hover:bg-blue-100';
+            btnClass += 'text-slate-600 dark:text-slate-300 hover:bg-blue-100 dark:hover:bg-slate-800';
         }
 
         const tooltip = holiday ? ` title="${holiday}"` : (isSunday ? ' title="Hari Minggu"' : '');
-        const dot = holiday ? '<span class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-red-400"></span>' : '';
+        const dot = holiday ? '<span class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-red-400"></span>' : '';
 
-        html += `<button onclick="maToggleDate('${dateStr}')"${tooltip} class="${btnClass}">${d}${dot}</button>`;
+        html += `<button type="button" onclick="maToggleDateGeneric('${dateStr}', '${type}')"${tooltip} class="${btnClass}">${d}${dot}</button>`;
     }
     grid.innerHTML = html;
-    maRenderDateTags();
+    maRenderDateTagsGeneric(type);
 
     // Render holiday legend below calendar
-    const legendEl = document.getElementById('maHolidayLegend');
+    const legendEl = document.getElementById(legendId);
     if (legendEl) {
         if (holidaysThisMonth.length === 0) {
             legendEl.innerHTML = '';
         } else {
             legendEl.innerHTML = '<div class="mt-3 space-y-1">' +
-                '<p class="text-[10px] font-bold text-red-400 uppercase tracking-wider"><i class="fas fa-calendar-times mr-1"></i>Hari Libur Nasional</p>' +
+                '<p class="text-[10px] font-bold text-red-400 dark:text-red-400/80 uppercase tracking-wider"><i class="fas fa-calendar-times mr-1"></i>Hari Libur Nasional</p>' +
                 holidaysThisMonth.map(h =>
-                    `<div class="flex items-center gap-2 text-[11px]"><span class="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0"></span><span class="text-red-600 font-bold">${h.date}</span><span class="text-slate-500">${h.name}</span></div>`
+                    `<div class="flex items-center gap-2 text-[11px]"><span class="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0"></span><span class="text-red-600 dark:text-red-400 font-bold">${h.date}</span><span class="text-slate-500 dark:text-slate-400">${h.name}</span></div>`
                 ).join('') + '</div>';
         }
     }
 }
 
-function maToggleDate(dateStr) {
-    if (maSelectedDates.has(dateStr)) maSelectedDates.delete(dateStr); else maSelectedDates.add(dateStr);
-    maRenderCalendar();
+function maRenderCalendarIn() { maRenderCalendarGeneric('IN'); }
+function maRenderCalendarOut() { maRenderCalendarGeneric('OUT'); }
+
+function maToggleDateGeneric(dateStr, type) {
+    const selectedDatesSet = type === 'IN' ? maSelectedDatesIn : maSelectedDatesOut;
+    if (selectedDatesSet.has(dateStr)) selectedDatesSet.delete(dateStr); else selectedDatesSet.add(dateStr);
+    maRenderCalendarGeneric(type);
 }
 
-function maRenderDateTags() {
-    const container = document.getElementById('maSelectedDatesTags');
-    const sorted = [...maSelectedDates].sort();
+function maRenderDateTagsGeneric(type) {
+    const selectedDatesSet = type === 'IN' ? maSelectedDatesIn : maSelectedDatesOut;
+    const tagsId = type === 'IN' ? 'maSelectedDatesTagsIn' : 'maSelectedDatesTagsOut';
+    const container = document.getElementById(tagsId);
+    if (!container) return;
+    const sorted = [...selectedDatesSet].sort();
     container.innerHTML = sorted.length === 0 ? '<span class="text-xs text-slate-400 italic">Belum ada tanggal dipilih</span>' :
-        sorted.map(d => `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-[11px] font-bold border border-blue-100">${d} <button onclick="maRemoveDate('${d}')" class="text-blue-400 hover:text-red-500 ml-0.5">&times;</button></span>`).join('');
+        sorted.map(d => `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 text-[11px] font-bold border border-blue-100 dark:border-blue-500/20">${d} <button onclick="maRemoveDateGeneric('${d}', '${type}')" class="text-blue-400 hover:text-red-500 ml-0.5">&times;</button></span>`).join('');
 }
 
-function maRemoveDate(dateStr) {
-    maSelectedDates.delete(dateStr);
-    maRenderCalendar();
+function maRemoveDateGeneric(dateStr, type) {
+    const selectedDatesSet = type === 'IN' ? maSelectedDatesIn : maSelectedDatesOut;
+    selectedDatesSet.delete(dateStr);
+    maRenderCalendarGeneric(type);
 }
 
 function maTypeChanged() {
     const type = document.getElementById('maType').value;
     const outWrap = document.getElementById('maTimeOutWrap');
     const inLabel = document.getElementById('maTimeLabelIn');
+    
+    const calIn = document.getElementById('maCalendarInSection');
+    const calOut = document.getElementById('maCalendarOutSection');
+
     if (type === 'BOTH') {
         outWrap.classList.remove('hidden');
         inLabel.textContent = 'Jam Masuk (opsional, default sesuai shift)';
-    } else {
+        if (calIn) calIn.classList.remove('hidden');
+        if (calOut) calOut.classList.remove('hidden');
+    } else if (type === 'IN') {
         outWrap.classList.add('hidden');
         document.getElementById('maTimeOut').value = '';
         inLabel.textContent = 'Jam (opsional, default sesuai shift)';
+        if (calIn) calIn.classList.remove('hidden');
+        if (calOut) calOut.classList.add('hidden');
+    } else if (type === 'OUT') {
+        outWrap.classList.add('hidden');
+        document.getElementById('maTimeOut').value = '';
+        inLabel.textContent = 'Jam (opsional, default sesuai shift)';
+        if (calIn) calIn.classList.add('hidden');
+        if (calOut) calOut.classList.remove('hidden');
     }
 }
 
@@ -5238,7 +5300,7 @@ function maRenderHistory() {
         <tr class="hover:bg-slate-50/50 transition-colors">
             <td class="px-6 py-3 text-slate-600 text-xs whitespace-nowrap">${l.date} ${l.time || ''}</td>
             <td class="px-6 py-3 text-slate-700 font-bold text-xs">${l.name}</td>
-            <td class="px-6 py-3 text-center"><span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${l.type==='IN'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}">${l.type}</span></td>
+            <td class="px-6 py-3 text-center"><span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${l.type==='IN'?'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-500/20':'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100/50 dark:border-rose-500/20'}">${l.type}</span></td>
             <td class="px-6 py-3 text-slate-500 text-xs">${l.note || '-'}</td>
             <td class="px-6 py-3 text-slate-400 text-xs">${l.absentBy}</td>
         </tr>`).join('');
@@ -5410,7 +5472,8 @@ async function maSendEntries(entries, startIndex = 0, successCount = 0, failCoun
     }
 
     maSelectedEmployees.clear();
-    maSelectedDates.clear();
+    maSelectedDatesIn.clear();
+    maSelectedDatesOut.clear();
     document.getElementById('maNote').value = '';
     document.getElementById('maTimeIn').value = '';
     document.getElementById('maTimeOut').value = '';
@@ -5457,14 +5520,21 @@ function executeMaSubmit() {
 async function maSubmit() {
     if (maSending) { showToast('Proses sedang berjalan.', 'error'); return; }
     if (maSelectedEmployees.size === 0) { showToast('Pilih minimal 1 relawan.', 'error'); return; }
-    if (maSelectedDates.size === 0) { showToast('Pilih minimal 1 tanggal.', 'error'); return; }
-
+    
     const type = document.getElementById('maType').value;
+    if ((type === 'IN' || type === 'BOTH') && maSelectedDatesIn.size === 0) {
+        showToast('Pilih minimal 1 tanggal masuk (IN).', 'error'); return;
+    }
+    if ((type === 'OUT' || type === 'BOTH') && maSelectedDatesOut.size === 0) {
+        showToast('Pilih minimal 1 tanggal pulang (OUT).', 'error'); return;
+    }
+
     const timeIn = document.getElementById('maTimeIn').value || '';
     const timeOut = document.getElementById('maTimeOut').value || '';
     const note = document.getElementById('maNote').value.trim();
     const empIds = [...maSelectedEmployees];
-    const dates = [...maSelectedDates].sort();
+    const inDates = (type === 'IN' || type === 'BOTH') ? [...maSelectedDatesIn].sort() : [];
+    const outDates = (type === 'OUT' || type === 'BOTH') ? [...maSelectedDatesOut].sort() : [];
     const defaultLoc = `${GEOFENCE_CONFIG.lat}, ${GEOFENCE_CONFIG.lng}`;
 
     // Build list of entries to send and track skipped ones
@@ -5477,51 +5547,42 @@ async function maSubmit() {
         const divConfig = appConfig.shifts[emp.division] || null;
         const defaultIn = divConfig ? divConfig.start : '08:00';
         const defaultOut = divConfig ? divConfig.end : '17:00';
-        const isOvernightShift = divConfig ? (parseInt(divConfig.end) < parseInt(divConfig.start)) : false;
 
-        for (const dateStr of dates) {
-            if (type === 'IN' || type === 'BOTH') {
-                const hasIn = !appConfig.allowMultipleIn && logs.some(l => 
-                    String(l.empId) === String(emp.id) && 
-                    l.date === dateStr && 
-                    (l.type === 'IN' || l.type === 'PENDING')
-                );
-                if (hasIn) {
-                    skippedDetails.push(`${emp.name} (IN: ${dateStr})`);
-                } else {
-                    entries.push({
-                        empId: emp.id, name: emp.name, type: 'IN',
-                        date: dateStr, forcedTime: timeIn || defaultIn,
-                        location: defaultLoc, image: '', overtime: 0,
-                        lateMinutes: 0, note: note, absentBy: 'Admin'
-                    });
-                }
+        // Process IN entries
+        for (const dateStr of inDates) {
+            const hasIn = !appConfig.allowMultipleIn && logs.some(l => 
+                String(l.empId) === String(emp.id) && 
+                l.date === dateStr && 
+                (l.type === 'IN' || l.type === 'PENDING')
+            );
+            if (hasIn) {
+                skippedDetails.push(`${emp.name} (IN: ${dateStr})`);
+            } else {
+                entries.push({
+                    empId: emp.id, name: emp.name, type: 'IN',
+                    date: dateStr, forcedTime: timeIn || defaultIn,
+                    location: defaultLoc, image: '', overtime: 0,
+                    lateMinutes: 0, note: note, absentBy: 'Admin'
+                });
             }
-            if (type === 'OUT' || type === 'BOTH') {
-                let outDate = dateStr;
-                if (type === 'BOTH' && isOvernightShift) {
-                    const d = new Date(dateStr + 'T00:00:00');
-                    d.setDate(d.getDate() + 1);
-                    const yyyy = d.getFullYear();
-                    const mm = String(d.getMonth() + 1).padStart(2, '0');
-                    const dd = String(d.getDate()).padStart(2, '0');
-                    outDate = `${yyyy}-${mm}-${dd}`;
-                }
-                const hasOut = !appConfig.allowMultipleIn && logs.some(l => 
-                    String(l.empId) === String(emp.id) && 
-                    l.date === outDate && 
-                    l.type === 'OUT'
-                );
-                if (hasOut) {
-                    skippedDetails.push(`${emp.name} (OUT: ${outDate})`);
-                } else {
-                    entries.push({
-                        empId: emp.id, name: emp.name, type: 'OUT',
-                        date: outDate, forcedTime: timeOut || defaultOut,
-                        location: defaultLoc, image: '', overtime: 0,
-                        lateMinutes: 0, note: note, absentBy: 'Admin'
-                    });
-                }
+        }
+
+        // Process OUT entries
+        for (const dateStr of outDates) {
+            const hasOut = !appConfig.allowMultipleIn && logs.some(l => 
+                String(l.empId) === String(emp.id) && 
+                l.date === dateStr && 
+                l.type === 'OUT'
+            );
+            if (hasOut) {
+                skippedDetails.push(`${emp.name} (OUT: ${dateStr})`);
+            } else {
+                entries.push({
+                    empId: emp.id, name: emp.name, type: 'OUT',
+                    date: dateStr, forcedTime: timeOut || defaultOut,
+                    location: defaultLoc, image: '', overtime: 0,
+                    lateMinutes: 0, note: note, absentBy: 'Admin'
+                });
             }
         }
     }
@@ -5532,7 +5593,7 @@ async function maSubmit() {
     }
 
     const typeLabel = type === 'BOTH' ? 'IN + OUT' : type;
-    let msg = `Kirim ${entries.length} entri absen ${typeLabel} untuk ${empIds.length} relawan × ${dates.length} tanggal?`;
+    let msg = `Kirim ${entries.length} entri absen ${typeLabel} untuk ${empIds.length} relawan?`;
     
     // Update skipped container in modal
     const skippedList = document.getElementById('confirmMaSkippedList');
@@ -8081,7 +8142,7 @@ async function startAbsenMandiri() {
     // Ambil data karyawan dari server dulu
     toggleLoader(true, 'Memuat data...');
     try {
-        const res = await fetch(SCRIPT_URL + '?action=getData');
+        const res = await fetch(SCRIPT_URL + '?action=getData&_t=' + Date.now());
         const data = await res.json();
         if (data.status === 'success') {
             employees = data.employees || [];

@@ -13,9 +13,9 @@
     --clay-bg-dark: #f1f5f9;
     
     /* Primary Colors */
-    --clay-primary: #4f46e5;
-    --clay-primary-light: #6366f1;
-    --clay-primary-dark: #3730a3;
+    --clay-primary: #6366f1;
+    --clay-primary-light: #8b5cf6;
+    --clay-primary-dark: #4f46e5;
     
     /* Accent Colors */
     --clay-accent-green: #10b981;
@@ -50,9 +50,9 @@ html.dark {
     --clay-bg-dark: #05080e;
     
     /* Primary Colors - Dark Mode */
-    --clay-primary: #818cf8;
-    --clay-primary-light: #a5b4fc;
-    --clay-primary-dark: #6366f1;
+    --clay-primary: #6366f1;
+    --clay-primary-light: #a78bfa;
+    --clay-primary-dark: #4f46e5;
     
     /* Accent Colors - Dark Mode */
     --clay-accent-green: #34d399;
@@ -121,8 +121,11 @@ html.dark .clay-nav-item:hover {
 }
 
 html.dark .clay-nav-item.active {
-    background: linear-gradient(145deg, var(--clay-primary-light), var(--clay-primary));
-    color: white;
+    background: linear-gradient(135deg, var(--clay-primary-light), var(--clay-primary)) !important;
+    color: white !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: 0 4px 18px rgba(139, 92, 246, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.12) !important;
 }
 
 html.dark .clay-btn {
@@ -358,38 +361,7 @@ html.dark header.clay-card {
     background: linear-gradient(145deg, #1e293b, #0f172a);
 }
 
-/* Dark Mode Settings - Feature Control Cards */
-html.dark #settingBothWrap,
-html.dark #settingLateWrap,
-html.dark #settingEarlyWrap,
-html.dark #settingGeofenceWrap {
-    background: #0f172a;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-html.dark #settingBothWrap {
-    box-shadow: 
-        inset 4px 4px 8px rgba(0, 0, 0, 0.4),
-        inset -4px -4px 8px rgba(255, 255, 255, 0.03);
-}
-
-html.dark #settingLateWrap {
-    box-shadow: 
-        inset 4px 4px 8px rgba(0, 0, 0, 0.4),
-        inset -4px -4px 8px rgba(255, 255, 255, 0.03);
-}
-
-html.dark #settingEarlyWrap {
-    box-shadow: 
-        inset 4px 4px 8px rgba(0, 0, 0, 0.4),
-        inset -4px -4px 8px rgba(255, 255, 255, 0.03);
-}
-
-html.dark #settingGeofenceWrap {
-    box-shadow: 
-        inset 4px 4px 8px rgba(0, 0, 0, 0.4),
-        inset -4px -4px 8px rgba(255, 255, 255, 0.03);
-}
+/* Dark Mode Settings - Feature Control Cards - Inherit default clay-inset */
 
 html.dark .text-slate-800 {
     color: #f1f5f9 !important;
@@ -551,6 +523,24 @@ body {
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Chrome/Safari/Edge Autocomplete/Autofill Override to keep inputs theme-compliant */
+.clay-input:-webkit-autofill,
+.clay-input:-webkit-autofill:hover, 
+.clay-input:-webkit-autofill:focus, 
+.clay-input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px #f1f5f9 inset !important;
+    -webkit-text-fill-color: #1e293b !important;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
+html.dark .clay-input:-webkit-autofill,
+html.dark .clay-input:-webkit-autofill:hover, 
+html.dark .clay-input:-webkit-autofill:focus, 
+html.dark .clay-input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px #05080e inset !important;
+    -webkit-text-fill-color: #f1f5f9 !important;
+}
+
 .clay-input:focus {
     background: var(--clay-bg-light);
     box-shadow: 
@@ -626,11 +616,11 @@ html.dark .clay-modal {
 }
 
 .clay-nav-item.active {
-    background: linear-gradient(145deg, var(--clay-primary-light), var(--clay-primary));
-    color: white;
-    box-shadow: 
-        2px 4px 8px var(--clay-shadow-primary),
-        -1px -1px 4px rgba(255, 255, 255, 0.2) inset;
+    background: linear-gradient(135deg, var(--clay-primary-light), var(--clay-primary)) !important;
+    color: white !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.22), inset 0 1px 1px rgba(255, 255, 255, 0.15) !important;
 }
 
 /* Stats Card - Soft and Floating */
@@ -1211,7 +1201,7 @@ html.dark #sidebar .nav-item:hover, html.dark #sidebar .nav-item.active { backgr
 html.dark header { background: linear-gradient(145deg, rgba(17, 24, 39, 0.75), rgba(9, 13, 22, 0.65)) !important; backdrop-filter: blur(16px); border-color: var(--clay-border) !important; }
 html.dark header .font-bold { color: var(--clay-text-primary); }
 html.dark .bg-white { background-color: var(--clay-bg-light) !important; }
-html.dark .bg-slate-50, html.dark .bg-slate-100 { background-color: var(--clay-bg-dark) !important; }
+html.dark .bg-slate-50, html.dark .bg-slate-100 { background-color: rgba(9, 13, 22, 0.45) !important; }
 html.dark .text-slate-800, html.dark .text-slate-700 { color: var(--clay-text-primary) !important; }
 html.dark .text-slate-600 { color: var(--clay-text-secondary) !important; }
 html.dark .text-slate-500 { color: var(--clay-text-secondary) !important; }
@@ -1222,7 +1212,7 @@ html.dark .divide-slate-50 > :not([hidden]) ~ :not([hidden]) { border-color: var
 html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: var(--clay-border); }
 
 /* Remove/adapt borders in dark mode for cleaner look */
-html.dark [class*="border-slate-"]:not(.clay-card):not(.clay-inset) {
+html.dark [class*="border-slate-"]:not(.clay-card):not(.clay-inset):not(th):not(td):not(tr):not(table) {
     border-color: transparent !important;
 }
 
@@ -1270,12 +1260,26 @@ html.dark .bg-emerald-50, html.dark [class*="bg-emerald-50"] { background-color:
 html.dark .bg-indigo-50 { background-color: rgba(79, 70, 229, 0.1) !important; color: #a5b4fc !important; }
 html.dark .bg-violet-50 { background-color: rgba(139, 92, 246, 0.1) !important; color: #c084fc !important; }
 html.dark .shadow-sm { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.2) !important; }
-html.dark input, html.dark textarea, html.dark select { background-color: var(--clay-bg-dark) !important; color: var(--clay-text-primary) !important; border-color: rgba(255, 255, 255, 0.08) !important; }
-html.dark .input-field { background-color: var(--clay-bg-dark); color: var(--clay-text-primary); border-color: rgba(255, 255, 255, 0.08); }
-html.dark .input-field:focus { background-color: var(--clay-bg-light); border-color: var(--clay-primary); }
-html.dark table thead tr { background-color: var(--clay-bg-dark) !important; }
-html.dark table tbody tr { background-color: var(--clay-bg-light) !important; }
-html.dark table tbody tr:hover { background-color: rgba(255, 255, 255, 0.015) !important; }
+html.dark input, html.dark textarea, html.dark select { 
+    background: var(--clay-bg-dark) !important; 
+    background-image: none !important;
+    color: var(--clay-text-primary) !important; 
+    border-color: rgba(255, 255, 255, 0.08) !important; 
+}
+html.dark .input-field { 
+    background: var(--clay-bg-dark) !important; 
+    background-image: none !important;
+    color: var(--clay-text-primary) !important; 
+    border-color: rgba(255, 255, 255, 0.08) !important; 
+}
+html.dark .input-field:focus { 
+    background: var(--clay-bg-light) !important; 
+    background-image: none !important;
+    border-color: var(--clay-primary) !important; 
+}
+html.dark table thead tr { background-color: rgba(9, 13, 22, 0.5) !important; }
+html.dark table tbody tr { background-color: rgba(255, 255, 255, 0.01) !important; }
+html.dark table tbody tr:hover { background-color: rgba(255, 255, 255, 0.02) !important; }
 
 /* Print Styles */
 @media print {
@@ -1800,4 +1804,9 @@ html.dark table tbody tr:hover { background-color: rgba(255, 255, 255, 0.015) !i
 }
 .animate-spin-slow {
     animation: spin-slow 8s linear infinite;
+}
+
+/* Modern Focus Outline Resets to prevent browser focus rings on buttons */
+button:focus, button:focus-visible, a:focus, a:focus-visible {
+    outline: none !important;
 }
