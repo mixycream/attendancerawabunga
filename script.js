@@ -7417,7 +7417,7 @@ function volUpdateGeofenceUI() {
 
     if (appConfig.disableGeofence || !isSelfieActive) {
         bar.classList.add('hidden');
-        if (submitBtn) submitBtn.disabled = false;
+        if (submitBtn && !volLivenessActive) submitBtn.disabled = false;
         return;
     }
     bar.classList.remove('hidden');
@@ -7435,7 +7435,7 @@ function volUpdateGeofenceUI() {
     if (isInside) {
         bar.className = 'mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/15 border border-emerald-400/20 text-[10px] text-emerald-300 font-bold transition-all duration-300';
         txt.innerText = `Geofence: Dalam area (${Math.round(dist)}m) dari Dapur`;
-        if (submitBtn) submitBtn.disabled = false;
+        if (submitBtn && !volLivenessActive) submitBtn.disabled = false;
     } else {
         bar.className = 'mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/15 border border-red-400/20 text-[10px] text-red-300 font-bold transition-all duration-300';
         txt.innerText = `Geofence: Di luar area (${Math.round(dist)}m) dari Dapur`;
@@ -7822,10 +7822,29 @@ function volStartSelfie(mode) {
         
         // Trigger liveness check dynamically
         if (appConfig.enableLivenessCheck) {
+            const bannerTitle = document.getElementById('volLivenessBannerTitle');
+            const bannerSub = document.getElementById('volLivenessBannerSub');
+            const statusContainer = document.getElementById('volLivenessStatusContainer');
+            if (bannerTitle) bannerTitle.innerText = "Verifikasi Wajah";
+            if (bannerSub) bannerSub.innerText = "Absen Diawasi Oleh Admin";
+            if (statusContainer) statusContainer.classList.remove('hidden');
+
             volStartLivenessCheck(video);
         } else {
-            document.getElementById('volLivenessBanner')?.classList.add('hidden');
+            const banner = document.getElementById('volLivenessBanner');
+            if (banner) {
+                banner.classList.remove('hidden');
+                const bannerTitle = document.getElementById('volLivenessBannerTitle');
+                const bannerSub = document.getElementById('volLivenessBannerSub');
+                const statusContainer = document.getElementById('volLivenessStatusContainer');
+                if (bannerTitle) bannerTitle.innerText = "Verifikasi Absen";
+                if (bannerSub) bannerSub.innerText = "Absen Diawasi Oleh Admin";
+                if (statusContainer) statusContainer.classList.add('hidden');
+            }
             document.getElementById('volLivenessGuideBadge')?.classList.add('hidden');
+            
+            // Trigger geofence check immediately to set submit button state
+            volUpdateGeofenceUI();
         }
     }).catch(e => showToast('Gagal akses kamera selfie', 'error'));
 }
@@ -7919,7 +7938,16 @@ function calculateEyeAspectRatio(landmarks, eyeIndices) {
 }
 
 function volStartLivenessCheck(video) {
-    document.getElementById('volLivenessBanner')?.classList.remove('hidden');
+    const banner = document.getElementById('volLivenessBanner');
+    if (banner) {
+        banner.classList.remove('hidden');
+        const bannerTitle = document.getElementById('volLivenessBannerTitle');
+        const bannerSub = document.getElementById('volLivenessBannerSub');
+        const statusContainer = document.getElementById('volLivenessStatusContainer');
+        if (bannerTitle) bannerTitle.innerText = "Verifikasi Wajah";
+        if (bannerSub) bannerSub.innerText = "Absen Diawasi Oleh Admin";
+        if (statusContainer) statusContainer.classList.remove('hidden');
+    }
     
     const badge = document.getElementById('volLivenessGuideBadge');
     if (badge) {
