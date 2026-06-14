@@ -667,6 +667,7 @@ async function fetchData(force = false) {
                     appConfig.hideOvertime = data.config.hideOvertime === true || data.config.hideOvertime === 'true';
                     appConfig.allowMultipleIn = data.config.allowMultipleIn === true || data.config.allowMultipleIn === 'true';
                     appConfig.enableLivenessCheck = data.config.enableLivenessCheck === true || data.config.enableLivenessCheck === 'true';
+                    appConfig.enableSelfieOnly = data.config.enableSelfieOnly === true || data.config.enableSelfieOnly === 'true';
                     appConfig.geofenceLat = parseFloat(data.config.geofenceLat || "-6.21973");
                     appConfig.geofenceLng = parseFloat(data.config.geofenceLng || "106.87015");
                     appConfig.geofenceRadius = parseInt(data.config.geofenceRadius || "15");
@@ -8661,6 +8662,7 @@ async function startAbsenMandiri() {
                 appConfig.hideOvertime = data.config.hideOvertime === true || data.config.hideOvertime === 'true';
                 appConfig.allowMultipleIn = data.config.allowMultipleIn === true || data.config.allowMultipleIn === 'true';
                 appConfig.enableLivenessCheck = data.config.enableLivenessCheck === true || data.config.enableLivenessCheck === 'true';
+                appConfig.enableSelfieOnly = data.config.enableSelfieOnly === true || data.config.enableSelfieOnly === 'true';
                 appConfig.geofenceLat = parseFloat(data.config.geofenceLat || "-6.21973");
                 appConfig.geofenceLng = parseFloat(data.config.geofenceLng || "106.87015");
                 appConfig.geofenceRadius = parseInt(data.config.geofenceRadius || "15");
