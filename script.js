@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx2cZ-IBc5P8FDbBWT6evg6zc4vVOYkn0ThwmDjo6oW5Ca9zzTGybU_GnmwGjX4dFkI/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxYRBFo1s3CkLkQvPtGycQX6l4vnyJSMDvdCPMbIN2D02j85UszmIHkZ-odAjLNOEAC/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -190,7 +190,8 @@ let appConfig = {
     autoOutType: "global",
     autoOutGlobalMinutes: 240,
     autoOutDivisionsConfig: "{}",
-    enableLivenessCheck: false
+    enableLivenessCheck: false,
+    enableSelfieOnly: false
 }; 
 let sortState = {
     logs: 'time_desc',
@@ -4208,6 +4209,8 @@ function loadSettingsUI() {
     if (tMultIn) tMultIn.checked = appConfig.allowMultipleIn;
     const tLiveness = document.getElementById('toggleLivenessCheck');
     if (tLiveness) tLiveness.checked = appConfig.enableLivenessCheck;
+    const tSelfieOnly = document.getElementById('toggleSelfieOnly');
+    if (tSelfieOnly) tSelfieOnly.checked = appConfig.enableSelfieOnly;
 
     const bReason = document.getElementById('bothReasonInput');
     const lReason = document.getElementById('lateReasonInput');
@@ -4376,6 +4379,7 @@ async function saveFeatureSettings() {
     const hideOvertime = document.getElementById('toggleHideOvertime')?.checked || false;
     const allowMultipleIn = document.getElementById('toggleMultipleIn')?.checked || false;
     const enableLivenessCheck = document.getElementById('toggleLivenessCheck')?.checked || false;
+    const enableSelfieOnly = document.getElementById('toggleSelfieOnly')?.checked || false;
 
     const geofenceLat = document.getElementById('geofenceLat')?.value.trim() || "-6.21973";
     const geofenceLng = document.getElementById('geofenceLng')?.value.trim() || "106.87015";
@@ -4425,6 +4429,7 @@ async function saveFeatureSettings() {
     appConfig.hideOvertime = hideOvertime;
     appConfig.allowMultipleIn = allowMultipleIn;
     appConfig.enableLivenessCheck = enableLivenessCheck;
+    appConfig.enableSelfieOnly = enableSelfieOnly;
 
     appConfig.geofenceLat = parseFloat(geofenceLat);
     appConfig.geofenceLng = parseFloat(geofenceLng);
@@ -4446,7 +4451,7 @@ async function saveFeatureSettings() {
     const success = await postData('saveFeatureSettings', {
         disableBoth, disableLate, disableEarly,
         disableBothReason, disableLateReason, disableEarlyReason,
-        disableGeofence, hideOvertime, allowMultipleIn, enableLivenessCheck,
+        disableGeofence, hideOvertime, allowMultipleIn, enableLivenessCheck, enableSelfieOnly,
         geofenceLat, geofenceLng, geofenceRadius,
         lateTolerance, lateReasonThreshold, lateWaThreshold, lateMaxThreshold,
         adminWhatsApp, autoOutType, autoOutGlobalMinutes, autoOutDivisionsConfig
@@ -7805,7 +7810,14 @@ function volPopulateSelfieInfo() {
 }
 
 function volStartSelfie(mode) {
-    volCurrentFacingMode = mode;
+    if (appConfig.enableSelfieOnly) {
+        mode = 'user';
+        volCurrentFacingMode = 'user';
+        document.getElementById('volBtnToggleCamera')?.classList.add('hidden');
+    } else {
+        volCurrentFacingMode = mode;
+        document.getElementById('volBtnToggleCamera')?.classList.remove('hidden');
+    }
     const video = document.getElementById('volFaceVideo');
     if (!video) return;
     if (volFaceStream) volFaceStream.getTracks().forEach(t => t.stop());
