@@ -7845,6 +7845,8 @@ let volLivenessTimeout = null;
 let volLivenessMesh = null;
 let livenessAnimationFrame = null;
 let volLivenessStepTransitioning = false;
+let volFaceLostFrames = 0;
+let volPrevNose = null;
 
 function volGetStepIcon(stepKey) {
     switch (stepKey) {
@@ -8035,18 +8037,50 @@ function volOnLivenessResults(results) {
 
     const instText = document.getElementById('volLivenessInstructionText');
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+        volFaceLostFrames++;
+        if (volFaceLostFrames > 8) {
+            if (volLivenessStepIndex > 0) {
+                volLivenessStepIndex = 0;
+                volLivenessBlinkCount = 0;
+                volLivenessIsBlinked = false;
+                volPrevNose = null;
+                playLivenessBeep(440, 0.25);
+                showToast("Wajah hilang! Verifikasi diulang dari awal.", "warning");
+                volUpdateLivenessUI();
+            }
+            volFaceLostFrames = 0;
+        }
         if (volLivenessStepIndex === 0 && instText) {
             instText.innerText = "Mohon Menghadap Kamera Lurus (1/" + volActiveLivenessSteps.length + ")";
         }
         return;
     }
 
+    volFaceLostFrames = 0;
     const landmarks = results.multiFaceLandmarks[0];
     const cheekRight = landmarks[234];
     const cheekLeft = landmarks[454];
     const nose = landmarks[4];
     const forehead = landmarks[10];
     const chin = landmarks[152];
+
+    if (volPrevNose) {
+        const dx = Math.abs(nose.x - volPrevNose.x);
+        const dy = Math.abs(nose.y - volPrevNose.y);
+        if (dx > 0.12 || dy > 0.12) {
+            if (volLivenessStepIndex > 0) {
+                volLivenessStepIndex = 0;
+                volLivenessBlinkCount = 0;
+                volLivenessIsBlinked = false;
+                volPrevNose = null;
+                playLivenessBeep(440, 0.25);
+                showToast("Terdeteksi pergerakan tidak wajar! Verifikasi diulang.", "warning");
+                volUpdateLivenessUI();
+                return;
+            }
+        }
+    }
+    volPrevNose = { x: nose.x, y: nose.y };
 
     const faceWidth = cheekLeft.x - cheekRight.x;
     const faceHeight = chin.y - forehead.y;
@@ -8152,6 +8186,7 @@ function volAdvanceLivenessStep() {
         volLivenessBlinkCount = 0;
         volLivenessIsBlinked = false;
         volLivenessStepTransitioning = false;
+        volPrevNose = null; // Reset nose tracking to prevent sudden delta trigger on step initialization
 
         if (volLivenessStepIndex >= volActiveLivenessSteps.length) {
             volCompleteLiveness();
