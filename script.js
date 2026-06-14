@@ -1,6 +1,6 @@
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwcaGQvuFfnb5zXAUWKLmDn8zqAZm_I806w5UdaWtlZjoSNdVxkHM7YgVhOmR-6RkXL/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx2cZ-IBc5P8FDbBWT6evg6zc4vVOYkn0ThwmDjo6oW5Ca9zzTGybU_GnmwGjX4dFkI/exec"; 
 
 const DIVISION_ROLE_PRESETS = {
     'Keamanan': 'security',
@@ -189,7 +189,8 @@ let appConfig = {
     adminWhatsApp: "6282114806765",
     autoOutType: "global",
     autoOutGlobalMinutes: 240,
-    autoOutDivisionsConfig: "{}"
+    autoOutDivisionsConfig: "{}",
+    enableLivenessCheck: false
 }; 
 let sortState = {
     logs: 'time_desc',
@@ -664,6 +665,7 @@ async function fetchData(force = false) {
                     appConfig.disableGeofence = data.config.disableGeofence === true || data.config.disableGeofence === 'true';
                     appConfig.hideOvertime = data.config.hideOvertime === true || data.config.hideOvertime === 'true';
                     appConfig.allowMultipleIn = data.config.allowMultipleIn === true || data.config.allowMultipleIn === 'true';
+                    appConfig.enableLivenessCheck = data.config.enableLivenessCheck === true || data.config.enableLivenessCheck === 'true';
                     appConfig.geofenceLat = parseFloat(data.config.geofenceLat || "-6.21973");
                     appConfig.geofenceLng = parseFloat(data.config.geofenceLng || "106.87015");
                     appConfig.geofenceRadius = parseInt(data.config.geofenceRadius || "15");
@@ -4204,6 +4206,8 @@ function loadSettingsUI() {
     if (tOT) tOT.checked = appConfig.hideOvertime;
     const tMultIn = document.getElementById('toggleMultipleIn');
     if (tMultIn) tMultIn.checked = appConfig.allowMultipleIn;
+    const tLiveness = document.getElementById('toggleLivenessCheck');
+    if (tLiveness) tLiveness.checked = appConfig.enableLivenessCheck;
 
     const bReason = document.getElementById('bothReasonInput');
     const lReason = document.getElementById('lateReasonInput');
@@ -4371,6 +4375,7 @@ async function saveFeatureSettings() {
     const disableGeofence = document.getElementById('toggleGeofence')?.checked || false;
     const hideOvertime = document.getElementById('toggleHideOvertime')?.checked || false;
     const allowMultipleIn = document.getElementById('toggleMultipleIn')?.checked || false;
+    const enableLivenessCheck = document.getElementById('toggleLivenessCheck')?.checked || false;
 
     const geofenceLat = document.getElementById('geofenceLat')?.value.trim() || "-6.21973";
     const geofenceLng = document.getElementById('geofenceLng')?.value.trim() || "106.87015";
@@ -4419,6 +4424,7 @@ async function saveFeatureSettings() {
     appConfig.disableGeofence = disableGeofence;
     appConfig.hideOvertime = hideOvertime;
     appConfig.allowMultipleIn = allowMultipleIn;
+    appConfig.enableLivenessCheck = enableLivenessCheck;
 
     appConfig.geofenceLat = parseFloat(geofenceLat);
     appConfig.geofenceLng = parseFloat(geofenceLng);
@@ -4440,7 +4446,7 @@ async function saveFeatureSettings() {
     const success = await postData('saveFeatureSettings', {
         disableBoth, disableLate, disableEarly,
         disableBothReason, disableLateReason, disableEarlyReason,
-        disableGeofence, hideOvertime, allowMultipleIn,
+        disableGeofence, hideOvertime, allowMultipleIn, enableLivenessCheck,
         geofenceLat, geofenceLng, geofenceRadius,
         lateTolerance, lateReasonThreshold, lateWaThreshold, lateMaxThreshold,
         adminWhatsApp, autoOutType, autoOutGlobalMinutes, autoOutDivisionsConfig
@@ -7803,18 +7809,344 @@ function volStartSelfie(mode) {
     const video = document.getElementById('volFaceVideo');
     if (!video) return;
     if (volFaceStream) volFaceStream.getTracks().forEach(t => t.stop());
+    
+    // Stop any running liveness checks first
+    volStopLivenessCheck();
+    
     navigator.mediaDevices.getUserMedia({
         video: { facingMode: volCurrentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } }
     }).then(s => {
         volFaceStream = s;
         video.srcObject = s;
         video.style.transform = mode === 'user' ? 'scaleX(-1)' : 'scaleX(1)';
+        
+        // Trigger liveness check dynamically
+        if (appConfig.enableLivenessCheck) {
+            volStartLivenessCheck(video);
+        } else {
+            document.getElementById('volLivenessBanner')?.classList.add('hidden');
+            document.getElementById('volLivenessBox')?.classList.add('hidden');
+        }
     }).catch(e => showToast('Gagal akses kamera selfie', 'error'));
 }
 
 function volToggleCamera() {
     const newMode = volCurrentFacingMode === 'user' ? 'environment' : 'user';
     volStartSelfie(newMode);
+}
+
+// --- Liveness Detection State & Helpers (NEW) ---
+let volLivenessActive = false;
+let volLivenessStep = 0; // 0: inactive, 1: face, 2: blink, 3: right, 4: left, 5: success
+let volLivenessBlinkCount = 0;
+let volLivenessIsBlinked = false;
+let volLivenessTimeout = null;
+let volLivenessMesh = null;
+let volFirstTurnSide = null;
+let livenessAnimationFrame = null;
+
+function playLivenessBeep(freq = 880, duration = 0.15) {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        oscillator.type = 'sine';
+        oscillator.frequency.value = freq;
+        gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + duration);
+    } catch (e) {
+        console.warn('Audio Context failed:', e);
+    }
+}
+
+function getEuclideanDistance(p1, p2) {
+    if (!p1 || !p2) return 0;
+    return Math.sqrt(
+        Math.pow(p1.x - p2.x, 2) +
+        Math.pow(p1.y - p2.y, 2) +
+        Math.pow(p1.z - p2.z, 2)
+    );
+}
+
+function calculateEyeAspectRatio(landmarks, eyeIndices) {
+    const p1 = landmarks[eyeIndices[0]];
+    const p2 = landmarks[eyeIndices[1]];
+    const p3 = landmarks[eyeIndices[2]];
+    const p4 = landmarks[eyeIndices[3]];
+    const p5 = landmarks[eyeIndices[4]];
+    const p6 = landmarks[eyeIndices[5]];
+
+    const d1 = getEuclideanDistance(p2, p6);
+    const d2 = getEuclideanDistance(p3, p5);
+    const d3 = getEuclideanDistance(p1, p4);
+
+    if (d3 === 0) return 0;
+    return (d1 + d2) / (2.0 * d3);
+}
+
+function volStartLivenessCheck(video) {
+    document.getElementById('volLivenessBanner')?.classList.remove('hidden');
+    document.getElementById('volLivenessBox')?.classList.remove('hidden');
+
+    volLivenessStep = 1;
+    volLivenessBlinkCount = 0;
+    volLivenessIsBlinked = false;
+    volFirstTurnSide = null;
+    volUpdateLivenessUI();
+
+    const submitBtn = document.getElementById('volBtnSubmit');
+    if (submitBtn) submitBtn.disabled = true;
+
+    const statusText = document.getElementById('volLivenessStatus');
+    if (statusText) {
+        statusText.innerText = "Proses...";
+        statusText.className = "text-[9px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded";
+    }
+
+    if (volLivenessTimeout) clearTimeout(volLivenessTimeout);
+    volLivenessTimeout = setTimeout(() => {
+        if (volLivenessActive && volLivenessStep < 5) {
+            volStopLivenessCheck();
+            showToast("Batas waktu verifikasi habis. Silakan ulangi.", "warning");
+            
+            const instText = document.getElementById('volLivenessInstructionText');
+            if (instText) {
+                instText.innerHTML = '<button onclick="volRestartLiveness()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold rounded-lg transition active:scale-95 shadow-md">Ulangi Verifikasi</button>';
+            }
+            
+            if (statusText) {
+                statusText.innerText = "Gagal";
+                statusText.className = "text-[9px] font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded";
+            }
+        }
+    }, 20000);
+
+    volLivenessActive = true;
+
+    if (!volLivenessMesh) {
+        try {
+            volLivenessMesh = new FaceMesh({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+            });
+            volLivenessMesh.setOptions({
+                maxNumFaces: 1,
+                refineLandmarks: true,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+            volLivenessMesh.onResults(volOnLivenessResults);
+        } catch (err) {
+            console.error("Gagal inisialisasi FaceMesh:", err);
+            showToast("Sistem AI Wajah gagal dimuat. Menggunakan kamera biasa.", "error");
+            volStopLivenessCheck();
+            return;
+        }
+    }
+
+    const processFrame = async () => {
+        if (!volLivenessActive || !video.srcObject) return;
+        try {
+            if (video.readyState >= 2) {
+                await volLivenessMesh.send({ image: video });
+            }
+        } catch (e) {
+            console.error("Frame processing error:", e);
+        }
+        livenessAnimationFrame = requestAnimationFrame(processFrame);
+    };
+    livenessAnimationFrame = requestAnimationFrame(processFrame);
+}
+
+function volStopLivenessCheck() {
+    volLivenessActive = false;
+    if (livenessAnimationFrame) {
+        cancelAnimationFrame(livenessAnimationFrame);
+        livenessAnimationFrame = null;
+    }
+    if (volLivenessTimeout) {
+        clearTimeout(volLivenessTimeout);
+        volLivenessTimeout = null;
+    }
+}
+
+function volRestartLiveness() {
+    const video = document.getElementById('volFaceVideo');
+    if (video) {
+        volStartLivenessCheck(video);
+    }
+}
+
+function volOnLivenessResults(results) {
+    if (!volLivenessActive) return;
+
+    const instText = document.getElementById('volLivenessInstructionText');
+    if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+        if (volLivenessStep === 1 && instText) {
+            instText.innerText = "Mohon Menghadap Kamera Lurus";
+        }
+        return;
+    }
+
+    const landmarks = results.multiFaceLandmarks[0];
+    const cheekRight = landmarks[234];
+    const cheekLeft = landmarks[454];
+    const nose = landmarks[4];
+    const faceWidth = cheekLeft.x - cheekRight.x;
+
+    if (volLivenessStep === 1) {
+        if (faceWidth < 0.22) {
+            if (instText) instText.innerText = "Dekatkan Wajah Anda Ke Kamera";
+            return;
+        }
+        if (faceWidth > 0.7) {
+            if (instText) instText.innerText = "Jauhkan Wajah Anda Dari Kamera";
+            return;
+        }
+
+        const ratio = (nose.x - cheekRight.x) / faceWidth;
+        if (ratio < 0.38 || ratio > 0.62) {
+            if (instText) instText.innerText = "Posisikan Wajah di Tengah Frame";
+            return;
+        }
+
+        playLivenessBeep(660, 0.1);
+        volLivenessStep = 2;
+        volLivenessBlinkCount = 0;
+        volLivenessIsBlinked = false;
+        volUpdateLivenessUI();
+        return;
+    }
+
+    if (volLivenessStep === 2) {
+        const leftEAR = calculateEyeAspectRatio(landmarks, [362, 385, 386, 263, 374, 380]);
+        const rightEAR = calculateEyeAspectRatio(landmarks, [33, 160, 158, 133, 153, 144]);
+        const avgEAR = (leftEAR + rightEAR) / 2.0;
+
+        if (instText) instText.innerText = `Silakan Berkedip 2 Kali (${volLivenessBlinkCount}/2)`;
+
+        if (avgEAR < 0.21) {
+            if (!volLivenessIsBlinked) {
+                volLivenessIsBlinked = true;
+            }
+        } else if (avgEAR > 0.24) {
+            if (volLivenessIsBlinked) {
+                volLivenessBlinkCount++;
+                volLivenessIsBlinked = false;
+                playLivenessBeep(750, 0.1);
+
+                if (volLivenessBlinkCount >= 2) {
+                    playLivenessBeep(880, 0.15);
+                    volLivenessStep = 3;
+                    volFirstTurnSide = null;
+                    volUpdateLivenessUI();
+                }
+            }
+        }
+        return;
+    }
+
+    if (volLivenessStep === 3) {
+        const ratio = (nose.x - cheekRight.x) / faceWidth;
+        if (instText) instText.innerText = "Silakan Menoleh Ke Kanan (Samping)";
+
+        if (ratio < 0.33) {
+            volFirstTurnSide = 'right';
+            playLivenessBeep(880, 0.15);
+            volLivenessStep = 4;
+            volUpdateLivenessUI();
+        } else if (ratio > 0.67) {
+            volFirstTurnSide = 'left';
+            playLivenessBeep(880, 0.15);
+            volLivenessStep = 4;
+            volUpdateLivenessUI();
+        }
+        return;
+    }
+
+    if (volLivenessStep === 4) {
+        const ratio = (nose.x - cheekRight.x) / faceWidth;
+        if (instText) instText.innerText = "Silakan Menoleh Ke Arah Sebaliknya";
+
+        if (volFirstTurnSide === 'right' && ratio > 0.67) {
+            volCompleteLiveness();
+        } else if (volFirstTurnSide === 'left' && ratio < 0.33) {
+            volCompleteLiveness();
+        }
+        return;
+    }
+}
+
+function volUpdateLivenessUI() {
+    for (let s = 1; s <= 4; s++) {
+        const card = document.getElementById(`step-live-${s}`);
+        if (!card) continue;
+        const icon = card.querySelector('i');
+        
+        if (volLivenessStep > s) {
+            card.className = "flex flex-col items-center gap-1.5 p-1.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 transition-all duration-300";
+            if (icon) icon.className = "fas fa-check-circle text-xs";
+        } else if (volLivenessStep === s) {
+            card.className = "flex flex-col items-center gap-1.5 p-1.5 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/15 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 animate-pulse transition-all duration-300";
+            if (s === 1 && icon) icon.className = "fas fa-user-circle text-xs";
+            else if (s === 2 && icon) icon.className = "fas fa-eye text-xs";
+            else if (s === 3 && icon) icon.className = "fas fa-arrow-right text-xs";
+            else if (s === 4 && icon) icon.className = "fas fa-arrow-left text-xs";
+        } else {
+            card.className = "flex flex-col items-center gap-1.5 p-1.5 rounded-xl bg-slate-100/50 dark:bg-white/5 text-slate-400 dark:text-slate-600 transition-all duration-300";
+            if (s === 1 && icon) icon.className = "fas fa-user-circle text-xs";
+            else if (s === 2 && icon) icon.className = "fas fa-eye text-xs";
+            else if (s === 3 && icon) icon.className = "fas fa-arrow-right text-xs";
+            else if (s === 4 && icon) icon.className = "fas fa-arrow-left text-xs";
+        }
+    }
+}
+
+function volCompleteLiveness() {
+    volLivenessStep = 5;
+    volStopLivenessCheck();
+    volUpdateLivenessUI();
+
+    playLivenessBeep(1000, 0.15);
+    setTimeout(() => playLivenessBeep(1320, 0.3), 120);
+
+    const instText = document.getElementById('volLivenessInstructionText');
+    if (instText) instText.innerText = "Verifikasi Berhasil! Mengirim Absen...";
+
+    const statusText = document.getElementById('volLivenessStatus');
+    if (statusText) {
+        statusText.innerText = "Berhasil";
+        statusText.className = "text-[9px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded";
+    }
+
+    const submitBtn = document.getElementById('volBtnSubmit');
+    if (submitBtn) submitBtn.disabled = false;
+
+    let isGeofenceOk = true;
+    if (!appConfig.disableGeofence) {
+        if (volLocationLocked && volCurrentLocation.lat) {
+            const dist = haversineDistance(volCurrentLocation.lat, volCurrentLocation.lng, GEOFENCE_CONFIG.lat, GEOFENCE_CONFIG.lng);
+            if (dist > GEOFENCE_CONFIG.radius) {
+                isGeofenceOk = false;
+            }
+        } else {
+            isGeofenceOk = false;
+        }
+    }
+
+    if (isGeofenceOk) {
+        setTimeout(() => {
+            volSubmitSelfie();
+        }, 800);
+    } else {
+        if (instText) instText.innerText = "Liveness Berhasil. Posisikan diri Anda di area Dapur.";
+    }
 }
 
 // --- Deteksi Wajah ---
@@ -8121,6 +8453,10 @@ function volCancelFlow() {
     volAbsenType = null;
     if (volScanStream) { volScanStream.getTracks().forEach(t => t.stop()); volScanStream = null; }
     if (volFaceStream) { volFaceStream.getTracks().forEach(t => t.stop()); volFaceStream = null; }
+    
+    // Stop any running liveness checks
+    volStopLivenessCheck();
+    
     const btn = document.getElementById('volBtnSubmit');
     if (btn) btn.disabled = true;
     volShowPage('home');
@@ -8159,6 +8495,7 @@ async function startAbsenMandiri() {
                 appConfig.disableGeofence = data.config.disableGeofence === true || data.config.disableGeofence === 'true';
                 appConfig.hideOvertime = data.config.hideOvertime === true || data.config.hideOvertime === 'true';
                 appConfig.allowMultipleIn = data.config.allowMultipleIn === true || data.config.allowMultipleIn === 'true';
+                appConfig.enableLivenessCheck = data.config.enableLivenessCheck === true || data.config.enableLivenessCheck === 'true';
                 appConfig.geofenceLat = parseFloat(data.config.geofenceLat || "-6.21973");
                 appConfig.geofenceLng = parseFloat(data.config.geofenceLng || "106.87015");
                 appConfig.geofenceRadius = parseInt(data.config.geofenceRadius || "15");
