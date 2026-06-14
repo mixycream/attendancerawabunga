@@ -3116,7 +3116,7 @@
             </div>
 
             <!-- Unified Floating Glassmorphic Status Header -->
-            <div class="absolute top-4 left-4 right-4 z-20 p-4 bg-white/70 dark:bg-slate-950/45 border border-slate-200/50 dark:border-white/10 backdrop-blur-md rounded-[2rem] shadow-xl flex flex-col gap-2.5">
+            <div class="relative z-20 mt-4 mx-4 mb-2 p-4 bg-white/70 dark:bg-slate-950/45 border border-slate-200/50 dark:border-white/10 backdrop-blur-md rounded-[2rem] shadow-xl flex flex-col gap-2.5">
                 <div class="flex justify-between items-center">
                     <div class="flex items-center gap-2">
                          <span class="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse shadow-[0_0_10px_#3b82f6]"></span>
@@ -3173,7 +3173,7 @@
             </div>
 
             <!-- Page 0: Security Self Check-In -->
-            <div id="secGatePage" class="flex-1 flex flex-col items-center justify-start p-6 relative pt-64 pb-8 z-10 overflow-y-auto w-full">
+            <div id="secGatePage" class="flex-1 flex flex-col items-center justify-start p-6 relative pt-4 pb-8 z-10 overflow-y-auto w-full">
                 <div class="w-full max-w-sm bg-white/80 dark:bg-slate-900/60 border border-slate-200/50 dark:border-white/10 rounded-[2.5rem] p-6 backdrop-blur-md shadow-2xl text-center">
                     <div class="w-16 h-16 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500 text-2xl mx-auto mb-4 shadow-[0_8px_25px_rgba(59,130,246,0.15)] relative">
                         <div class="absolute inset-0 rounded-full border border-blue-500/30 animate-pulse"></div>
@@ -3197,7 +3197,7 @@
             </div>
 
             <!-- Page 1: QR Scanner -->
-            <div id="secPage1" class="flex-1 flex flex-col items-center justify-start p-6 relative pt-64 pb-8 z-10 overflow-y-auto w-full">
+            <div id="secPage1" class="flex-1 flex flex-col items-center justify-start p-6 relative pt-4 pb-8 z-10 overflow-y-auto w-full">
                 <!-- Camera Frame -->
                 <div class="relative w-full max-w-sm aspect-square bg-black rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-[6px] border-slate-900 dark:border-slate-950 shadow-[0_0_35px_rgba(59,130,246,0.2)] group mb-6">
                     <video id="scanVideo" autoplay playsinline class="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition duration-500"></video>
@@ -3226,8 +3226,8 @@
 
             <!-- Page 2: Selfie Verification -->
             <div id="secPage2" class="hidden flex-1 flex flex-col bg-transparent overflow-y-auto">
-                <!-- Profile Header - Reduced top padding from pt-48 to pt-32 -->
-                <div class="pt-[220px] px-6 pb-4">
+                <!-- Profile Header -->
+                <div class="pt-2 px-6 pb-4">
                     <div class="bg-white/80 dark:bg-slate-900/60 border border-slate-200/50 dark:border-white/10 p-5 rounded-[2.2rem] flex items-center gap-5 backdrop-blur-md shadow-2xl">
                         <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center text-2xl text-white shadow-lg shadow-blue-600/20 shrink-0">
                             <i class="fas fa-user-check"></i>
@@ -3296,7 +3296,7 @@
             </div>
 
             <!-- Unified Floating Glassmorphic Status Header -->
-            <div class="absolute top-4 left-4 right-4 z-20 p-4 bg-white/70 dark:bg-slate-950/45 border border-slate-200/50 dark:border-white/10 backdrop-blur-md rounded-[2rem] shadow-xl flex flex-col gap-2.5">
+            <div class="relative z-20 mt-4 mx-4 mb-2 p-4 bg-white/70 dark:bg-slate-950/45 border border-slate-200/50 dark:border-white/10 backdrop-blur-md rounded-[2rem] shadow-xl flex flex-col gap-2.5">
                 <div class="flex justify-between items-center">
                     <div class="flex items-center gap-2">
                         <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_#10b981]"></span>
@@ -3350,7 +3350,7 @@
             </div>
 
             <!-- Vol Page 0: Dashboard / Home -->
-            <div id="volPageHome" class="flex-1 flex flex-col items-center justify-start p-6 relative pt-64 pb-8 z-10 overflow-y-auto w-full">
+            <div id="volPageHome" class="flex-1 flex flex-col items-center justify-start p-6 relative pt-4 pb-8 z-10 overflow-y-auto w-full">
                 <div class="w-full max-w-sm space-y-4">
                     <!-- Status Card -->
                     <div id="volStatusCard" class="bg-white/80 dark:bg-slate-900/60 border border-slate-200/50 dark:border-white/10 rounded-[2.5rem] p-6 backdrop-blur-md shadow-2xl text-center transition-all duration-300">
@@ -3380,7 +3380,7 @@
             </div>
 
             <!-- Vol Page 1: QR Scan -->
-            <div id="volPageQR" class="hidden flex-1 flex flex-col items-center justify-start p-6 relative pt-64 pb-8 z-10 overflow-y-auto w-full">
+            <div id="volPageQR" class="hidden flex-1 flex flex-col items-center justify-start p-6 relative pt-4 pb-8 z-10 overflow-y-auto w-full">
                 <div class="relative w-full max-w-sm aspect-square bg-black rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-[6px] border-slate-900 dark:border-slate-950 shadow-[0_0_30px_rgba(16,185,129,0.2)] group mb-6 z-10">
                     <video id="volScanVideo" autoplay playsinline class="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition duration-500"></video>
                     <div class="absolute inset-0 p-10 flex items-center justify-center pointer-events-none">
@@ -3414,58 +3414,35 @@
 
             <!-- Vol Page 2: Selfie Verification -->
             <div id="volPageSelfie" class="hidden flex-1 flex flex-col bg-transparent overflow-y-auto transition-colors duration-300">
-                <div class="pt-[220px] px-6 pb-3">
-                    <div class="bg-white/80 dark:bg-slate-900/60 border border-slate-200/50 dark:border-white/10 p-5 rounded-[2.2rem] flex items-center gap-4 backdrop-blur-md shadow-2xl">
-                        <div id="volSelfieTypeIcon" class="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center text-2xl text-white shadow-lg shadow-emerald-500/20 shrink-0">
+                <div class="pt-2 px-6 pb-2">
+                    <div class="bg-white/80 dark:bg-slate-900/60 border border-slate-200/50 dark:border-white/10 p-3.5 rounded-[1.8rem] flex items-center gap-3 backdrop-blur-md shadow-2xl">
+                        <div id="volSelfieTypeIcon" class="w-11 h-11 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center text-lg text-white shadow-lg shadow-emerald-500/20 shrink-0">
                             <i class="fas fa-sign-in-alt"></i>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <h2 id="volSelfieName" class="text-lg font-extrabold text-slate-900 dark:text-white leading-tight truncate">Nama Relawan</h2>
-                            <div class="flex items-center gap-2 mt-2 flex-wrap">
-                                <span id="volSelfieDiv" class="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/10 px-2.5 py-0.5 rounded-lg border border-emerald-300/50 dark:border-emerald-500/20 uppercase tracking-wide">Divisi</span>
-                                <span id="volSelfieType" class="text-[9px] font-extrabold text-white bg-emerald-500 px-2 py-0.5 rounded shadow-sm">CLOCK IN</span>
-                                <span id="volSelfieKitchen" class="text-[9px] text-slate-500 dark:text-slate-400 flex items-center gap-1 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-lg border border-slate-200/30 dark:border-white/5">
-                                    <i class="fas fa-store-alt text-emerald-500"></i> SPPG Rawa Bunga 1
+                            <h2 id="volSelfieName" class="text-base font-extrabold text-slate-900 dark:text-white leading-tight truncate">Nama Relawan</h2>
+                            <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                                <span id="volSelfieDiv" class="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-300/50 dark:border-emerald-500/20 uppercase tracking-wide">Divisi</span>
+                                <span id="volSelfieType" class="text-[8px] font-extrabold text-white bg-emerald-500 px-1.5 py-0.5 rounded shadow-sm">CLOCK IN</span>
+                                <span id="volSelfieKitchen" class="text-[8px] text-slate-500 dark:text-slate-400 flex items-center gap-1 bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded-lg border border-slate-200/30 dark:border-white/5">
+                                    <i class="fas fa-store-alt text-emerald-500 text-[8px]"></i> SPPG Rawa Bunga 1
                                 </span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Security tightened warning banner (NEW) -->
-                <div id="volLivenessBanner" class="hidden px-6 pt-1 pb-1">
-                    <div class="flex items-center gap-3 px-4 py-3 bg-red-500/10 dark:bg-red-500/15 border border-red-400/20 rounded-2xl text-[10px] text-red-600 dark:text-red-400 font-extrabold shadow-sm tracking-wide">
-                        <i class="fas fa-shield-halved animate-pulse text-xs text-red-500 shrink-0"></i>
-                        <span>ABSENSI DIPERKETAT & DIAWASI LANGSUNG OLEH ADMIN / ATASAN</span>
-                    </div>
-                </div>
-
                 <!-- Liveness Instructions & Progress Overlay (NEW) -->
                 <div id="volLivenessBox" class="hidden px-6 pt-1 pb-1">
-                    <div class="bg-white/80 dark:bg-slate-900/60 border border-slate-200/50 dark:border-white/10 p-4 rounded-3xl backdrop-blur-md shadow-lg flex flex-col gap-2.5">
-                        <div class="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
-                            <span class="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-wider">Verifikasi Keaktifan Wajah</span>
-                            <span id="volLivenessStatus" class="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded">Proses...</span>
+                    <div class="bg-white/80 dark:bg-slate-900/60 border border-slate-200/50 dark:border-white/10 p-3.5 rounded-[1.8rem] backdrop-blur-md shadow-lg flex flex-col gap-2">
+                        <div class="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-1">
+                            <span class="text-[9px] font-black text-slate-800 dark:text-white uppercase tracking-wider">Verifikasi Keaktifan Wajah</span>
+                            <span id="volLivenessStatus" class="text-[8px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">Proses...</span>
                         </div>
-                        <div class="grid grid-cols-4 gap-2 text-center text-[9px] font-bold text-slate-400">
-                            <div id="step-live-1" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl bg-slate-100/50 dark:bg-white/5">
-                                <i class="fas fa-user-circle text-xs"></i>
-                                <span>Wajah</span>
-                            </div>
-                            <div id="step-live-2" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl bg-slate-100/50 dark:bg-white/5">
-                                <i class="fas fa-eye text-xs"></i>
-                                <span>Berkedip</span>
-                            </div>
-                            <div id="step-live-3" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl bg-slate-100/50 dark:bg-white/5">
-                                <i class="fas fa-arrow-right text-xs"></i>
-                                <span>Kanan</span>
-                            </div>
-                            <div id="step-live-4" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl bg-slate-100/50 dark:bg-white/5">
-                                <i class="fas fa-arrow-left text-xs"></i>
-                                <span>Kiri</span>
-                            </div>
+                        <div id="volLivenessStepsContainer" class="flex items-center justify-center gap-1.5 text-center text-[8px] font-bold text-slate-400">
+                            <!-- Dynamic step badges will be inserted here -->
                         </div>
-                        <div id="volLivenessInstructionText" class="text-center font-extrabold text-xs text-indigo-600 dark:text-indigo-400 py-0.5 animate-pulse">
+                        <div id="volLivenessInstructionText" class="text-center font-extrabold text-[11px] text-indigo-600 dark:text-indigo-400 py-0.5 animate-pulse">
                             Mohon Menghadap Kamera Lurus
                         </div>
                     </div>
@@ -3473,7 +3450,12 @@
 
                 <div class="px-6 flex-1 flex flex-col justify-start pb-8">
                     <!-- Live Camera -->
-                    <div class="relative bg-black rounded-[2.5rem] overflow-hidden border-4 border-slate-900 dark:border-slate-950 w-full aspect-[3/4] shadow-[0_20px_50px_rgba(0,0,0,0.3)] shadow-[0_0_35px_rgba(16,185,129,0.15)] mb-5 group shrink-0 max-h-[50vh]">
+                    <div class="relative bg-black rounded-[2.5rem] overflow-hidden border-4 border-slate-900 dark:border-slate-950 w-full aspect-square shadow-[0_20px_50px_rgba(0,0,0,0.3)] shadow-[0_0_35px_rgba(16,185,129,0.15)] mb-4 group shrink-0">
+                        <!-- Floating tightened security warning badge -->
+                        <div id="volLivenessBanner" class="hidden absolute top-4 left-1/2 -translate-x-1/2 z-20 px-4 py-1.5 bg-red-500/90 dark:bg-red-600/90 backdrop-blur-md rounded-full border border-red-400/30 shadow-lg text-[9px] text-white font-black flex items-center justify-center gap-1.5 tracking-wider uppercase max-w-[90%] text-center leading-tight">
+                            <i class="fas fa-shield-halved animate-pulse text-[10px] text-red-100 shrink-0"></i>
+                            <span>Absensi Diperketat & Diawasi Langsung Oleh Admin / Atasan</span>
+                        </div>
                         <video id="volFaceVideo" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100 transition-transform duration-500"></video>
                         <canvas id="volSnapCanvas" class="hidden"></canvas>
                         <!-- Watermark preview overlay -->

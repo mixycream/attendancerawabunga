@@ -7837,13 +7837,37 @@ function volToggleCamera() {
 
 // --- Liveness Detection State & Helpers (NEW) ---
 let volLivenessActive = false;
-let volLivenessStep = 0; // 0: inactive, 1: face, 2: blink, 3: right, 4: left, 5: success
+let volActiveLivenessSteps = [];
+let volLivenessStepIndex = 0;
 let volLivenessBlinkCount = 0;
 let volLivenessIsBlinked = false;
 let volLivenessTimeout = null;
 let volLivenessMesh = null;
-let volFirstTurnSide = null;
 let livenessAnimationFrame = null;
+
+function volGetStepIcon(stepKey) {
+    switch (stepKey) {
+        case 'face': return 'fas fa-user-circle';
+        case 'blink': return 'fas fa-eye';
+        case 'right': return 'fas fa-arrow-right';
+        case 'left': return 'fas fa-arrow-left';
+        case 'up': return 'fas fa-arrow-up';
+        case 'down': return 'fas fa-arrow-down';
+        default: return 'fas fa-question';
+    }
+}
+
+function volGetStepLabel(stepKey) {
+    switch (stepKey) {
+        case 'face': return 'Wajah';
+        case 'blink': return 'Kedip';
+        case 'right': return 'Kanan';
+        case 'left': return 'Kiri';
+        case 'up': return 'Atas';
+        case 'down': return 'Bawah';
+        default: return '';
+    }
+}
 
 function playLivenessBeep(freq = 880, duration = 0.15) {
     try {
@@ -7895,10 +7919,30 @@ function volStartLivenessCheck(video) {
     document.getElementById('volLivenessBanner')?.classList.remove('hidden');
     document.getElementById('volLivenessBox')?.classList.remove('hidden');
 
-    volLivenessStep = 1;
+    // Randomize liveness steps: Face detection is always first, followed by 2 to 4 random verification checks
+    const pool = ['blink', 'right', 'left', 'up', 'down'];
+    for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const verifCount = Math.floor(Math.random() * 3) + 2; // Returns 2, 3, or 4 checks
+    const selectedVerifs = pool.slice(0, verifCount);
+    volActiveLivenessSteps = ['face', ...selectedVerifs];
+
+    // Render step indicators dynamically in flex layout
+    const container = document.getElementById('volLivenessStepsContainer');
+    if (container) {
+        container.innerHTML = volActiveLivenessSteps.map((stepKey, idx) => `
+            <div id="step-live-${idx}" class="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-slate-100/50 dark:bg-white/5 transition-all duration-300">
+                <i class="${volGetStepIcon(stepKey)} text-[9px]"></i>
+                <span>${volGetStepLabel(stepKey)}</span>
+            </div>
+        `).join('');
+    }
+
+    volLivenessStepIndex = 0;
     volLivenessBlinkCount = 0;
     volLivenessIsBlinked = false;
-    volFirstTurnSide = null;
     volUpdateLivenessUI();
 
     const submitBtn = document.getElementById('volBtnSubmit');
@@ -7912,7 +7956,7 @@ function volStartLivenessCheck(video) {
 
     if (volLivenessTimeout) clearTimeout(volLivenessTimeout);
     volLivenessTimeout = setTimeout(() => {
-        if (volLivenessActive && volLivenessStep < 5) {
+        if (volLivenessActive && volLivenessStepIndex < volActiveLivenessSteps.length) {
             volStopLivenessCheck();
             showToast("Batas waktu verifikasi habis. Silakan ulangi.", "warning");
             
@@ -7926,7 +7970,7 @@ function volStartLivenessCheck(video) {
                 statusText.className = "text-[9px] font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded";
             }
         }
-    }, 20000);
+    }, 30000); // 30 seconds timeout limit
 
     volLivenessActive = true;
 
@@ -7988,7 +8032,7 @@ function volOnLivenessResults(results) {
 
     const instText = document.getElementById('volLivenessInstructionText');
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
-        if (volLivenessStep === 1 && instText) {
+        if (volLivenessStepIndex === 0 && instText) {
             instText.innerText = "Mohon Menghadap Kamera Lurus";
         }
         return;
@@ -7998,9 +8042,17 @@ function volOnLivenessResults(results) {
     const cheekRight = landmarks[234];
     const cheekLeft = landmarks[454];
     const nose = landmarks[4];
-    const faceWidth = cheekLeft.x - cheekRight.x;
+    const forehead = landmarks[10];
+    const chin = landmarks[152];
 
-    if (volLivenessStep === 1) {
+    const faceWidth = cheekLeft.x - cheekRight.x;
+    const faceHeight = chin.y - forehead.y;
+    const verticalRatio = faceHeight > 0 ? (nose.y - forehead.y) / faceHeight : 0.55;
+    const ratio = (nose.x - cheekRight.x) / faceWidth;
+
+    const currentStep = volActiveLivenessSteps[volLivenessStepIndex];
+
+    if (currentStep === 'face') {
         if (faceWidth < 0.22) {
             if (instText) instText.innerText = "Dekatkan Wajah Anda Ke Kamera";
             return;
@@ -8009,22 +8061,17 @@ function volOnLivenessResults(results) {
             if (instText) instText.innerText = "Jauhkan Wajah Anda Dari Kamera";
             return;
         }
-
-        const ratio = (nose.x - cheekRight.x) / faceWidth;
         if (ratio < 0.38 || ratio > 0.62) {
             if (instText) instText.innerText = "Posisikan Wajah di Tengah Frame";
             return;
         }
 
         playLivenessBeep(660, 0.1);
-        volLivenessStep = 2;
-        volLivenessBlinkCount = 0;
-        volLivenessIsBlinked = false;
-        volUpdateLivenessUI();
+        volAdvanceLivenessStep();
         return;
     }
 
-    if (volLivenessStep === 2) {
+    if (currentStep === 'blink') {
         const leftEAR = calculateEyeAspectRatio(landmarks, [362, 385, 386, 263, 374, 380]);
         const rightEAR = calculateEyeAspectRatio(landmarks, [33, 160, 158, 133, 153, 144]);
         const avgEAR = (leftEAR + rightEAR) / 2.0;
@@ -8043,73 +8090,110 @@ function volOnLivenessResults(results) {
 
                 if (volLivenessBlinkCount >= 2) {
                     playLivenessBeep(880, 0.15);
-                    volLivenessStep = 3;
-                    volFirstTurnSide = null;
-                    volUpdateLivenessUI();
+                    volAdvanceLivenessStep();
                 }
             }
         }
         return;
     }
 
-    if (volLivenessStep === 3) {
-        const ratio = (nose.x - cheekRight.x) / faceWidth;
-        if (instText) instText.innerText = "Silakan Menoleh Ke Kanan (Samping)";
-
+    if (currentStep === 'left') {
+        // Mirrored front-camera logic: looking to your own left moves the nose to the camera's right/mirrored left
+        if (instText) instText.innerText = "Silakan Menoleh Ke Kiri (Samping)";
         if (ratio < 0.33) {
-            volFirstTurnSide = 'right';
             playLivenessBeep(880, 0.15);
-            volLivenessStep = 4;
-            volUpdateLivenessUI();
-        } else if (ratio > 0.67) {
-            volFirstTurnSide = 'left';
-            playLivenessBeep(880, 0.15);
-            volLivenessStep = 4;
-            volUpdateLivenessUI();
+            volAdvanceLivenessStep();
         }
         return;
     }
 
-    if (volLivenessStep === 4) {
-        const ratio = (nose.x - cheekRight.x) / faceWidth;
-        if (instText) instText.innerText = "Silakan Menoleh Ke Arah Sebaliknya";
+    if (currentStep === 'right') {
+        // Mirrored front-camera logic: looking to your own right moves the nose to the camera's left/mirrored right
+        if (instText) instText.innerText = "Silakan Menoleh Ke Kanan (Samping)";
+        if (ratio > 0.67) {
+            playLivenessBeep(880, 0.15);
+            volAdvanceLivenessStep();
+        }
+        return;
+    }
 
-        if (volFirstTurnSide === 'right' && ratio > 0.67) {
-            volCompleteLiveness();
-        } else if (volFirstTurnSide === 'left' && ratio < 0.33) {
-            volCompleteLiveness();
+    if (currentStep === 'up') {
+        if (instText) instText.innerText = "Silakan Menengadah Ke Atas";
+        if (verticalRatio < 0.42) {
+            playLivenessBeep(880, 0.15);
+            volAdvanceLivenessStep();
+        }
+        return;
+    }
+
+    if (currentStep === 'down') {
+        if (instText) instText.innerText = "Silakan Menunduk Ke Bawah";
+        if (verticalRatio > 0.62) {
+            playLivenessBeep(880, 0.15);
+            volAdvanceLivenessStep();
         }
         return;
     }
 }
 
+function volAdvanceLivenessStep() {
+    volLivenessStepIndex++;
+    volLivenessBlinkCount = 0;
+    volLivenessIsBlinked = false;
+
+    if (volLivenessStepIndex >= volActiveLivenessSteps.length) {
+        volCompleteLiveness();
+    } else {
+        volUpdateLivenessUI();
+    }
+}
+
 function volUpdateLivenessUI() {
-    for (let s = 1; s <= 4; s++) {
-        const card = document.getElementById(`step-live-${s}`);
-        if (!card) continue;
+    const container = document.getElementById('volLivenessStepsContainer');
+    if (!container) return;
+
+    volActiveLivenessSteps.forEach((stepKey, idx) => {
+        const card = document.getElementById(`step-live-${idx}`);
+        if (!card) return;
         const icon = card.querySelector('i');
-        
-        if (volLivenessStep > s) {
-            card.className = "flex flex-col items-center gap-1.5 p-1.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 transition-all duration-300";
-            if (icon) icon.className = "fas fa-check-circle text-xs";
-        } else if (volLivenessStep === s) {
-            card.className = "flex flex-col items-center gap-1.5 p-1.5 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/15 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 animate-pulse transition-all duration-300";
-            if (s === 1 && icon) icon.className = "fas fa-user-circle text-xs";
-            else if (s === 2 && icon) icon.className = "fas fa-eye text-xs";
-            else if (s === 3 && icon) icon.className = "fas fa-arrow-right text-xs";
-            else if (s === 4 && icon) icon.className = "fas fa-arrow-left text-xs";
+
+        if (volLivenessStepIndex > idx) {
+            card.className = "flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 transition-all duration-300";
+            if (icon) icon.className = "fas fa-check-circle text-[9px]";
+        } else if (volLivenessStepIndex === idx) {
+            card.className = "flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-indigo-500/10 dark:bg-indigo-500/15 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 animate-pulse transition-all duration-300";
+            if (icon) {
+                icon.className = `${volGetStepIcon(stepKey)} text-[9px]`;
+            }
         } else {
-            card.className = "flex flex-col items-center gap-1.5 p-1.5 rounded-xl bg-slate-100/50 dark:bg-white/5 text-slate-400 dark:text-slate-600 transition-all duration-300";
-            if (s === 1 && icon) icon.className = "fas fa-user-circle text-xs";
-            else if (s === 2 && icon) icon.className = "fas fa-eye text-xs";
-            else if (s === 3 && icon) icon.className = "fas fa-arrow-right text-xs";
-            else if (s === 4 && icon) icon.className = "fas fa-arrow-left text-xs";
+            card.className = "flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-slate-100/50 dark:bg-white/5 text-slate-400 dark:text-slate-600 transition-all duration-300";
+            if (icon) {
+                icon.className = `${volGetStepIcon(stepKey)} text-[9px]`;
+            }
+        }
+    });
+
+    const instText = document.getElementById('volLivenessInstructionText');
+    if (instText && volLivenessStepIndex < volActiveLivenessSteps.length) {
+        const currentStep = volActiveLivenessSteps[volLivenessStepIndex];
+        if (currentStep === 'face') {
+            instText.innerText = "Mohon Menghadap Kamera Lurus";
+        } else if (currentStep === 'blink') {
+            instText.innerText = `Silakan Berkedip 2 Kali (${volLivenessBlinkCount}/2)`;
+        } else if (currentStep === 'right') {
+            instText.innerText = "Silakan Menoleh Ke Kanan (Samping)";
+        } else if (currentStep === 'left') {
+            instText.innerText = "Silakan Menoleh Ke Kiri (Samping)";
+        } else if (currentStep === 'up') {
+            instText.innerText = "Silakan Menengadah Ke Atas";
+        } else if (currentStep === 'down') {
+            instText.innerText = "Silakan Menunduk Ke Bawah";
         }
     }
 }
 
 function volCompleteLiveness() {
-    volLivenessStep = 5;
+    volLivenessStepIndex = volActiveLivenessSteps.length;
     volStopLivenessCheck();
     volUpdateLivenessUI();
 
