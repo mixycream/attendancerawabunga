@@ -3993,8 +3993,10 @@ async function executeCleanDuplicateLogs() {
 
 
 // Auto Clock-Out: relawan yang lupa absen OUT
-// Cook: >13 jam, Lainnya (non-Security): >12 jam
-// Waktu OUT = jam shift end, Lokasi = sama dengan IN
+// Logika Auto Clock-Out:
+// - Berlaku untuk SEMUA divisi termasuk Security/Keamanan
+// - Waktu auto-out = jam masuk + menit yang dikonfigurasi (global atau per divisi)
+// - Misal setting 810 menit: jika masuk jam 06:00, auto-out di jam 19:30
 let isAutoClockOutRunning = false; // Guard flag untuk mencegah spam auto OUT
 async function autoClockOutForgotten() {
     // Guard flag — cegah eksekusi ganda/spam
@@ -4007,9 +4009,8 @@ async function autoClockOutForgotten() {
     try {
         const now = new Date();
         const stuckWorkers = employees.map(emp => {
-            const role = emp.role || inferRoleFromDivision(emp.division);
-            // Skip security
-            if (role === 'security') return null;
+            // Semua divisi termasuk security berlaku auto-out
+            // (tidak ada skip berdasarkan role)
 
             const empLogs = logs
                 .filter(l => String(l.empId) === String(emp.id))
@@ -4017,68 +4018,18 @@ async function autoClockOutForgotten() {
             if (empLogs.length === 0 || empLogs[0].type !== 'IN') return null;
 
             const lastIN = empLogs[0];
+            const inTime = new Date(lastIN.date + 'T' + lastIN.time);
+            const inTimeMs = inTime.getTime();
 
-            // BUG FIX: Cek jika sudah ada log OUT apapun SETELAH lastIN (bukan hanya per tanggal outDate)
-            // Ini mencegah double-OUT ketika OUT manual sudah ada di tanggal berbeda dari shift-end
-            const inTimeMs = new Date(lastIN.date + 'T' + lastIN.time).getTime();
+            // Cek jika sudah ada log OUT apapun SETELAH lastIN
+            // Mencegah double-OUT di semua skenario
             const hasAnyOUTAfterIN = empLogs.some(l =>
                 l.type === 'OUT' &&
                 new Date(l.date + 'T' + l.time).getTime() > inTimeMs
             );
             if (hasAnyOUTAfterIN) return null;
 
-            const shift = appConfig.shifts?.[emp.division];
-            if (!shift) return null;
-            const startVal = typeof shift === 'string' ? shift : shift.start;
-            const endVal   = typeof shift === 'string' ? '17:00' : shift.end;
-
-            const [startH, startM] = startVal.split(':').map(Number);
-            const [endH,   endM  ] = endVal.split(':').map(Number);
-
-            const inTime = new Date(`${lastIN.date}T${lastIN.time}`);
-            const [inYr, inMo, inDy] = lastIN.date.split('-').map(Number);
-
-            // BUG FIX: Ambil shift start yang PALING DEKAT sebelum atau pada inTime
-            // (bukan hanya closest absolute diff — bisa ambil shift hari berikutnya)
-            const startCandidates = [
-                new Date(inYr, inMo - 1, inDy - 1, startH, startM, 0, 0), // hari sebelumnya
-                new Date(inYr, inMo - 1, inDy,     startH, startM, 0, 0), // hari ini
-                new Date(inYr, inMo - 1, inDy + 1, startH, startM, 0, 0), // hari berikutnya
-            ];
-
-            // Pilih shift start yang paling dekat dan TIDAK lebih dari 18 jam setelah inTime
-            // (maks jangka masuk awal = 18 jam sebelum shift, hindari ambil shift masa depan)
-            const validCandidates = startCandidates.filter(c => {
-                const diffMs = inTime - c; // positif = shift start sudah lewat
-                return diffMs >= -30 * 60 * 1000 && diffMs <= 18 * 3600 * 1000;
-                // Toleransi 30 menit sebelum shift start (absen awal), dan maks 18 jam setelah
-            });
-
-            if (validCandidates.length === 0) return null; // Tidak ada shift match yang masuk akal
-
-            // Ambil yang paling dekat ke inTime (minimum abs diff)
-            const actualShiftStart = validCandidates.reduce((best, c) =>
-                Math.abs(inTime - c) < Math.abs(inTime - best) ? c : best
-            );
-
-            // Hitung expectedEnd (shift end dari actualShiftStart)
-            let expectedEnd = new Date(actualShiftStart.getTime());
-            expectedEnd.setHours(endH, endM, 0, 0);
-
-            const startMinutes = startH * 60 + startM;
-            const endMinutes   = endH   * 60 + endM;
-            if (endMinutes <= startMinutes) {
-                // Overnight shift: end pada hari berikutnya
-                expectedEnd.setDate(expectedEnd.getDate() + 1);
-            }
-
-            // Jika expectedEnd sudah lewat lebih dari 7 hari, abaikan (data lama/stale)
-            if (now - expectedEnd > 7 * 24 * 3600 * 1000) return null;
-
-            const outDate = getLocalDateStr(expectedEnd);
-            const outTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
-
-            // Hitung autoOutMs sesuai konfigurasi
+            // Hitung autoOutMs sesuai konfigurasi (global atau per divisi)
             let autoOutMs = (parseInt(appConfig.autoOutGlobalMinutes) || 240) * 60 * 1000;
             if (appConfig.autoOutType === 'division') {
                 let divConfig = {};
@@ -4099,11 +4050,21 @@ async function autoClockOutForgotten() {
                 }
             }
 
-            // Guard: Jangan auto out jika baru absen kurang dari 2 jam
-            if (now - inTime < 2 * 3600000) return null;
+            // Guard minimum: jangan auto-out jika belum lewat minimal 30 menit dari IN
+            if (now - inTime < 30 * 60 * 1000) return null;
 
-            // Auto-out hanya jika sudah melewati shift end + grace period
-            if (now.getTime() < expectedEnd.getTime() + autoOutMs) return null;
+            // Hitung waktu auto-out: jam masuk + autoOutMs
+            const autoOutAt = new Date(inTimeMs + autoOutMs);
+
+            // Belum waktunya auto-out
+            if (now.getTime() < autoOutAt.getTime()) return null;
+
+            // Jika waktu auto-out sudah lewat lebih dari 7 hari, abaikan (data stale)
+            if (now - autoOutAt > 7 * 24 * 3600 * 1000) return null;
+
+            // Tentukan outDate dan outTime dari autoOutAt
+            const outDate = getLocalDateStr(autoOutAt);
+            const outTime = `${String(autoOutAt.getHours()).padStart(2, '0')}:${String(autoOutAt.getMinutes()).padStart(2, '0')}`;
 
             return { emp, lastIN, outDate, outTime, diffHours: (now - inTime) / 3600000 };
         }).filter(Boolean);
@@ -4271,7 +4232,8 @@ function loadSettingsUI() {
 
     const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Admin Gudang", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2", "Cuci Ompreng", "Leader Ompreng", "Leader Packing", "Leader Helper Cook", "Admin Yayasan", "Koordinasi Lapangan"];
     const allDivs = Array.from(new Set([...orderedKeys, ...Object.keys(appConfig.shifts || {})]));
-    const filteredDivisions = allDivs.filter(key => !key.toLowerCase().includes('keamanan') && !key.toLowerCase().includes('security'));
+    const filteredDivisions = allDivs; // Semua divisi termasuk Keamanan berlaku auto-out
+
 
     const divisionsListContainer = document.getElementById('autoOutDivisionsList');
     if (divisionsListContainer) {
@@ -4411,7 +4373,8 @@ async function saveFeatureSettings() {
     // Gather per-division configurations
     const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Admin Gudang", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2", "Cuci Ompreng", "Leader Ompreng", "Leader Packing", "Leader Helper Cook", "Admin Yayasan", "Koordinasi Lapangan"];
     const allDivs = Array.from(new Set([...orderedKeys, ...Object.keys(appConfig.shifts || {})]));
-    const filteredDivisions = allDivs.filter(key => !key.toLowerCase().includes('keamanan') && !key.toLowerCase().includes('security'));
+    const filteredDivisions = allDivs; // Semua divisi termasuk Keamanan berlaku auto-out
+
     let divConfig = {};
     filteredDivisions.forEach(div => {
         const key = div.replace(/\s/g, '-');
