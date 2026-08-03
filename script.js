@@ -1019,9 +1019,17 @@ function refreshUI() {
     renderDivisionGrid();
     updateDivisionSelects();
     updateRoleSelects();
+    initTableSwipeScroll('logsTableContainer');
 
     // --- RENDER LOGS (TABEL AKTIVITAS) ---
-    const sortedLogs = getSortedData(logs, 'logs');
+    let filteredLogs = logs;
+    const logsSearchInput = document.getElementById('logsSearchInput');
+    const searchVal = logsSearchInput ? logsSearchInput.value.toLowerCase().trim() : '';
+    if (searchVal) {
+        filteredLogs = logs.filter(l => (l.name || '').toLowerCase().includes(searchVal));
+    }
+
+    const sortedLogs = getSortedData(filteredLogs, 'logs');
     allLogsSorted = sortedLogs; // Store for pagination
     const logBody = document.getElementById('logsTableBody');
     
@@ -1039,10 +1047,21 @@ function refreshUI() {
     renderPaginationNumbers(logsCurrentPage, totalPages);
     
     // Disable/enable buttons
-    document.querySelector('button[onclick="previousLogsPage()"]').disabled = logsCurrentPage === 1;
-    document.querySelector('button[onclick="nextLogsPage()"]').disabled = logsCurrentPage === totalPages;
+    const prevBtn = document.querySelector('button[onclick="previousLogsPage()"]');
+    const nextBtn = document.querySelector('button[onclick="nextLogsPage()"]');
+    if (prevBtn) prevBtn.disabled = logsCurrentPage === 1 || totalPages <= 1;
+    if (nextBtn) nextBtn.disabled = logsCurrentPage === totalPages || totalPages <= 1;
     
-    logBody.innerHTML = paginatedLogs.map(l => {
+    if (paginatedLogs.length === 0) {
+        logBody.innerHTML = `
+        <tr>
+            <td colspan="8" class="text-center py-10 text-slate-400 dark:text-slate-500 text-xs">
+                <i class="fas fa-search text-3xl mb-2 text-slate-300 dark:text-slate-600 block"></i>
+                ${searchVal ? `Tidak ada relawan bernama "<span class="font-bold text-slate-600 dark:text-slate-300">${searchVal}</span>"` : 'Belum ada aktivitas tercatat'}
+            </td>
+        </tr>`;
+    } else {
+        logBody.innerHTML = paginatedLogs.map(l => {
         let badge = '', statusText = '';
         
         if (l.type === 'IN') {
@@ -1116,6 +1135,7 @@ function refreshUI() {
             <td class="px-6 py-4 text-center text-xs font-semibold text-slate-600">${l.absentBy || '-'}</td>
         </tr>`;
     }).join('');
+    }
 
     // --- RENDER EMPLOYEE LIST (DAFTAR RELAWAN) ---
     const sortedEmployees = getSortedData(employees, 'employees');
@@ -3212,18 +3232,31 @@ function startQR() {
     }).catch(e => { console.error("Cam Error", e); showToast("Gagal akses kamera belakang", "error"); });
 }
 
-function scanLoop() {
-    if(scannedEmployee) return;
+async function scanLoop() {
+    if (scannedEmployee) return;
     const video = document.getElementById('scanVideo');
-    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    if (video && video.readyState === video.HAVE_ENOUGH_DATA) {
+        if ('BarcodeDetector' in window) {
+            try {
+                if (!window._barcodeDetectorInst) {
+                    window._barcodeDetectorInst = new BarcodeDetector({ formats: ['qr_code'] });
+                }
+                const barcodes = await window._barcodeDetectorInst.detect(video);
+                if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                    validateEmployee(barcodes[0].rawValue);
+                    return;
+                }
+            } catch (e) {}
+        }
         const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d'); ctx.drawImage(video, 0, 0);
-        const imageData = ctx.getImageData(0,0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
-        if(code && code.data) validateEmployee(code.data);
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(video, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "attemptBoth" });
+        if (code && code.data) validateEmployee(code.data);
     }
-    if(!scannedEmployee) requestAnimationFrame(scanLoop);
+    if (!scannedEmployee) requestAnimationFrame(scanLoop);
 }
 
 function manualSelect(val) { return; }
@@ -4253,8 +4286,90 @@ function switchTab(id) {
     if (id === 'pengumuman') initPengumumanTab();
 }
 
-// =============================================
-// SETTINGS (Pengaturan) System
+// ═══════════════════════════════════════════════════════
+// iOS-style 4-Tab Bottom Nav — Fluid Sliding Indicator
+// ═══════════════════════════════════════════════════════
+
+/**
+ * mobileNavActivate(btn, index)
+ * Slides the iOS blue indicator to the active tab.
+ * Pixel-accurate positioning via getBoundingClientRect.
+ */
+function mobileNavActivate(btn, index) {
+    // Remove active from all 4 tab buttons
+    document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const indicator = document.getElementById('mobileNavIndicator');
+    const pill      = document.getElementById('mobileNavPill');
+    if (!indicator || !pill) return;
+
+    requestAnimationFrame(() => {
+        const pillRect = pill.getBoundingClientRect();
+        const btnRect  = btn.getBoundingClientRect();
+        const inset = 4; // px breathing room each side
+        indicator.style.left  = (btnRect.left - pillRect.left + inset) + 'px';
+        indicator.style.width = (btnRect.width - inset * 2) + 'px';
+    });
+
+    // Haptic on Android
+    if (navigator.vibrate) navigator.vibrate(8);
+}
+
+/**
+ * initMobileNav()
+ * Positions indicator on the first tab (Dashboard) after the nav renders.
+ */
+function initMobileNav() {
+    const firstBtn = document.getElementById('mbn-dashboard');
+    if (firstBtn && window.innerWidth < 768) {
+        requestAnimationFrame(() => setTimeout(() => mobileNavActivate(firstBtn, 0), 90));
+    }
+}
+
+/**
+ * openMobileMoreSheet()
+ * Slides up the iOS-style "More" bottom sheet with spring bounce.
+ */
+function openMobileMoreSheet() {
+    const backdrop = document.getElementById('moreSheetBackdrop');
+    const panel    = document.getElementById('moreSheetPanel');
+    if (!backdrop || !panel) return;
+
+    backdrop.classList.remove('hidden');
+    panel.classList.remove('hidden');
+
+    // Trigger transitions after a micro-tick
+    requestAnimationFrame(() => {
+        setTimeout(() => {
+            backdrop.classList.remove('opacity-0');
+            panel.style.transform = 'translateY(0)';
+        }, 12);
+    });
+
+    // Prevent body scroll while sheet is open
+    document.body.style.overflow = 'hidden';
+}
+
+/**
+ * closeMobileMoreSheet()
+ * Slides the "More" sheet back down with spring easing.
+ */
+function closeMobileMoreSheet() {
+    const backdrop = document.getElementById('moreSheetBackdrop');
+    const panel    = document.getElementById('moreSheetPanel');
+    if (!backdrop || !panel) return;
+
+    backdrop.classList.add('opacity-0');
+    panel.style.transform = 'translateY(110%)';
+
+    setTimeout(() => {
+        backdrop.classList.add('hidden');
+        panel.classList.add('hidden');
+        document.body.style.overflow = '';
+    }, 400);
+}
+
 // =============================================
 function loadSettingsUI() {
     const tBoth = document.getElementById('toggleBoth');
@@ -5697,6 +5812,8 @@ function initAdmin() {
     document.getElementById('adminLayout').classList.remove('hidden');
     refreshUI();
     toggleLoader(false);
+    // Initialize iOS 27 fluid glass bottom nav indicator position
+    if (window.innerWidth < 768) initMobileNav();
 }
 
 // =============================================
@@ -5772,52 +5889,52 @@ const FOOD_DATABASE = [
     { name: 'Minyak Kelapa', category: 'minyak_lemak', kcal: 870, protein: 0, carbs: 0, fat: 98, fiber: 0, bdd: 100, price: 30000, kalsium: 0, zatBesi: 0, vitA: 0, vitC: 0, folat: 0, vitB12: 0 }
 ];
 
-// --- Target Gizi & Harga (Simplified 3 Unified Categories - B3) ---
+// --- Target Gizi (AKG 2019 — Permenkes No. 28/2019) — 30% Kebutuhan Harian 1x Makan ---
 const NUTRITION_TARGETS = {
-    balita_sd_1_3: { 
-        name: 'Balita s/d SD Kelas 1-3', 
-        kcal: { min: 275, max: 413 }, 
-        protein: { min: 5, max: 10 }, 
-        fat: { min: 10, max: 14 }, 
-        carbs: { min: 44, max: 63 }, 
-        fiber: { min: 4, max: 6 },
-        kalsium: { min: 165, max: 250 },
-        zatBesi: { min: 2, max: 3 },
-        vitA: { min: 85, max: 125 },
-        vitC: { min: 9, max: 11 },
-        folat: { min: 36, max: 75 },
-        vitB12: { min: 0.3, max: 0.5 },
-        targetCost: 10000 
+    balita_sd_1_3: {
+        name: 'Porsi Kecil — Balita s/d SD Kelas 1-3',
+        kcal:    { min: 300,  max: 393  },
+        protein: { min: 5.4,  max: 8.4  },
+        fat:     { min: 10,   max: 13   },
+        carbs:   { min: 47,   max: 62   },
+        fiber:   { min: 4,    max: 6    },
+        kalsium: { min: 225,  max: 270  },
+        zatBesi: { min: 2.4,  max: 2.7  },
+        vitA:    { min: 111,  max: 126  },
+        vitC:    { min: 12,   max: 13   },
+        folat:   { min: 45,   max: 60   },
+        vitB12:  { min: 0.3,  max: 0.5  },
+        targetCost: 10000
     },
-    sd_4_6_sma: { 
-        name: 'SD Kelas 4-6 s/d SMA/MA', 
-        kcal: { min: 585, max: 831 }, 
-        protein: { min: 16, max: 25 }, 
-        fat: { min: 20, max: 27 }, 
-        carbs: { min: 87, max: 122.5 }, 
-        fiber: { min: 8, max: 10 },
-        kalsium: { min: 360, max: 420 },
-        zatBesi: { min: 2, max: 3 },
-        vitA: { min: 180, max: 228 },
-        vitC: { min: 15, max: 29 },
-        folat: { min: 120, max: 140 },
-        vitB12: { min: 1.1, max: 1.4 },
-        targetCost: 16000 
+    sd_4_6_sma: {
+        name: 'Porsi Besar — SD Kelas 4-6 s/d SMA/MA',
+        kcal:    { min: 540,  max: 750  },
+        protein: { min: 15,   max: 21   },
+        fat:     { min: 18,   max: 25   },
+        carbs:   { min: 81,   max: 116  },
+        fiber:   { min: 8,    max: 10   },
+        kalsium: { min: 330,  max: 360  },
+        zatBesi: { min: 3.0,  max: 3.6  },
+        vitA:    { min: 162,  max: 174  },
+        vitC:    { min: 15,   max: 22.5 },
+        folat:   { min: 60,   max: 70   },
+        vitB12:  { min: 0.7,  max: 1.4  },
+        targetCost: 16000
     },
-    bumil_busui: { 
-        name: 'Ibu Hamil & Menyusui (Busui)', 
-        kcal: { min: 738, max: 898 }, 
-        protein: { min: 23, max: 27 }, 
-        fat: { min: 19, max: 22 }, 
-        carbs: { min: 116, max: 140 }, 
-        fiber: { min: 10, max: 13 },
-        kalsium: { min: 360, max: 420 },
-        zatBesi: { min: 5, max: 15 },
-        vitA: { min: 270, max: 333 },
-        vitC: { min: 26, max: 42 },
-        folat: { min: 150, max: 210 },
-        vitB12: { min: 1.4, max: 1.75 },
-        targetCost: 22000 
+    bumil_busui: {
+        name: 'Bumil & Busui',
+        kcal:    { min: 690,  max: 900  },
+        protein: { min: 20,   max: 31.5 },
+        fat:     { min: 23,   max: 30   },
+        carbs:   { min: 103,  max: 135  },
+        fiber:   { min: 10,   max: 13   },
+        kalsium: { min: 360,  max: 450  },
+        zatBesi: { min: 8.7,  max: 9.9  },
+        vitA:    { min: 270,  max: 390  },
+        vitC:    { min: 27,   max: 42   },
+        folat:   { min: 150,  max: 210  },
+        vitB12:  { min: 1.4,  max: 1.75 },
+        targetCost: 22000
     }
 };
 
@@ -5883,8 +6000,24 @@ const CATEGORY_COLORS = {
     minyak_lemak: { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200' }
 };
 
-// Planner state
-let nMenuIngredients = []; // [{name, category, grams, kcal, protein, carbs, fat, fiber}, ...]
+// ── MULTI-MENU STATE ───────────────────────────────────────────────────────
+let nMenuPlans = [
+    {
+        id: 'menu_ref',
+        isReference: true,
+        mode: 'reference',
+        label: 'Porsi Kecil',
+        menuName: '',
+        targetGroup: 'balita_sd_1_3',
+        portions: 150,
+        reserve: 10,
+        targetBudget: 10000,
+        session: 'siang',
+        ingredients: []
+    }
+];
+let nActiveMenuId = 'menu_ref';
+// ─────────────────────────────────────────────────────────────────────────────
 let nSelectedCategory = 'semua';
 let nPendingIngredient = null;
 let nNutritionChartInstance = null;
@@ -5892,6 +6025,187 @@ let nGiziFilterState = {
     kcal: true, protein: true, fat: true, carbs: true, fiber: true,
     kalsium: false, zatBesi: false, vitA: false, vitC: false, folat: false, vitB12: false
 };
+
+// ── MULTI-MENU HELPER FUNCTIONS ───────────────────────────────────────────
+function nGetActiveMenu() {
+    return nMenuPlans.find(m => m.id === nActiveMenuId) || nMenuPlans[0];
+}
+
+function nGetRefMenu() {
+    return nMenuPlans.find(m => m.isReference) || nMenuPlans[0];
+}
+
+function nGetActiveIngredients() {
+    const menu = nGetActiveMenu();
+    if (!menu) return [];
+    if (menu.mode === 'same') {
+        // Ikut referensi — return ref ingredients dengan amounts dari sameAmounts slot ini
+        const ref = nGetRefMenu();
+        if (!ref) return [];
+        return ref.ingredients.map(item => {
+            const customGrams = (menu.sameAmounts || {})[item.name];
+            return { ...item, grams: customGrams !== undefined ? customGrams : item.grams };
+        });
+    }
+    return menu.ingredients;
+}
+
+function nGetMenuDisplayName(menu) {
+    if (!menu) return '';
+    if (menu.mode === 'same') return nGetRefMenu()?.menuName || 'Menu Referensi';
+    return menu.menuName;
+}
+
+function nRenderMenuTabs() {
+    const container = document.getElementById('nMenuTabsContainer');
+    if (!container) return;
+    const colors = ['emerald', 'sky', 'violet', 'amber', 'rose'];
+    container.innerHTML = nMenuPlans.map((plan, idx) => {
+        const color = colors[idx % colors.length];
+        const isActive = plan.id === nActiveMenuId;
+        const isRef = plan.isReference;
+        const activeClass = isActive
+            ? `bg-${color}-500 text-white border-${color}-400 shadow-md`
+            : `bg-white text-slate-500 border-slate-200 hover:border-${color}-300 hover:text-${color}-600`;
+        return `<button onclick="nSwitchMenuPlan('${plan.id}')"
+            class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border whitespace-nowrap ${activeClass}">
+            ${isRef ? '<i class="fas fa-star text-[9px] opacity-80"></i>' : ''}
+            ${plan.label || ('Menu ' + (idx + 1))}
+            ${plan.mode === 'same' ? '<i class="fas fa-link text-[8px] opacity-70"></i>' : ''}
+            ${!isRef ? `<span onclick="event.stopPropagation();nRemoveMenuPlan('${plan.id}')"
+                class="ml-0.5 w-4 h-4 rounded-full flex items-center justify-center hover:bg-black/10 transition text-[10px]">×</span>` : ''}
+        </button>`;
+    }).join('') +
+    (nMenuPlans.length < 5
+        ? `<button onclick="nAddMenuPlan()"
+            class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-400 bg-white border border-dashed border-slate-200 hover:border-emerald-300 hover:text-emerald-600 transition-all whitespace-nowrap">
+            <i class="fas fa-plus text-[9px]"></i> Tambah Menu
+        </button>` : '');
+}
+
+function nSwitchMenuPlan(id) {
+    nActiveMenuId = id;
+    const menu = nGetActiveMenu();
+    if (!menu) return;
+    const el = (eid) => document.getElementById(eid);
+    // Sync form fields from active menu
+    if (el('nMenuName')) {
+        el('nMenuName').value = nGetMenuDisplayName(menu);
+        el('nMenuName').disabled = menu.mode === 'same';
+        el('nMenuName').classList.toggle('opacity-50', menu.mode === 'same');
+    }
+    if (el('nPortions'))     el('nPortions').value = menu.portions || 150;
+    if (el('nReserve'))      el('nReserve').value = menu.reserve || 10;
+    if (el('nTargetBudget')) el('nTargetBudget').value = menu.targetBudget || 10000;
+    if (el('nSession'))      el('nSession').value = menu.session || 'siang';
+    if (el('nTargetGroup'))  el('nTargetGroup').value = menu.targetGroup || 'balita_sd_1_3';
+
+    // Show/hide mode toggle panel
+    const modeToggleEl = el('nMenuModeToggle');
+    if (modeToggleEl) {
+        modeToggleEl.classList.toggle('hidden', !!menu.isReference);
+        const samePill = el('nModePillSame');
+        const diffPill = el('nModePillDiff');
+        const modeDesc = el('nMenuModeDesc');
+        if (samePill && diffPill) {
+            const isSame = menu.mode === 'same';
+            samePill.className = `px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${isSame ? 'bg-sky-500 text-white shadow-sm' : 'bg-white text-slate-500 hover:bg-slate-50'}`;
+            diffPill.className = `px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${!isSame ? 'bg-violet-500 text-white shadow-sm' : 'bg-white text-slate-500 hover:bg-slate-50'}`;
+        }
+        if (modeDesc) {
+            const refLabel = nGetRefMenu()?.label || 'Porsi Kecil';
+            modeDesc.textContent = menu.mode === 'same'
+                ? `🔒 Daftar bahan mengikuti ${refLabel} (Referensi). Hanya jumlah (gram) yang bisa diubah.`
+                : `✏️ Menu ini punya bahan sendiri. Bebas tambah, hapus, atau ganti bahan.`;
+        }
+    }
+
+    nRenderMenuTabs();
+    nRecalcPlanner();
+}
+
+async function nAddMenuPlan() {
+    if (nMenuPlans.length >= 5) { showToast('Maksimal 5 menu per hari', 'error'); return; }
+    const refMenu = nGetRefMenu();
+    const id = 'menu_' + Date.now();
+    const idx = nMenuPlans.length;
+    const defaultLabels   = ['Porsi Besar', 'Bumil & Busui', 'Menu Khusus', 'Menu Tambahan'];
+    const defaultTargets  = ['sd_4_6_sma', 'bumil_busui', 'balita_sd_1_3', 'sd_4_6_sma'];
+    const defaultBudgets  = [16000, 22000, 10000, 16000];
+    nMenuPlans.push({
+        id,
+        isReference: false,
+        mode: 'same',
+        label: defaultLabels[idx - 1] || ('Menu ' + (idx + 1)),
+        menuName: '',
+        targetGroup: defaultTargets[idx - 1] || 'sd_4_6_sma',
+        portions: 200,
+        reserve: 10,
+        targetBudget: defaultBudgets[idx - 1] || 16000,
+        session: refMenu?.session || 'siang',
+        ingredients: [],
+        sameAmounts: {}
+    });
+    nActiveMenuId = id;
+    nRenderMenuTabs();
+    nSwitchMenuPlan(id);
+    nSavePlannerState();
+    showToast('Menu baru ditambahkan!');
+}
+
+async function nRemoveMenuPlan(id) {
+    if (nMenuPlans.length <= 1) { showToast('Minimal 1 menu harus ada', 'error'); return; }
+    const ok = await showCustomConfirm({
+        title: 'Hapus Menu Ini?',
+        message: 'Bahan yang sudah diinput di menu ini akan hilang. Lanjutkan?',
+        icon: 'fa-trash-alt',
+        iconClass: 'bg-red-500/10 text-red-500',
+        confirmText: 'Ya, Hapus',
+        confirmClass: 'bg-red-500 hover:bg-red-600 text-white'
+    });
+    if (!ok) return;
+    nMenuPlans = nMenuPlans.filter(m => m.id !== id);
+    if (nActiveMenuId === id) nActiveMenuId = nMenuPlans[0].id;
+    nRenderMenuTabs();
+    nSwitchMenuPlan(nActiveMenuId);
+    nSavePlannerState();
+    showToast('Menu dihapus');
+}
+
+function nSetMenuMode(mode) {
+    const menu = nGetActiveMenu();
+    if (!menu || menu.isReference) return;
+    menu.mode = mode;
+    if (mode === 'same') {
+        // Inisialisasi sameAmounts dari ref
+        const ref = nGetRefMenu();
+        if (ref) {
+            menu.sameAmounts = {};
+            ref.ingredients.forEach(item => {
+                menu.sameAmounts[item.name] = item.grams;
+            });
+        }
+        menu.menuName = '';
+        menu.ingredients = [];
+    }
+    nSwitchMenuPlan(menu.id);
+    nSavePlannerState();
+    showToast(mode === 'same' ? 'Mode: Bahan mengikuti referensi' : 'Mode: Menu berbeda — input bahan sendiri');
+}
+
+function nSyncMenuFromForm() {
+    const menu = nGetActiveMenu();
+    if (!menu) return;
+    const el = (eid) => document.getElementById(eid)?.value;
+    if (menu.mode !== 'same') menu.menuName = el('nMenuName') || '';
+    menu.portions     = parseInt(el('nPortions'))    || 150;
+    menu.reserve      = parseInt(el('nReserve'))     || 10;
+    menu.targetBudget = parseFloat(el('nTargetBudget')) || 10000;
+    menu.session      = el('nSession')  || 'siang';
+    menu.targetGroup  = el('nTargetGroup') || 'balita_sd_1_3';
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 
 function nOnGiziFilterChange() {
     const keys = Object.keys(nGiziFilterState);
@@ -5936,28 +6250,16 @@ function initNutritionist() {
     // Load custom foods from local storage
     nLoadCustomFoods();
     nLoadGiziFilterState();
-
-    if (!isLoginInProgress) {
-        toggleLoader(true, "Mempersiapkan Ahli Gizi Page...");
-        setTimeout(() => {
-            document.getElementById('nutritionistLayout').classList.remove('hidden');
-            nSetupProfile();
-            nLoadPlannerState();
-            nRenderOverview();
-            nRenderDatabase();
-            nRecalcPlanner();
-            nCheckCloudPlanSilently();
-            showLoaderSuccess("Ahli Gizi Page Siap");
-        }, 300);
-    } else {
-        document.getElementById('nutritionistLayout').classList.remove('hidden');
-        nSetupProfile();
-        nLoadPlannerState();
-        nRenderOverview();
-        nRenderDatabase();
-        nRecalcPlanner();
-        nCheckCloudPlanSilently();
-    }
+    // Instant render — no blocking loaders
+    document.getElementById('nutritionistLayout').classList.remove('hidden');
+    toggleLoader(false);
+    nSetupProfile();
+    nLoadPlannerState();   // syncs nMenuPlans + nActiveMenuId from localStorage
+    nRenderMenuTabs();     // render multi-menu tab bar
+    nRenderOverview();
+    nRenderDatabase();
+    nRecalcPlanner();
+    nCheckCloudPlanSilently();
 }
 
 function nSetupProfile() {
@@ -6293,53 +6595,72 @@ function nSelectIngredient(name) {
 
 function nAddIngredientToMenu() {
     if (!nPendingIngredient) {
-        // Try to find from search value
         const sv = document.getElementById('nAddIngredientSearch')?.value || '';
         const found = FOOD_DATABASE.find(f => f.name.toLowerCase() === sv.toLowerCase());
         if (found) nPendingIngredient = found;
         else { showToast('Pilih bahan dari daftar terlebih dahulu', 'error'); return; }
     }
-    
+
+    const menu = nGetActiveMenu();
+    if (!menu) return;
     const grams = parseInt(document.getElementById('nAddGrams')?.value) || 100;
-    
-    // Check duplicate
-    const existing = nMenuIngredients.find(i => i.name === nPendingIngredient.name);
-    if (existing) {
-        existing.grams += grams;
+
+    if (menu.mode === 'same') {
+        // Mode sama: hanya ubah amount — bahan harus ada di referensi
+        const ref = nGetRefMenu();
+        if (!ref || !ref.ingredients.find(i => i.name === nPendingIngredient.name)) {
+            showToast('Bahan ini tidak ada di menu referensi. Ubah ke "Menu Berbeda" untuk menambah bahan baru.', 'error');
+            nPendingIngredient = null;
+            return;
+        }
+        if (!menu.sameAmounts) menu.sameAmounts = {};
+        menu.sameAmounts[nPendingIngredient.name] = grams;
+        showToast(`Jumlah ${nPendingIngredient.name} diperbarui (${grams}g)`);
     } else {
-        nMenuIngredients.push({
-            name: nPendingIngredient.name,
-            category: nPendingIngredient.category,
-            grams: grams,
-            kcal: nPendingIngredient.kcal,
-            protein: nPendingIngredient.protein,
-            carbs: nPendingIngredient.carbs,
-            fat: nPendingIngredient.fat,
-            fiber: nPendingIngredient.fiber,
-            kalsium: nPendingIngredient.kalsium || 0,
-            zatBesi: nPendingIngredient.zatBesi || 0,
-            vitA: nPendingIngredient.vitA || 0,
-            vitC: nPendingIngredient.vitC || 0,
-            folat: nPendingIngredient.folat || 0,
-            vitB12: nPendingIngredient.vitB12 || 0,
-            bdd: nPendingIngredient.bdd || 100,
-            price: nPendingIngredient.price || 0
-        });
+        // Mode reference atau different: tambah/update ingredients sendiri
+        const existing = menu.ingredients.find(i => i.name === nPendingIngredient.name);
+        if (existing) {
+            existing.grams += grams;
+            showToast(`Jumlah ${nPendingIngredient.name} diperbarui`);
+        } else {
+            menu.ingredients.push({
+                name: nPendingIngredient.name,
+                category: nPendingIngredient.category,
+                grams,
+                kcal: nPendingIngredient.kcal,
+                protein: nPendingIngredient.protein,
+                carbs: nPendingIngredient.carbs,
+                fat: nPendingIngredient.fat,
+                fiber: nPendingIngredient.fiber,
+                kalsium: nPendingIngredient.kalsium || 0,
+                zatBesi: nPendingIngredient.zatBesi || 0,
+                vitA: nPendingIngredient.vitA || 0,
+                vitC: nPendingIngredient.vitC || 0,
+                folat: nPendingIngredient.folat || 0,
+                vitB12: nPendingIngredient.vitB12 || 0,
+                bdd: nPendingIngredient.bdd || 100,
+                price: nPendingIngredient.price || 0
+            });
+            showToast(`Ditambahkan: ${nPendingIngredient.name}`);
+        }
     }
-    
-    // Reset input
+
     document.getElementById('nAddIngredientSearch').value = '';
     document.getElementById('nAddGrams').value = 100;
     nPendingIngredient = null;
-    
     nRecalcPlanner();
     nSavePlannerState();
-    showToast(`${existing ? 'Mengubah porsi' : 'Ditambahkan'}: ${nMenuIngredients[nMenuIngredients.length - 1]?.name || 'bahan'}`);
 }
 
 function nRemoveIngredient(index) {
-    const name = nMenuIngredients[index]?.name;
-    nMenuIngredients.splice(index, 1);
+    const menu = nGetActiveMenu();
+    if (!menu) return;
+    if (menu.mode === 'same') {
+        showToast('Di mode "Menu Sama", bahan tidak bisa dihapus. Ubah ke "Menu Berbeda" terlebih dahulu.', 'error');
+        return;
+    }
+    const name = menu.ingredients[index]?.name;
+    menu.ingredients.splice(index, 1);
     nRecalcPlanner();
     nSavePlannerState();
     showToast(`Bahan dihapus: ${name || ''}`);
@@ -6347,27 +6668,40 @@ function nRemoveIngredient(index) {
 
 function nUpdateIngredientGrams(index, value) {
     const grams = parseInt(value) || 0;
-    if (grams <= 0) { nRemoveIngredient(index); return; }
-    nMenuIngredients[index].grams = grams;
+    const menu = nGetActiveMenu();
+    if (!menu) return;
+    if (menu.mode === 'same') {
+        const refIng = nGetRefMenu()?.ingredients || [];
+        const item = refIng[index];
+        if (!item) return;
+        if (!menu.sameAmounts) menu.sameAmounts = {};
+        if (grams <= 0) { delete menu.sameAmounts[item.name]; }
+        else { menu.sameAmounts[item.name] = grams; }
+    } else {
+        if (grams <= 0) { nRemoveIngredient(index); return; }
+        if (menu.ingredients[index]) menu.ingredients[index].grams = grams;
+    }
     nRecalcPlanner();
     nSavePlannerState();
 }
 
 function nUpdateIngredientPrice(index, value) {
     const price = parseFloat(value) || 0;
-    nMenuIngredients[index].price = price;
+    const menu = nGetActiveMenu();
+    if (!menu) return;
+    if (menu.mode === 'same') {
+        // Update harga di referensi juga (harga kondiv)
+        const ref = nGetRefMenu();
+        if (ref && ref.ingredients[index]) ref.ingredients[index].price = price;
+    } else {
+        if (menu.ingredients[index]) menu.ingredients[index].price = price;
+    }
     nRecalcPlanner();
     nSavePlannerState();
 }
 
 function nOnSasaranChange() {
-    const sasaranSel = document.getElementById('nTargetGroup').value;
-    const target = NUTRITION_TARGETS[sasaranSel];
-    if (target) {
-        // Set default target budget based on target costs
-        const budgetInput = document.getElementById('nTargetBudget');
-        if (budgetInput) budgetInput.value = target.targetCost || 15000;
-    }
+    nSyncMenuFromForm();
     nRecalcPlanner();
     nSavePlannerState();
 }
@@ -6378,17 +6712,19 @@ async function nTriggerPresetMenuDirect() {
 }
 
 async function nLoadPresetMenu() {
-    const sasaranSel = document.getElementById('nTargetGroup').value;
+    const activeMenu = nGetActiveMenu();
+    if (!activeMenu) return;
+    const sasaranSel = activeMenu.targetGroup || document.getElementById('nTargetGroup')?.value || 'balita_sd_1_3';
     const preset = PRESET_CYCLE_MENUS[sasaranSel];
     if (!preset) {
         showToast('Preset menu gizi untuk sasaran ini belum tersedia', 'error');
         return;
     }
 
-    if (nMenuIngredients.length > 0) {
+    if (activeMenu.ingredients.length > 0 || (activeMenu.mode === 'same' && Object.keys(activeMenu.sameAmounts || {}).length > 0)) {
         const ok = await showCustomConfirm({
             title: 'Muat Menu Standar?',
-            message: 'Muat menu standar resmi PDF? Rencana penyusunan bahan saat ini akan diganti.',
+            message: 'Muat menu standar resmi PDF? Rencana bahan saat ini akan diganti.',
             icon: 'fa-file-pdf',
             iconClass: 'bg-blue-500/10 text-blue-500',
             confirmText: 'Ya, Muat',
@@ -6397,12 +6733,11 @@ async function nLoadPresetMenu() {
         if (!ok) return;
     }
 
-    // Clear current ingredients and populate
-    nMenuIngredients = [];
+    const built = [];
     preset.ingredients.forEach(item => {
         const found = FOOD_DATABASE.find(f => f.name.toLowerCase() === item.name.toLowerCase());
         if (found) {
-            nMenuIngredients.push({
+            built.push({
                 name: found.name,
                 category: found.category,
                 grams: item.grams,
@@ -6423,12 +6758,26 @@ async function nLoadPresetMenu() {
         }
     });
 
+    if (activeMenu.mode === 'same') {
+        // Untuk mode sama, set juga referensi
+        const ref = nGetRefMenu();
+        if (ref) {
+            ref.ingredients = built;
+            ref.menuName = preset.menuName;
+            activeMenu.sameAmounts = {};
+            built.forEach(item => { activeMenu.sameAmounts[item.name] = item.grams; });
+        }
+    } else {
+        activeMenu.ingredients = built;
+        activeMenu.menuName = preset.menuName;
+    }
+
     const menuNameEl = document.getElementById('nMenuName');
     if (menuNameEl) menuNameEl.value = preset.menuName;
 
     nRecalcPlanner();
     nSavePlannerState();
-    showToast(`Preset menu resmi "${preset.menuName}" berhasil dimuat!`);
+    showToast(`Preset "${preset.menuName}" berhasil dimuat!`);
 }
 
 function nRecalcPlanner() {
@@ -6437,35 +6786,44 @@ function nRecalcPlanner() {
     const costEl = document.getElementById('nCostingCalc');
     const shopEl = document.getElementById('nShoppingList');
     const countBadge = document.getElementById('nIngredientCountBadge');
-    
+
     if (!listEl) return;
-    
-    const portions = Math.max(parseInt(document.getElementById('nPortions')?.value) || 1, 1);
-    const reserve = Math.max(parseInt(document.getElementById('nReserve')?.value) || 0, 0);
+
+    // Sync form state dari active menu
+    nSyncMenuFromForm();
+
+    const activeMenu = nGetActiveMenu();
+    const activeIngredients = nGetActiveIngredients();
+    const portions  = Math.max(activeMenu?.portions || 1, 1);
+    const reserve   = Math.max(activeMenu?.reserve  || 0, 0);
     const multiplier = 1 + reserve / 100;
-    
+    const isSameMode = activeMenu?.mode === 'same';
+
     // Ingredient count badge
-    if (countBadge) countBadge.textContent = `${nMenuIngredients.length} item`;
-    
+    if (countBadge) countBadge.textContent = `${activeIngredients.length} item`;
+
     // Render ingredient table list
-    if (nMenuIngredients.length === 0) {
-        listEl.innerHTML = '<tr><td colspan="9" class="text-center text-slate-400 py-10 font-semibold"><i class="fas fa-inbox text-2xl mb-2 block text-slate-200"></i>Belum ada bahan makanan. Tambah dari database.</td></tr>';
+    if (activeIngredients.length === 0) {
+        listEl.innerHTML = `<tr><td colspan="9" class="text-center text-slate-400 py-10 font-semibold">
+            <i class="fas fa-inbox text-2xl mb-2 block text-slate-200"></i>
+            ${isSameMode ? 'Menu referensi belum memiliki bahan. Tambahkan bahan di tab Porsi Kecil (Referensi) terlebih dahulu.' : 'Belum ada bahan makanan. Tambah dari database.'}
+        </td></tr>`;
     } else {
-        listEl.innerHTML = nMenuIngredients.map((item, i) => {
+        listEl.innerHTML = activeIngredients.map((item, i) => {
             const cc = CATEGORY_COLORS[item.category] || {};
             const rawGrams = (item.grams * 100) / (item.bdd || 100);
             const totalKg = (rawGrams * portions * multiplier) / 1000;
             const itemPrice = item.price || 0;
             const itemCost = totalKg * itemPrice;
-            
             const displayBelanja = totalKg >= 1 ? `${totalKg.toFixed(2)} kg` : `${Math.round(totalKg * 1000)} g`;
-            
+            const gramsInputClass = `w-14 text-center font-bold text-slate-700 bg-white border border-slate-200 rounded px-1.5 py-0.5 outline-none focus:border-emerald-400${isSameMode ? ' border-sky-200 bg-sky-50' : ''}`;
+
             return `<tr>
                 <td class="py-2.5 font-bold text-slate-700">${item.name}</td>
                 <td class="py-2.5 text-center"><span class="text-[9px] font-extrabold px-2 py-0.5 rounded-full ${cc.bg || ''} ${cc.text || ''} ${cc.border || ''} border">${CATEGORY_LABELS[item.category] || ''}</span></td>
                 <td class="py-2.5 text-right">
                     <div class="flex items-center justify-end gap-1.5">
-                        <input type="number" min="1" value="${item.grams}" onchange="nUpdateIngredientGrams(${i}, this.value)" class="w-14 text-center font-bold text-slate-700 bg-white border border-slate-200 rounded px-1.5 py-0.5 outline-none focus:border-emerald-400">
+                        <input type="number" min="1" value="${item.grams}" onchange="nUpdateIngredientGrams(${i}, this.value)" class="${gramsInputClass}">
                         <span class="text-slate-400">g</span>
                     </div>
                 </td>
@@ -6480,75 +6838,67 @@ function nRecalcPlanner() {
                 </td>
                 <td class="py-2.5 text-right text-emerald-700 font-extrabold">Rp ${Math.round(itemCost).toLocaleString('id-ID')}</td>
                 <td class="py-2.5 text-center">
-                    <button onclick="nRemoveIngredient(${i})" class="w-7 h-7 rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-500 flex items-center justify-center transition mx-auto"><i class="fas fa-trash-alt text-xs"></i></button>
+                    <button onclick="nRemoveIngredient(${i})" class="w-7 h-7 rounded-lg ${isSameMode ? 'text-slate-200 cursor-not-allowed' : 'text-slate-300 hover:bg-red-50 hover:text-red-500'} flex items-center justify-center transition mx-auto" ${isSameMode ? 'title="Ubah ke Menu Berbeda untuk menghapus bahan"' : ''}><i class="fas fa-trash-alt text-xs"></i></button>
                 </td>
             </tr>`;
         }).join('');
     }
-    
+
     // Calculate nutrition per portion
-    const totals = { 
-        kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0,
-        kalsium: 0, zatBesi: 0, vitA: 0, vitC: 0, folat: 0, vitB12: 0 
-    };
-    nMenuIngredients.forEach(i => {
+    const totals = { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, kalsium: 0, zatBesi: 0, vitA: 0, vitC: 0, folat: 0, vitB12: 0 };
+    activeIngredients.forEach(i => {
         const m = i.grams / 100;
-        totals.kcal += i.kcal * m;
+        totals.kcal    += i.kcal    * m;
         totals.protein += i.protein * m;
-        totals.carbs += i.carbs * m;
-        totals.fat += i.fat * m;
-        totals.fiber += i.fiber * m;
+        totals.carbs   += i.carbs   * m;
+        totals.fat     += i.fat     * m;
+        totals.fiber   += i.fiber   * m;
         totals.kalsium += (i.kalsium || 0) * m;
         totals.zatBesi += (i.zatBesi || 0) * m;
-        totals.vitA += (i.vitA || 0) * m;
-        totals.vitC += (i.vitC || 0) * m;
-        totals.folat += (i.folat || 0) * m;
-        totals.vitB12 += (i.vitB12 || 0) * m;
+        totals.vitA    += (i.vitA   || 0) * m;
+        totals.vitC    += (i.vitC   || 0) * m;
+        totals.folat   += (i.folat  || 0) * m;
+        totals.vitB12  += (i.vitB12 || 0) * m;
     });
-    
-    // Get targets
-    const sasaranSel = document.getElementById('nTargetGroup')?.value || 'balita_sd_1_3';
+
+    // Get targets from active menu's target group
+    const sasaranSel = activeMenu?.targetGroup || 'balita_sd_1_3';
     const target = NUTRITION_TARGETS[sasaranSel] || NUTRITION_TARGETS.balita_sd_1_3;
-    
+
     const sasaranBadge = document.getElementById('nSasaranBadge');
     if (sasaranBadge) sasaranBadge.textContent = target.name;
-    
+
     if (calcEl) {
         const metrics = [
-            { key: 'kcal', label: 'Energi / Kalori', value: totals.kcal.toFixed(0), unit: 'kkal', tMin: target.kcal.min, tMax: target.kcal.max, color: 'bg-emerald-500' },
-            { key: 'protein', label: 'Zat Pembangun / Protein', value: totals.protein.toFixed(1), unit: 'g', tMin: target.protein.min, tMax: target.protein.max, color: 'bg-sky-500' },
-            { key: 'fat', label: 'Zat Energi Cadangan / Lemak', value: totals.fat.toFixed(1), unit: 'g', tMin: target.fat.min, tMax: target.fat.max, color: 'bg-red-500' },
-            { key: 'carbs', label: 'Zat Pengatur / Karbohidrat', value: totals.carbs.toFixed(1), unit: 'g', tMin: target.carbs.min, tMax: target.carbs.max, color: 'bg-amber-500' },
-            { key: 'fiber', label: 'Serat Pangan', value: totals.fiber.toFixed(1), unit: 'g', tMin: target.fiber.min, tMax: target.fiber.max, color: 'bg-violet-500' },
-            { key: 'kalsium', label: 'Kalsium', value: totals.kalsium.toFixed(1), unit: 'mg', tMin: target.kalsium.min, tMax: target.kalsium.max, color: 'bg-indigo-500' },
-            { key: 'zatBesi', label: 'Zat Besi', value: totals.zatBesi.toFixed(1), unit: 'mg', tMin: target.zatBesi.min, tMax: target.zatBesi.max, color: 'bg-teal-500' },
-            { key: 'vitA', label: 'Vitamin A', value: totals.vitA.toFixed(1), unit: 'mcg', tMin: target.vitA.min, tMax: target.vitA.max, color: 'bg-yellow-500' },
-            { key: 'vitC', label: 'Vitamin C', value: totals.vitC.toFixed(1), unit: 'mg', tMin: target.vitC.min, tMax: target.vitC.max, color: 'bg-pink-500' },
-            { key: 'folat', label: 'Folat', value: totals.folat.toFixed(1), unit: 'mcg', tMin: target.folat.min, tMax: target.folat.max, color: 'bg-cyan-500' },
-            { key: 'vitB12', label: 'Vitamin B12', value: totals.vitB12.toFixed(1), unit: 'mcg', tMin: target.vitB12.min, tMax: target.vitB12.max, color: 'bg-purple-500' }
+            { key: 'kcal',    label: 'Energi / Kalori',             value: totals.kcal.toFixed(0),    unit: 'kkal', tMin: target.kcal.min,    tMax: target.kcal.max,    color: 'bg-emerald-500' },
+            { key: 'protein', label: 'Protein',                     value: totals.protein.toFixed(1), unit: 'g',    tMin: target.protein.min, tMax: target.protein.max, color: 'bg-sky-500' },
+            { key: 'fat',     label: 'Lemak',                       value: totals.fat.toFixed(1),     unit: 'g',    tMin: target.fat.min,     tMax: target.fat.max,     color: 'bg-red-500' },
+            { key: 'carbs',   label: 'Karbohidrat',                 value: totals.carbs.toFixed(1),   unit: 'g',    tMin: target.carbs.min,   tMax: target.carbs.max,   color: 'bg-amber-500' },
+            { key: 'fiber',   label: 'Serat Pangan',                value: totals.fiber.toFixed(1),   unit: 'g',    tMin: target.fiber.min,   tMax: target.fiber.max,   color: 'bg-violet-500' },
+            { key: 'kalsium', label: 'Kalsium',                     value: totals.kalsium.toFixed(1), unit: 'mg',   tMin: target.kalsium.min, tMax: target.kalsium.max, color: 'bg-indigo-500' },
+            { key: 'zatBesi', label: 'Zat Besi',                    value: totals.zatBesi.toFixed(1), unit: 'mg',   tMin: target.zatBesi.min, tMax: target.zatBesi.max, color: 'bg-teal-500' },
+            { key: 'vitA',    label: 'Vitamin A',                   value: totals.vitA.toFixed(1),    unit: 'mcg',  tMin: target.vitA.min,    tMax: target.vitA.max,    color: 'bg-yellow-500' },
+            { key: 'vitC',    label: 'Vitamin C',                   value: totals.vitC.toFixed(1),    unit: 'mg',   tMin: target.vitC.min,    tMax: target.vitC.max,    color: 'bg-pink-500' },
+            { key: 'folat',   label: 'Folat',                       value: totals.folat.toFixed(1),   unit: 'mcg',  tMin: target.folat.min,   tMax: target.folat.max,   color: 'bg-cyan-500' },
+            { key: 'vitB12',  label: 'Vitamin B12',                 value: totals.vitB12.toFixed(1),  unit: 'mcg',  tMin: target.vitB12.min,  tMax: target.vitB12.max,  color: 'bg-purple-500' }
         ];
-        
-        // Filter out items that are not checked in filter panel
         const activeMetrics = metrics.filter(m => nGiziFilterState[m.key] === true);
-        
         if (activeMetrics.length === 0) {
             calcEl.innerHTML = '<div class="text-center text-slate-400 py-6 font-semibold text-xs"><i class="fas fa-eye-slash text-lg mb-1 block"></i>Tidak ada zat gizi yang dipilih untuk ditampilkan.</div>';
         } else {
             calcEl.innerHTML = activeMetrics.map(m => {
                 const actualVal = parseFloat(m.value);
-                let statusText = 'Sesuai';
-                let badgeClass = 'sesuai';
-                if (actualVal < m.tMin) { statusText = 'Rendah'; badgeClass = 'rendah'; }
-                else if (actualVal > m.tMax) { statusText = 'Tinggi'; badgeClass = 'tinggi'; }
-                
-                // Progress percentage capped at 100
-                const pct = Math.min((actualVal / m.tMax) * 100, 100);
-                
+                const pctRaw = (actualVal / m.tMax) * 100;
+                const pct = Math.min(pctRaw, 100);
+                let statusText = 'Sesuai'; let badgeClass = 'sesuai';
+                if (actualVal < m.tMin)  { statusText = 'Kurang';     badgeClass = 'rendah'; }
+                else if (actualVal > m.tMax) { statusText = 'Berlebih'; badgeClass = 'tinggi'; }
+                const barColor = actualVal < m.tMin ? 'bg-red-400' : actualVal > m.tMax ? 'bg-violet-500' : m.color;
                 return `<div>
                     <div class="flex justify-between items-center mb-1">
                         <div>
                             <span class="text-[11px] font-bold text-slate-700">${m.label}</span>
-                            <span class="text-[9px] text-slate-400 font-semibold ml-1.5">(Target ${m.tMin}-${m.tMax} ${m.unit})</span>
+                            <span class="text-[9px] text-slate-400 font-semibold ml-1.5">(${m.tMin}–${m.tMax} ${m.unit})</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-xs font-black text-slate-800">${m.value} ${m.unit}</span>
@@ -6556,43 +6906,35 @@ function nRecalcPlanner() {
                         </div>
                     </div>
                     <div class="n-nutrition-bar">
-                        <div class="n-nutrition-bar-fill ${m.color}" style="width: ${pct}%"></div>
+                        <div class="n-nutrition-bar-fill ${barColor}" style="width: ${pct}%"></div>
                     </div>
                 </div>`;
             }).join('');
         }
     }
-    
+
     // Calculate costing & budget comparison
     let totalFoodCostPerPortion = 0;
-    nMenuIngredients.forEach(item => {
-        const itemBdd = item.bdd || 100;
-        const rawGrams = (item.grams * 100) / itemBdd;
+    activeIngredients.forEach(item => {
+        const rawGrams = (item.grams * 100) / (item.bdd || 100);
         const pricePerGram = (item.price || 0) / 1000;
         totalFoodCostPerPortion += rawGrams * pricePerGram;
     });
-    
     const bumbuCost = totalFoodCostPerPortion * 0.10;
     const realCostPerPortion = totalFoodCostPerPortion + bumbuCost;
     const grandTotalPurchaseCost = realCostPerPortion * portions * multiplier;
-    
-    const targetBudgetPerPortion = parseFloat(document.getElementById('nTargetBudget')?.value) || 15000;
-    
+    const targetBudgetPerPortion = activeMenu?.targetBudget || 15000;
+
     if (costEl) {
-        let costStatusText = 'Hemat';
-        let costBadgeClass = 'sesuai';
-        if (realCostPerPortion > targetBudgetPerPortion) { costStatusText = 'Overbudget'; costBadgeClass = 'tinggi'; }
+        let costStatusText = 'Hemat'; let costBadgeClass = 'sesuai';
+        if (realCostPerPortion > targetBudgetPerPortion)       { costStatusText = 'Overbudget';    costBadgeClass = 'tinggi'; }
         else if (realCostPerPortion > targetBudgetPerPortion * 0.9) { costStatusText = 'Sesuai Budget'; costBadgeClass = 'rendah'; }
-        
-        // Update header badge
         const headerBadge = document.getElementById('nCostStatusBadge');
         if (headerBadge) {
             headerBadge.textContent = costStatusText;
             headerBadge.className = `text-[9px] font-extrabold px-2 py-0.5 rounded ${costBadgeClass === 'sesuai' ? 'bg-emerald-50 text-emerald-700' : costBadgeClass === 'rendah' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'}`;
         }
-        
         const costPct = Math.min((realCostPerPortion / targetBudgetPerPortion) * 100, 100);
-        
         costEl.innerHTML = `
             <div class="grid grid-cols-2 gap-3 text-slate-700 text-xs font-semibold">
                 <div>Biaya Bahan Baku:</div>
@@ -6602,7 +6944,6 @@ function nRecalcPlanner() {
                 <div class="border-t border-slate-50 pt-2 font-bold text-slate-800">Total Riil per Porsi:</div>
                 <div class="border-t border-slate-50 pt-2 text-right font-black text-emerald-700 text-sm">Rp ${Math.round(realCostPerPortion).toLocaleString('id-ID')}</div>
             </div>
-            
             <div class="pt-2">
                 <div class="flex justify-between text-[10px] text-slate-400 font-extrabold mb-1">
                     <span>Pemakaian Anggaran vs Target</span>
@@ -6612,21 +6953,20 @@ function nRecalcPlanner() {
                     <div class="n-nutrition-bar-fill ${realCostPerPortion > targetBudgetPerPortion ? 'bg-red-500' : 'bg-emerald-500'}" style="width: ${costPct}%"></div>
                 </div>
             </div>
-            
             <div class="border-t border-slate-50 pt-3 flex flex-col justify-center items-center bg-slate-50/50 rounded-xl p-3">
-                <span class="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Total Anggaran Belanja Belanja</span>
+                <span class="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Total Anggaran Belanja Menu Ini</span>
                 <span class="text-base font-black text-slate-800 mt-1">Rp ${Math.round(grandTotalPurchaseCost).toLocaleString('id-ID')}</span>
                 <span class="text-[9px] text-slate-400 font-medium mt-0.5">Mencakup ${portions} porsi + ${reserve}% cadangan</span>
             </div>
         `;
     }
-    
+
     // Shopping list
     if (shopEl) {
-        if (nMenuIngredients.length === 0) {
+        if (activeIngredients.length === 0) {
             shopEl.innerHTML = '<div class="text-center text-slate-400 py-4 text-xs font-semibold">Belum ada kebutuhan belanja.</div>';
         } else {
-            shopEl.innerHTML = nMenuIngredients.map(item => {
+            shopEl.innerHTML = activeIngredients.map(item => {
                 const rawGrams = (item.grams * 100) / (item.bdd || 100);
                 const totalGrams = rawGrams * portions * multiplier;
                 const display = totalGrams >= 1000 ? `${(totalGrams / 1000).toFixed(2)} kg` : `${Math.round(totalGrams)} g`;
@@ -6637,88 +6977,146 @@ function nRecalcPlanner() {
             }).join('');
         }
     }
-    
+
+    // ── GRAND TOTAL semua menu ────────────────────────────────────────────────
+    const grandPanel = document.getElementById('nGrandTotalPanel');
+    if (grandPanel && nMenuPlans.length > 0) {
+        const colors = ['emerald', 'sky', 'violet', 'amber', 'rose'];
+        let grandTotal = 0;
+        let grandPortions = 0;
+        const rows = nMenuPlans.map((plan, idx) => {
+            const ings = plan.mode === 'same'
+                ? (nGetRefMenu()?.ingredients || []).map(item => ({
+                    ...item,
+                    grams: (plan.sameAmounts || {})[item.name] !== undefined ? plan.sameAmounts[item.name] : item.grams
+                  }))
+                : plan.ingredients;
+            const p = Math.max(plan.portions || 1, 1);
+            const r = 1 + (plan.reserve || 0) / 100;
+            let cost = 0;
+            ings.forEach(item => {
+                const rawG = (item.grams * 100) / (item.bdd || 100);
+                cost += ((rawG * p * r) / 1000) * (item.price || 0);
+            });
+            cost *= 1.1; // bumbu 10%
+            grandTotal    += cost;
+            grandPortions += p;
+            const c = colors[idx % colors.length];
+            const isActive = plan.id === nActiveMenuId;
+            return `<div class="flex items-center justify-between gap-4 py-2.5 px-3 rounded-xl bg-${c}-50 border border-${c}-100${isActive ? ' ring-1 ring-' + c + '-300' : ''}">
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-${c}-500"></div>
+                    <span class="text-xs font-bold text-slate-700">${plan.label}</span>
+                    <span class="text-[9px] text-slate-400 font-semibold">${p} porsi</span>
+                    ${plan.mode === 'same' ? '<span class="text-[8px] bg-sky-100 text-sky-600 font-bold px-1.5 py-0.5 rounded">Sama</span>' : ''}
+                </div>
+                <div class="text-right">
+                    <div class="text-xs font-black text-slate-800">Rp ${Math.round(cost).toLocaleString('id-ID')}</div>
+                    <div class="text-[9px] text-slate-400 font-medium">≈ Rp ${p > 0 ? Math.round(cost / p).toLocaleString('id-ID') : 0}/porsi</div>
+                </div>
+            </div>`;
+        }).join('');
+        grandPanel.innerHTML = rows + (nMenuPlans.length > 1 ? `
+        <div class="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
+            <div>
+                <span class="text-xs font-extrabold text-slate-700">TOTAL DAPUR HARI INI</span>
+                <span class="text-[10px] text-slate-400 font-semibold ml-2">${grandPortions} porsi total</span>
+            </div>
+            <span class="text-base font-black text-emerald-700">Rp ${Math.round(grandTotal).toLocaleString('id-ID')}</span>
+        </div>` : '');
+    }
+    // ─────────────────────────────────────────────────────────────────────────────
+
     // Update overview metrics
     nRenderOverview();
 }
 
+
 async function nResetPlanner() {
     const ok = await showCustomConfirm({
-        title: 'Reset Perencanaan Menu?',
-        message: 'Dereset menu saat ini? Semua progres bahan penyusunan akan hilang.',
+        title: 'Reset Semua Menu?',
+        message: 'Semua slot menu akan direset ke kondisi awal. Lanjutkan?',
         icon: 'fa-undo',
         iconClass: 'bg-red-500/10 text-red-500',
-        confirmText: 'Ya, Reset',
+        confirmText: 'Ya, Reset Semua',
         confirmClass: 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/30'
     });
     if (!ok) return;
-    nMenuIngredients = [];
-    const nameEl = document.getElementById('nMenuName');
-    if (nameEl) nameEl.value = '';
-    const portionsEl = document.getElementById('nPortions');
-    if (portionsEl) portionsEl.value = 250;
-    const reserveEl = document.getElementById('nReserve');
-    if (reserveEl) reserveEl.value = 10;
-    const budgetEl = document.getElementById('nTargetBudget');
-    if (budgetEl) budgetEl.value = 12000;
-    const sasaranEl = document.getElementById('nTargetGroup');
-    if (sasaranEl) sasaranEl.value = 'balita_sd_1_3';
-    
+    nMenuPlans = [{
+        id: 'menu_ref',
+        isReference: true,
+        mode: 'reference',
+        label: 'Porsi Kecil',
+        menuName: '',
+        targetGroup: 'balita_sd_1_3',
+        portions: 150,
+        reserve: 10,
+        targetBudget: 10000,
+        session: 'siang',
+        ingredients: []
+    }];
+    nActiveMenuId = 'menu_ref';
+    nRenderMenuTabs();
+    nSwitchMenuPlan('menu_ref');
     nRecalcPlanner();
     nSavePlannerState();
-    showToast('Menu berhasil direset');
+    showToast('Semua menu berhasil direset');
 }
 
 // --- PERSISTENCE (localStorage) ---
 function nSavePlannerState() {
-    const state = {
-        ingredients: nMenuIngredients,
-        menuName: document.getElementById('nMenuName')?.value || '',
-        portions: document.getElementById('nPortions')?.value || '250',
-        reserve: document.getElementById('nReserve')?.value || '10',
-        targetBudget: document.getElementById('nTargetBudget')?.value || '12000',
-        session: document.getElementById('nSession')?.value || 'siang',
-        sasaran: document.getElementById('nTargetGroup')?.value || 'balita_sd_1_3',
-        savedAt: new Date().toISOString()
-    };
-    localStorage.setItem('mbg_nutrition_plan', JSON.stringify(state));
+    nSyncMenuFromForm();
+    localStorage.setItem('mbg_nutrition_plans_v2', JSON.stringify(nMenuPlans));
+    localStorage.setItem('mbg_nutrition_active_menu', nActiveMenuId);
 }
 
 function nLoadPlannerState() {
     try {
-        const raw = localStorage.getItem('mbg_nutrition_plan');
-        if (!raw) return;
-        const state = JSON.parse(raw);
-        nMenuIngredients = state.ingredients || [];
-        const nameEl = document.getElementById('nMenuName');
-        if (nameEl && state.menuName) nameEl.value = state.menuName;
-        const portionsEl = document.getElementById('nPortions');
-        if (portionsEl && state.portions) portionsEl.value = state.portions;
-        const reserveEl = document.getElementById('nReserve');
-        if (reserveEl && state.reserve) reserveEl.value = state.reserve;
-        const sessionEl = document.getElementById('nSession');
-        if (sessionEl && state.session) sessionEl.value = state.session;
-        const sasaranEl = document.getElementById('nTargetGroup');
-        if (sasaranEl && state.sasaran) sasaranEl.value = state.sasaran;
-        const budgetEl = document.getElementById('nTargetBudget');
-        if (budgetEl && state.targetBudget) budgetEl.value = state.targetBudget;
-    } catch (e) { /* ignore */ }
+        // Coba load v2 (multi-menu) terlebih dahulu
+        const rawV2 = localStorage.getItem('mbg_nutrition_plans_v2');
+        if (rawV2) {
+            const plans = JSON.parse(rawV2);
+            if (Array.isArray(plans) && plans.length > 0) {
+                nMenuPlans = plans;
+                nActiveMenuId = localStorage.getItem('mbg_nutrition_active_menu') || plans[0]?.id || 'menu_ref';
+                // Pastikan active id masih valid
+                if (!nMenuPlans.find(m => m.id === nActiveMenuId)) nActiveMenuId = nMenuPlans[0].id;
+                setTimeout(() => nSwitchMenuPlan(nActiveMenuId), 50);
+                return;
+            }
+        }
+        // Backward compat: migrasi dari state v1 (single menu)
+        const rawV1 = localStorage.getItem('mbg_nutrition_plan');
+        if (rawV1) {
+            const old = JSON.parse(rawV1);
+            nMenuPlans[0].ingredients   = old.ingredients || [];
+            nMenuPlans[0].menuName      = old.menuName || '';
+            nMenuPlans[0].portions      = parseInt(old.portions) || 150;
+            nMenuPlans[0].reserve       = parseInt(old.reserve)  || 10;
+            nMenuPlans[0].targetBudget  = parseFloat(old.targetBudget) || 10000;
+            nMenuPlans[0].session       = old.session  || 'siang';
+            nMenuPlans[0].targetGroup   = old.sasaran  || 'balita_sd_1_3';
+            setTimeout(() => nSwitchMenuPlan('menu_ref'), 50);
+        }
+    } catch (e) { console.warn('nLoadPlannerState error', e); }
 }
 
 // --- CLOUD SINKRONISASI ---
 async function nSavePlannerToCloud() {
+    nSyncMenuFromForm();
     const plan = {
         userId: currentUser?.id || '',
         username: currentUser?.u || '',
         name: currentUser?.name || '',
         division: currentUser?.division || '',
-        menuName: document.getElementById('nMenuName')?.value || '',
-        session: document.getElementById('nSession')?.value || 'siang',
-        portions: document.getElementById('nPortions')?.value || '250',
-        reserve: document.getElementById('nReserve')?.value || '10',
-        targetBudget: document.getElementById('nTargetBudget')?.value || '12000',
-        sasaran: document.getElementById('nTargetGroup')?.value || 'balita_sd_1_3',
-        ingredients: nMenuIngredients,
+        menuPlans: nMenuPlans,
+        activeMenuId: nActiveMenuId,
+        // Backward compat fields (dari menu referensi)
+        menuName: nGetRefMenu()?.menuName || '',
+        session: nGetRefMenu()?.session || 'siang',
+        portions: String(nGetRefMenu()?.portions || 150),
+        sasaran: nGetRefMenu()?.targetGroup || 'balita_sd_1_3',
+        ingredients: nGetRefMenu()?.ingredients || [],
         savedAt: new Date().toISOString()
     };
     
@@ -6792,20 +7190,24 @@ function showToastAction(msg, actionText, callback) {
 }
 
 function nLoadPlanData(plan) {
-    nMenuIngredients = plan.ingredients || [];
-    const nameEl = document.getElementById('nMenuName');
-    if (nameEl && plan.menuName) nameEl.value = plan.menuName;
-    const portionsEl = document.getElementById('nPortions');
-    if (portionsEl && plan.portions) portionsEl.value = plan.portions;
-    const reserveEl = document.getElementById('nReserve');
-    if (reserveEl && plan.reserve) reserveEl.value = plan.reserve;
-    const sessionEl = document.getElementById('nSession');
-    if (sessionEl && plan.session) sessionEl.value = plan.session;
-    const sasaranEl = document.getElementById('nTargetGroup');
-    if (sasaranEl && plan.sasaran) sasaranEl.value = plan.sasaran;
-    const budgetEl = document.getElementById('nTargetBudget');
-    if (budgetEl && plan.targetBudget) budgetEl.value = plan.targetBudget;
-    
+    // Support multi-menu format (v2)
+    if (plan.menuPlans && Array.isArray(plan.menuPlans) && plan.menuPlans.length > 0) {
+        nMenuPlans = plan.menuPlans;
+        nActiveMenuId = plan.activeMenuId || nMenuPlans[0]?.id || 'menu_ref';
+        if (!nMenuPlans.find(m => m.id === nActiveMenuId)) nActiveMenuId = nMenuPlans[0].id;
+    } else {
+        // Backward compat: single-menu format
+        nMenuPlans[0].ingredients  = plan.ingredients || [];
+        nMenuPlans[0].menuName     = plan.menuName || '';
+        nMenuPlans[0].portions     = parseInt(plan.portions) || 150;
+        nMenuPlans[0].reserve      = parseInt(plan.reserve)  || 10;
+        nMenuPlans[0].targetBudget = parseFloat(plan.targetBudget) || 10000;
+        nMenuPlans[0].session      = plan.session  || 'siang';
+        nMenuPlans[0].targetGroup  = plan.sasaran  || 'balita_sd_1_3';
+        nActiveMenuId = 'menu_ref';
+    }
+    nRenderMenuTabs();
+    nSwitchMenuPlan(nActiveMenuId);
     nRecalcPlanner();
     nSavePlannerState();
     showToast('Rencana gizi berhasil dimuat dari Cloud!');
@@ -7782,20 +8184,35 @@ function volStartQR() {
     });
 }
 
-function volScanLoop() {
+async function volScanLoop() {
     if (volScannedEmployee) return;
     const video = document.getElementById('volScanVideo');
     if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) {
         requestAnimationFrame(volScanLoop);
         return;
     }
+
+    // Try native BarcodeDetector if available
+    if ('BarcodeDetector' in window) {
+        try {
+            if (!window._barcodeDetectorInst) {
+                window._barcodeDetectorInst = new BarcodeDetector({ formats: ['qr_code'] });
+            }
+            const barcodes = await window._barcodeDetectorInst.detect(video);
+            if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                volValidateQR(barcodes[0].rawValue);
+                return;
+            }
+        } catch (e) {}
+    }
+
     const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     ctx.drawImage(video, 0, 0);
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
     if (code && code.data) {
         volValidateQR(code.data);
     } else {
@@ -7803,40 +8220,138 @@ function volScanLoop() {
     }
 }
 
-function volUploadQR(event) {
+// Multi-Scale, Multi-Rotation, and Preprocessed Image QR Scanner Engine
+async function scanQRFromImageFile(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = async function() {
+                // 1. Try Native BarcodeDetector first (Instant Hardware Decode)
+                if ('BarcodeDetector' in window) {
+                    try {
+                        if (!window._barcodeDetectorInst) {
+                            window._barcodeDetectorInst = new BarcodeDetector({ formats: ['qr_code'] });
+                        }
+                        const barcodes = await window._barcodeDetectorInst.detect(img);
+                        if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                            resolve(barcodes[0].rawValue);
+                            return;
+                        }
+                    } catch (err) {
+                        console.warn('Native BarcodeDetector upload failed, trying jsQR fallback:', err);
+                    }
+                }
+
+                // 2. Multi-scale jsQR scanning for high-resolution gallery images (e.g. 4000x3000 -> 1000px, 600px, original)
+                const maxDim = Math.max(img.width, img.height);
+                const scalesToTry = [];
+                if (maxDim > 1200) scalesToTry.push(1000 / maxDim);
+                if (maxDim > 800) scalesToTry.push(600 / maxDim);
+                scalesToTry.push(1.0); // original scale
+
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+                for (const scale of scalesToTry) {
+                    const w = Math.round(img.width * scale);
+                    const h = Math.round(img.height * scale);
+                    canvas.width = w;
+                    canvas.height = h;
+                    ctx.drawImage(img, 0, 0, w, h);
+
+                    // Pass A: Normal ImageData with attemptBoth
+                    let imageData = ctx.getImageData(0, 0, w, h);
+                    let code = jsQR(imageData.data, w, h, { inversionAttempts: 'attemptBoth' });
+                    if (code && code.data) {
+                        resolve(code.data);
+                        return;
+                    }
+
+                    // Pass B: Grayscale & Contrast Thresholding (removes glare & shadows)
+                    const binarizedData = preprocessImageForQR(ctx, w, h);
+                    code = jsQR(binarizedData.data, w, h, { inversionAttempts: 'attemptBoth' });
+                    if (code && code.data) {
+                        resolve(code.data);
+                        return;
+                    }
+                }
+
+                // 3. Fallback Rotation (90 deg & 270 deg) for sideways mobile photos
+                const rotScale = maxDim > 1000 ? 800 / maxDim : 1.0;
+                const rw = Math.round(img.width * rotScale);
+                const rh = Math.round(img.height * rotScale);
+
+                // Try 90 deg rotation
+                canvas.width = rh;
+                canvas.height = rw;
+                ctx.save();
+                ctx.translate(rh / 2, rw / 2);
+                ctx.rotate(Math.PI / 2);
+                ctx.drawImage(img, -rw / 2, -rh / 2, rw, rh);
+                ctx.restore();
+
+                let imageData = ctx.getImageData(0, 0, rh, rw);
+                let code = jsQR(imageData.data, rh, rw, { inversionAttempts: 'attemptBoth' });
+                if (code && code.data) {
+                    resolve(code.data);
+                    return;
+                }
+
+                resolve(null);
+            };
+            img.onerror = () => resolve(null);
+            img.src = e.target.result;
+        };
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+    });
+}
+
+function preprocessImageForQR(ctx, width, height) {
+    const imgData = ctx.getImageData(0, 0, width, height);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+        const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        const val = gray > 125 ? 255 : 0;
+        d[i] = val;
+        d[i + 1] = val;
+        d[i + 2] = val;
+    }
+    return imgData;
+}
+
+async function volUploadQR(event) {
     const file = event.target.files[0];
     if (!file) return;
-    const img = new Image();
-    img.onload = function() {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
-        if (code && code.data) {
-            volValidateQR(code.data);
+
+    toggleLoader(true, 'Membaca QR Code...');
+    try {
+        const qrResult = await scanQRFromImageFile(file);
+        toggleLoader(false);
+        if (qrResult) {
+            volValidateQR(qrResult);
         } else {
-            showToast('QR Code tidak ditemukan di foto. Pastikan foto jelas dan tidak blur.', 'error');
+            showToast('QR Code tidak terdeteksi. Pastikan foto jelas, tidak blur, dan QR terlihat utuh.', 'error');
+            requestAnimationFrame(volScanLoop);
         }
-        URL.revokeObjectURL(img.src);
-    };
-    img.onerror = function() {
-        showToast('Gagal membaca file gambar.', 'error');
-        URL.revokeObjectURL(img.src);
-    };
-    img.src = URL.createObjectURL(file);
+    } catch (err) {
+        toggleLoader(false);
+        showToast('Gagal membaca gambar dari galeri.', 'error');
+        requestAnimationFrame(volScanLoop);
+    }
     event.target.value = '';
 }
 
 function volValidateQR(data) {
+    if (!data) return;
     let parsedId = data;
     let parsedObj = null;
     try {
-        const parsed = JSON.parse(data);
-        if (parsed && parsed.id) {
-            parsedId = parsed.id;
+        const cleanStr = String(data).trim().replace(/^[\uFEFF\xA0]+/, '');
+        const parsed = JSON.parse(cleanStr);
+        if (parsed && typeof parsed === 'object') {
+            parsedId = parsed.id || parsed.empId || parsed.nip || parsed.code || data;
             parsedObj = parsed;
         }
     } catch (e) {
@@ -7845,19 +8360,24 @@ function volValidateQR(data) {
     const cleanData = String(parsedId).trim().replace(/\s+/g, ' ');
     
     // 1. Cari relawan di database lokal atau buat dari metadata QR Code
-    let emp = employees.find(e => String(e.id).trim() == cleanData || e.name.trim().replace(/\s+/g, ' ').toLowerCase() == cleanData.toLowerCase());
+    let emp = employees.find(e => {
+        const empIdStr = String(e.id || '').trim();
+        const empNameStr = String(e.name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+        const cleanDataLower = cleanData.toLowerCase();
+        return empIdStr === cleanData || empNameStr === cleanDataLower;
+    });
     
     if (!emp && parsedObj) {
         emp = {
-            id: parsedObj.id,
-            name: parsedObj.n || cleanData,
-            division: parsedObj.d || 'Relawan',
+            id: parsedObj.id || cleanData,
+            name: parsedObj.n || parsedObj.name || cleanData,
+            division: parsedObj.d || parsedObj.division || 'Relawan',
             pt: parsedObj.pt || 'SPPG Rawa Bunga 1'
         };
     }
 
     if (!emp) {
-        showToast('QR tidak dikenali', 'error');
+        showToast('QR tidak dikenali dalam database', 'error');
         requestAnimationFrame(volScanLoop);
         return;
     }
@@ -9095,8 +9615,57 @@ function spawnConfetti(container) {
 }
 
 // =============================================
-// PAGINATION FUNCTIONS - Logs Table
+// PAGINATION & SEARCH FUNCTIONS - Logs Table
 // =============================================
+
+function handleLogsSearch(query) {
+    const clearBtn = document.getElementById('logsSearchClearBtn');
+    if (clearBtn) {
+        if (query && query.trim()) clearBtn.classList.remove('hidden');
+        else clearBtn.classList.add('hidden');
+    }
+    logsCurrentPage = 1;
+    refreshUI();
+}
+
+function clearLogsSearch() {
+    const input = document.getElementById('logsSearchInput');
+    if (input) {
+        input.value = '';
+        handleLogsSearch('');
+    }
+}
+
+function initTableSwipeScroll(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container || container._swipeInited) return;
+    container._swipeInited = true;
+    
+    let isDown = false;
+    let startX, scrollLeft;
+
+    container.addEventListener('mousedown', (e) => {
+        isDown = true;
+        container.classList.add('cursor-grabbing');
+        startX = e.pageX - container.offsetLeft;
+        scrollLeft = container.scrollLeft;
+    });
+    container.addEventListener('mouseleave', () => {
+        isDown = false;
+        container.classList.remove('cursor-grabbing');
+    });
+    container.addEventListener('mouseup', () => {
+        isDown = false;
+        container.classList.remove('cursor-grabbing');
+    });
+    container.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - container.offsetLeft;
+        const walk = (x - startX) * 1.5;
+        container.scrollLeft = scrollLeft - walk;
+    });
+}
 
 function previousLogsPage() {
     if (logsCurrentPage > 1) {
@@ -9106,7 +9675,7 @@ function previousLogsPage() {
 }
 
 function nextLogsPage() {
-    const sortedLogs = getSortedData(logs, 'logs');
+    const sortedLogs = allLogsSorted.length > 0 ? allLogsSorted : getSortedData(logs, 'logs');
     const totalPages = Math.ceil(sortedLogs.length / LOGS_PER_PAGE);
     if (logsCurrentPage < totalPages) {
         logsCurrentPage++;
@@ -9115,7 +9684,7 @@ function nextLogsPage() {
 }
 
 function goToLogsPage(pageNum) {
-    const sortedLogs = getSortedData(logs, 'logs');
+    const sortedLogs = allLogsSorted.length > 0 ? allLogsSorted : getSortedData(logs, 'logs');
     const totalPages = Math.ceil(sortedLogs.length / LOGS_PER_PAGE);
     if (pageNum >= 1 && pageNum <= totalPages) {
         logsCurrentPage = pageNum;

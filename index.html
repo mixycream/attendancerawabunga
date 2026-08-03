@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
@@ -1383,35 +1383,209 @@
             <!-- Mobile Overlay -->
             <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-slate-900/50 z-30 hidden md:hidden backdrop-blur-sm transition-opacity"></div>
 
+            <!-- ═══════════════════════════════════
+                 iPhone-style bottom vignette fade
+                 Separates nav from content naturally
+                 ═══════════════════════════════════ -->
+            <div id="mobileBottomFade" class="md:hidden fixed bottom-0 left-0 right-0 pointer-events-none z-40"
+                 style="height: 130px; background: linear-gradient(to top, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.10) 55%, transparent 100%);"></div>
+
+            <!-- ═══════════════════════════════════════════════════════
+                 iOS-style 4-Tab Bottom Bar — Mobile Only
+                 3 main tabs + Lainnya (More)
+                 ═══════════════════════════════════════════════════════ -->
+            <nav id="mobileBottomNav" class="md:hidden fixed bottom-0 left-0 right-0 z-50 px-3 pb-3">
+                <!-- Fluid Glass Pill -->
+                <div id="mobileNavPill" class="relative rounded-3xl overflow-hidden">
+
+                    <!-- iOS-style sliding indicator (very subtle, tinted blue) -->
+                    <div id="mobileNavIndicator" class="absolute top-1.5 bottom-1.5 rounded-[18px] pointer-events-none"></div>
+
+                    <!-- 4 Tab Buttons -->
+                    <div class="relative flex items-stretch">
+
+                        <!-- 1. Dashboard -->
+                        <button id="mbn-dashboard" onclick="switchTab('dashboard'); mobileNavActivate(this, 0)"
+                                class="mobile-nav-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-3.5 px-1 active:scale-90">
+                            <i class="mobile-nav-icon fas fa-house text-[17px] mb-0.5 transition-all duration-250"></i>
+                            <span class="mobile-nav-label text-[10px] font-semibold transition-all duration-250">Beranda</span>
+                        </button>
+
+                        <!-- 2. Data Relawan -->
+                        <button id="mbn-employees" onclick="switchTab('employees'); mobileNavActivate(this, 1)"
+                                class="mobile-nav-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-3.5 px-1 active:scale-90">
+                            <i class="mobile-nav-icon fas fa-users text-[17px] mb-0.5 transition-all duration-250"></i>
+                            <span class="mobile-nav-label text-[10px] font-semibold transition-all duration-250">Relawan</span>
+                        </button>
+
+                        <!-- 3. Absen Manual -->
+                        <button id="mbn-manual_attendance" onclick="switchTab('manual_attendance'); mobileNavActivate(this, 2)"
+                                class="mobile-nav-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-3.5 px-1 active:scale-90">
+                            <i class="mobile-nav-icon fas fa-calendar-check text-[17px] mb-0.5 transition-all duration-250"></i>
+                            <span class="mobile-nav-label text-[10px] font-semibold transition-all duration-250">Absen</span>
+                        </button>
+
+                        <!-- 4. Lainnya (More) -->
+                        <button id="mbn-more" onclick="openMobileMoreSheet(); mobileNavActivate(this, 3)"
+                                class="mobile-nav-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-3.5 px-1 active:scale-90">
+                            <i class="mobile-nav-icon fas fa-ellipsis text-[17px] mb-0.5 transition-all duration-250"></i>
+                            <span class="mobile-nav-label text-[10px] font-semibold transition-all duration-250">Lainnya</span>
+                        </button>
+
+                    </div>
+                </div>
+            </nav>
+
+            <!-- ═══════════════════════════════════════════════════════
+                 iOS-style "More" Bottom Sheet
+                 Slides up with ultra-frosted glass + feature grid
+                 ═══════════════════════════════════════════════════════ -->
+
+            <!-- Backdrop dimmer -->
+            <div id="moreSheetBackdrop" onclick="closeMobileMoreSheet()"
+                 class="md:hidden fixed inset-0 z-[60] hidden transition-opacity duration-300 opacity-0"
+                 style="background: rgba(0,0,0,0.42); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"></div>
+
+            <!-- Sheet Panel -->
+            <div id="moreSheetPanel"
+                 class="md:hidden fixed bottom-0 left-0 right-0 z-[61] hidden"
+                 style="transform: translateY(110%); transition: transform 0.38s cubic-bezier(0.34,1.22,0.64,1);">
+
+                <!-- Drag handle + Glass card -->
+                <div class="mx-2 mb-2 rounded-[28px] overflow-hidden"
+                     style="
+                        background: rgba(250,251,255,0.88);
+                        backdrop-filter: blur(60px) saturate(180%) brightness(1.06);
+                        -webkit-backdrop-filter: blur(60px) saturate(180%) brightness(1.06);
+                        border: 1px solid rgba(200,210,240,0.50);
+                        border-top: 1px solid rgba(255,255,255,0.96);
+                        box-shadow: 0 -4px 60px rgba(0,0,0,0.22), 0 2px 0 rgba(255,255,255,0.90) inset;
+                     " id="moreSheetCard">
+
+                    <!-- Drag handle bar -->
+                    <div class="flex justify-center pt-3 pb-1">
+                        <div class="w-9 h-[4px] rounded-full" style="background: rgba(0,0,0,0.18);"></div>
+                    </div>
+
+                    <!-- Title -->
+                    <div class="px-5 pb-2 pt-1">
+                        <span class="text-[11px] font-bold uppercase tracking-widest" style="color: rgba(0,0,0,0.36);">Fitur Lainnya</span>
+                    </div>
+
+                    <!-- Feature Grid — iOS Settings style 2×2 -->
+                    <div class="grid grid-cols-2 gap-3 px-4 pb-4">
+
+                        <!-- Pelanggaran -->
+                        <button onclick="switchTab('violations'); closeMobileMoreSheet(); mobileNavActivate(document.getElementById('mbn-more'),3)"
+                                class="more-sheet-item flex items-center gap-3 p-4 rounded-2xl text-left active:scale-95 transition-all duration-200"
+                                style="background: rgba(255,59,48,0.08); border: 1px solid rgba(255,59,48,0.18);">
+                            <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
+                                 style="background: linear-gradient(145deg,#ff6b6b,#ff3b30); box-shadow: 0 4px 12px rgba(255,59,48,0.35);">
+                                <i class="fas fa-exclamation-circle text-white text-sm"></i>
+                            </div>
+                            <div>
+                                <div class="text-[12px] font-bold text-slate-800">Pelanggaran</div>
+                                <div class="text-[10px] text-slate-400 font-medium">Catatan</div>
+                            </div>
+                        </button>
+
+                        <!-- Rekap Gaji -->
+                        <button onclick="switchTab('salaries'); closeMobileMoreSheet(); mobileNavActivate(document.getElementById('mbn-more'),3)"
+                                class="more-sheet-item flex items-center gap-3 p-4 rounded-2xl text-left active:scale-95 transition-all duration-200"
+                                style="background: rgba(52,199,89,0.08); border: 1px solid rgba(52,199,89,0.18);">
+                            <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
+                                 style="background: linear-gradient(145deg,#4cd964,#34c759); box-shadow: 0 4px 12px rgba(52,199,89,0.35);">
+                                <i class="fas fa-file-invoice-dollar text-white text-sm"></i>
+                            </div>
+                            <div>
+                                <div class="text-[12px] font-bold text-slate-800">Rekap Gaji</div>
+                                <div class="text-[10px] text-slate-400 font-medium">& Lembur</div>
+                            </div>
+                        </button>
+
+                        <!-- Pengumuman -->
+                        <button onclick="switchTab('pengumuman'); closeMobileMoreSheet(); mobileNavActivate(document.getElementById('mbn-more'),3)"
+                                class="more-sheet-item flex items-center gap-3 p-4 rounded-2xl text-left active:scale-95 transition-all duration-200"
+                                style="background: rgba(255,159,10,0.08); border: 1px solid rgba(255,159,10,0.18);">
+                            <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
+                                 style="background: linear-gradient(145deg,#ffcc02,#ff9f0a); box-shadow: 0 4px 12px rgba(255,159,10,0.35);">
+                                <i class="fas fa-bullhorn text-white text-sm"></i>
+                            </div>
+                            <div>
+                                <div class="text-[12px] font-bold text-slate-800">Pengumuman</div>
+                                <div class="text-[10px] text-slate-400 font-medium">Info & Berita</div>
+                            </div>
+                        </button>
+
+                        <!-- Pengaturan -->
+                        <button onclick="switchTab('settings'); closeMobileMoreSheet(); mobileNavActivate(document.getElementById('mbn-more'),3)"
+                                class="more-sheet-item flex items-center gap-3 p-4 rounded-2xl text-left active:scale-95 transition-all duration-200"
+                                style="background: rgba(142,142,147,0.10); border: 1px solid rgba(142,142,147,0.20);">
+                            <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
+                                 style="background: linear-gradient(145deg,#aeaeb2,#8e8e93); box-shadow: 0 4px 12px rgba(142,142,147,0.30);">
+                                <i class="fas fa-cog text-white text-sm"></i>
+                            </div>
+                            <div>
+                                <div class="text-[12px] font-bold text-slate-800">Pengaturan</div>
+                                <div class="text-[10px] text-slate-400 font-medium">Konfigurasi</div>
+                            </div>
+                        </button>
+
+                    </div>
+
+                    <!-- Divider -->
+                    <div class="mx-4 mb-3" style="height:1px; background: rgba(0,0,0,0.07);"></div>
+
+                    <!-- Logout button -->
+                    <div class="px-4 pb-5">
+                        <button onclick="logout()"
+                                class="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl active:scale-95 transition-all duration-200"
+                                style="background: rgba(255,59,48,0.07); border: 1px solid rgba(255,59,48,0.15);">
+                            <i class="fas fa-sign-out-alt text-sm" style="color:#ff3b30;"></i>
+                            <span class="text-[13px] font-bold" style="color:#ff3b30;">Keluar</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Main Content -->
             <main class="flex-1 flex flex-col overflow-hidden relative md:ml-72 transition-all">
-                <!-- Header -->
-                <header class="h-20 clay-card flex items-center justify-between px-5 md:px-8 shrink-0 z-30 sticky top-0 mx-4 mt-4 rounded-2xl">
-                    <div class="flex items-center gap-4">
-                        <button onclick="toggleSidebar()" class="w-10 h-10 clay-btn text-slate-600 flex items-center justify-center md:hidden active:scale-95">
-                            <i class="fas fa-bars"></i>
-                        </button>
-                        <div class="font-bold text-slate-800 text-lg" id="pageTitle">Dashboard</div>
-                    </div>
+                <!-- Header — compact on mobile (no hamburger, bottom nav handles nav) -->
+                <header class="clay-card flex items-center justify-between px-4 md:px-8 shrink-0 z-30 sticky top-0 mx-3 mt-3 md:mx-4 md:mt-4 rounded-2xl"
+                        style="height: 60px; min-height: 60px;">
                     <div class="flex items-center gap-3">
-                        <!-- Try Me Text -->
+                        <!-- Mini logo brand — shows on mobile only -->
+                        <div class="md:hidden flex items-center gap-2">
+                            <div class="w-7 h-7 rounded-lg flex items-center justify-center bg-indigo-500/10 border border-indigo-500/20 shadow-sm">
+                                <svg class="w-full h-full" viewBox="0 0 24 24" fill="none">
+                                    <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" fill="url(#cg-hdr)"/>
+                                    <path d="M12 9v6M9 11v2M15 11v2" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+                                    <defs><linearGradient id="cg-hdr" x1="0" y1="0" x2="24" y2="20" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#a855f7"/></linearGradient></defs>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="font-bold text-slate-800 text-base md:text-lg" id="pageTitle">Dashboard</div>
+                    </div>
+                    <div class="flex items-center gap-2 md:gap-3">
+                        <!-- Try Me Text — desktop only -->
                         <span class="text-xs font-bold text-indigo-500 hidden sm:inline animate-pulse">Try Me! -&gt;</span>
                         <!-- Dark Mode Toggle -->
                         <button id="darkModeToggle" onclick="toggleDarkMode()" class="dark-toggle-btn" title="Toggle Dark Mode">
                             <i id="darkModeIcon" class="fas fa-moon"></i>
                         </button>
                         <!-- Sync Button -->
-                        <button id="adminSyncBtn" onclick="setSyncButtonLoading(this,true); fetchData(true)" class="clay-btn text-slate-600 px-4 py-2 text-xs font-bold flex items-center gap-2 active:scale-95">
+                        <button id="adminSyncBtn" onclick="setSyncButtonLoading(this,true); fetchData(true)" class="clay-btn text-slate-600 px-3 md:px-4 py-2 text-xs font-bold flex items-center gap-2 active:scale-95">
                             <i class="fas fa-sync-alt"></i> <span class="hidden md:inline">Sync Data</span>
                         </button>
                         <!-- Clean Duplicate Button -->
-                        <button onclick="cleanDuplicateLogs()" class="clay-btn text-red-500 hover:bg-red-50 hover:border-red-200 px-4 py-2 text-xs font-bold flex items-center gap-2 active:scale-95 transition-colors" title="Hapus data duplikat di Logs Spreadsheet">
-                            <i class="fas fa-broom"></i> <span class="hidden md:inline">Hapus Duplikat</span>
+                        <button onclick="cleanDuplicateLogs()" class="clay-btn text-red-500 hover:bg-red-50 hover:border-red-200 px-3 md:px-4 py-2 text-xs font-bold flex items-center gap-2 active:scale-95 transition-colors hidden md:flex" title="Hapus data duplikat di Logs Spreadsheet">
+                            <i class="fas fa-broom"></i> <span>Hapus Duplikat</span>
                         </button>
                     </div>
                 </header>
 
-                <div class="flex-1 overflow-y-auto p-5 md:p-8 w-full scroll-smooth pb-24" id="mainContent">
+                <!-- mainContent: extra pb on mobile for bottom nav clearance -->
+                <div class="flex-1 overflow-y-auto p-4 md:p-8 w-full scroll-smooth pb-32 md:pb-8" id="mainContent">
                     
                     <!-- TAB 1: DASHBOARD -->
                     <div id="tab-dashboard" class="animate-fade-in space-y-6">
@@ -1589,21 +1763,44 @@
                         </div>
 
                         <!-- LOGS TABLE -->
-                        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                            <div class="p-6 border-b border-slate-50 flex justify-between items-center bg-white sticky left-0">
-                                <div>
-                                    <h3 class="font-bold text-slate-800 text-sm md:text-base">Aktivitas Terbaru</h3>
-                                    <span class="text-[10px] bg-blue-50 text-blue-600 px-3 py-1 rounded-full font-bold">Realtime Drive</span>
+                        <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-white/5 shadow-sm overflow-hidden">
+                            <div class="p-4 sm:p-6 border-b border-slate-100 dark:border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white dark:bg-slate-900 gap-3 sm:gap-4">
+                                <div class="flex items-center gap-3">
+                                    <div>
+                                        <h3 class="font-bold text-slate-800 dark:text-white text-sm md:text-base">Aktivitas Terbaru</h3>
+                                        <span class="text-[10px] bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1 rounded-full font-bold">Realtime Drive</span>
+                                    </div>
                                 </div>
-                                <select onchange="handleSort('logs', this.value)" class="bg-slate-50 border border-slate-200 text-slate-600 text-xs rounded-lg px-3 py-2 outline-none focus:border-blue-600 cursor-pointer">
-                                    <option value="time_desc">Waktu Terbaru</option>
-                                    <option value="time_asc">Waktu Terlama</option>
-                                    <option value="name_asc">Nama (A-Z)</option>
-                                    <option value="status_asc">Status</option>
-                                </select>
+                                
+                                <div class="flex flex-wrap sm:flex-nowrap items-center gap-2.5 w-full sm:w-auto">
+                                    <!-- Search Input for Volunteer Name -->
+                                    <div class="relative flex-1 sm:w-60">
+                                        <input type="text" id="logsSearchInput" oninput="handleLogsSearch(this.value)" placeholder="Cari nama relawan..." class="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 text-xs rounded-xl pl-9 pr-8 py-2.5 outline-none focus:border-blue-600 dark:focus:border-blue-500 transition shadow-sm">
+                                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                        <button id="logsSearchClearBtn" onclick="clearLogsSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs transition">
+                                            <i class="fas fa-times-circle"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Sort Select -->
+                                    <select onchange="handleSort('logs', this.value)" class="bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 text-xs rounded-xl px-3 py-2.5 outline-none focus:border-blue-600 cursor-pointer shadow-sm">
+                                        <option value="time_desc">Waktu Terbaru</option>
+                                        <option value="time_asc">Waktu Terlama</option>
+                                        <option value="name_asc">Nama (A-Z)</option>
+                                        <option value="status_asc">Status</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-sm text-left">
+                            
+                            <!-- MOBILE SWIPE HINT -->
+                            <div class="px-4 py-2 bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-100 dark:border-white/5 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                                <span class="inline-flex items-center gap-1.5 font-medium"><i class="fas fa-hand-pointer text-blue-500 animate-bounce"></i> Geser / Swipe tabel ke kanan-kiri untuk detail lengkap</span>
+                                <span class="hidden sm:inline-flex text-[10px] bg-slate-200/70 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-md font-medium"><i class="fas fa-arrows-left-right mr-1 text-[9px]"></i> Touch & Drag Scroll</span>
+                            </div>
+
+                            <!-- SWIPEABLE TABLE CONTAINER -->
+                            <div id="logsTableContainer" class="overflow-x-auto select-none touch-pan-x cursor-grab active:cursor-grabbing scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700">
+                                <table class="w-full text-sm text-left min-w-[780px]">
                                     <thead class="text-xs text-slate-400 uppercase bg-slate-100/50 dark:bg-slate-950/40 border-b border-slate-200/60 dark:border-white/5">
                                         <tr>
                                             <th class="px-6 py-4 font-bold text-center w-20">Foto</th>
@@ -1616,7 +1813,7 @@
                                             <th class="px-6 py-4 font-bold text-center">Pengabsen</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="logsTableBody" class="divide-y divide-slate-50"></tbody>
+                                    <tbody id="logsTableBody" class="divide-y divide-slate-50 dark:divide-slate-800/50"></tbody>
                                 </table>
                             </div>
                             <!-- PAGINATION CONTROLS -->
@@ -3353,6 +3550,33 @@
 
                     <!-- TAB: MEAL PLANNER -->
                     <div id="nTab-planner" class="n-tab-pane hidden p-5 md:p-7 space-y-6">
+                        <!-- Multi-Menu Tabs -->
+                        <div class="bg-white rounded-2xl border border-slate-100 p-3">
+                            <div class="flex items-center gap-2 flex-wrap" id="nMenuTabsContainer">
+                                <!-- Dirender secara dinamis oleh JS -->
+                            </div>
+                        </div>
+
+                        <!-- Mode Toggle (untuk non-referensi menu) -->
+                        <div id="nMenuModeToggle" class="hidden bg-gradient-to-r from-sky-50 to-violet-50 border border-slate-100 rounded-2xl p-4">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <span class="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Mode Menu:</span>
+                                <div class="flex items-center bg-white border border-slate-200 rounded-xl p-1 gap-1">
+                                    <button id="nModePillSame" onclick="nSetMenuMode('same')"
+                                        class="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all bg-sky-500 text-white shadow-sm">
+                                        <i class="fas fa-link text-[9px] mr-1"></i>Menu Sama
+                                    </button>
+                                    <button id="nModePillDiff" onclick="nSetMenuMode('different')"
+                                        class="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all bg-white text-slate-500 hover:bg-slate-50">
+                                        <i class="fas fa-edit text-[9px] mr-1"></i>Menu Berbeda
+                                    </button>
+                                </div>
+                                <span id="nMenuModeDesc" class="text-[10px] text-slate-500 font-medium">
+                                    🔒 Daftar bahan mengikuti Porsi Kecil (Referensi). Hanya jumlah (gram) yang bisa diubah.
+                                </span>
+                            </div>
+                        </div>
+
                         <!-- Planner Header -->
                         <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
                             <div class="flex-1">
@@ -3386,28 +3610,28 @@
                                 <div class="space-y-1.5 lg:col-span-2">
                                     <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Kelompok Sasaran (RDA)</label>
                                     <select id="nTargetGroup" class="input-field cursor-pointer font-bold text-slate-700" onchange="nOnSasaranChange()">
-                                        <option value="balita_sd_1_3" selected>Balita s/d SD Kelas 1-3</option>
-                                        <option value="sd_4_6_sma">SD Kelas 4-6 s/d SMA/MA</option>
-                                        <option value="bumil_busui">Ibu Hamil & Menyusui</option>
+                                        <option value="balita_sd_1_3" selected>Porsi Kecil — Balita s/d SD Kelas 1-3</option>
+                                        <option value="sd_4_6_sma">Porsi Besar — SD Kelas 4-6 s/d SMA/MA</option>
+                                        <option value="bumil_busui">Bumil & Busui</option>
                                     </select>
                                 </div>
                                 <div class="space-y-1.5 lg:col-span-2">
                                     <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Nama Perencanaan Menu</label>
-                                    <input id="nMenuName" type="text" class="input-field font-semibold" placeholder="Contoh: Menu Hari Senin - SD" oninput="nRecalcPlanner()">
+                                    <input id="nMenuName" type="text" class="input-field font-semibold" placeholder="Contoh: Ayam Goreng Mentega, Sayur Sop..." oninput="nSyncMenuFromForm(); nRecalcPlanner();">
                                 </div>
                                 <div class="space-y-1.5">
                                     <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Target Porsi</label>
-                                    <input id="nPortions" type="number" min="1" value="250" class="input-field font-bold" oninput="nRecalcPlanner()">
+                                    <input id="nPortions" type="number" min="1" value="150" class="input-field font-bold" oninput="nSyncMenuFromForm(); nRecalcPlanner();">
                                 </div>
                                 <div class="space-y-1.5">
                                     <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Cadangan (%)</label>
-                                    <input id="nReserve" type="number" min="0" max="100" value="10" class="input-field font-bold" oninput="nRecalcPlanner()">
+                                    <input id="nReserve" type="number" min="0" max="100" value="10" class="input-field font-bold" oninput="nSyncMenuFromForm(); nRecalcPlanner();">
                                 </div>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
                                 <div class="space-y-1.5">
                                     <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Sesi Produksi</label>
-                                    <select id="nSession" class="input-field cursor-pointer" onchange="nRecalcPlanner()">
+                                    <select id="nSession" class="input-field cursor-pointer" onchange="nSyncMenuFromForm(); nRecalcPlanner();">
                                         <option value="pagi">Pagi (Sarapan)</option>
                                         <option value="siang" selected>Siang (Makan Siang)</option>
                                         <option value="sore">Sore (Makan Malam)</option>
@@ -3415,7 +3639,7 @@
                                 </div>
                                 <div class="space-y-1.5">
                                     <label class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Target Budget / Porsi (Rp)</label>
-                                    <input id="nTargetBudget" type="number" min="0" value="15000" class="input-field font-bold" oninput="nRecalcPlanner()">
+                                    <input id="nTargetBudget" type="number" min="0" value="10000" class="input-field font-bold" oninput="nSyncMenuFromForm(); nRecalcPlanner();">
                                 </div>
                             </div>
                         </div>
@@ -3547,12 +3771,22 @@
                                 <!-- Shopping list Widget -->
                                 <div class="bg-white rounded-2xl border border-slate-100 p-5">
                                     <h4 class="text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-3 border-b border-slate-50 pb-3 flex items-center gap-2">
-                                        <i class="fas fa-truck-loading text-rose-500"></i> Daftar Logistik Belanja
+                                        <i class="fas fa-truck-loading text-rose-500"></i> Daftar Logistik Belanja (Menu Ini)
                                     </h4>
                                     <div id="nShoppingList" class="space-y-2.5 max-h-60 overflow-y-auto">
                                         <!-- Filled by JS -->
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Grand Total Semua Menu Dapur -->
+                        <div class="bg-white rounded-2xl border border-slate-100 p-5">
+                            <h4 class="text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                <i class="fas fa-cash-register text-amber-500"></i> Total Anggaran Dapur Hari Ini (Semua Menu)
+                            </h4>
+                            <div id="nGrandTotalPanel" class="space-y-2.5">
+                                <div class="text-center text-slate-400 text-xs font-semibold py-4">Belum ada data menu.</div>
                             </div>
                         </div>
                     </div>

@@ -105,74 +105,106 @@
    CLAYMORPHISM / 3D SOFT UI DESIGN SYSTEM
    ============================================ */
 
-/* Claymorphism Theme Variables */
+/* ============================================
+   iOS 27 ULTRA-GLASSMORPHISM DESIGN SYSTEM
+   Liquid Glass • Frosted Vibrancy • Depth
+   ============================================ */
+
 :root {
-    /* Base Colors - Sleek Light Slate & White */
-    --clay-bg: #f8fafc;
+    /* ── Color System ── */
+    --clay-bg: #f4f6fb;
     --clay-bg-light: #ffffff;
-    --clay-bg-dark: #f1f5f9;
-    
-    /* Primary Colors */
+    --clay-bg-dark: #eef1f8;
+
+    /* ── Primary (Indigo Spectrum) ── */
     --clay-primary: #6366f1;
     --clay-primary-light: #8b5cf6;
     --clay-primary-dark: #4f46e5;
-    
-    /* Accent Colors */
+
+    /* ── Accent ── */
     --clay-accent-green: #10b981;
     --clay-accent-red: #ef4444;
     --clay-accent-orange: #f59e0b;
     --clay-accent-blue: #3b82f6;
-    
-    /* Shadow Colors - Extremely Soft and Professional */
-    --clay-shadow-light: rgba(255, 255, 255, 0.95);
-    --clay-shadow-dark: rgba(15, 23, 42, 0.05);
-    --clay-shadow-primary: rgba(79, 70, 229, 0.12);
-    
-    /* Border & Highlight - Sleek and Thin */
-    --clay-border: rgba(15, 23, 42, 0.04);
-    --clay-highlight: rgba(255, 255, 255, 0.7);
-    
-    /* Border Radius - Crisper & More Modern */
-    --clay-radius-sm: 8px;
-    --clay-radius-md: 14px;
-    --clay-radius-lg: 20px;
-    --clay-radius-xl: 28px;
-    
-    /* Spacing */
+
+    /* ── iOS 27 Glass Variables (Light) ── */
+    /* Ultra-frosted: thick milk glass with warm tint */
+    --glass-bg:              rgba(255, 255, 255, 0.62);
+    --glass-bg-hover:        rgba(255, 255, 255, 0.78);
+    --glass-bg-active:       rgba(255, 255, 255, 0.90);
+    --glass-blur:            blur(40px) saturate(180%) brightness(1.06);
+    --glass-blur-strong:     blur(60px) saturate(200%) brightness(1.08);
+    --glass-blur-subtle:     blur(20px) saturate(150%);
+    --glass-border-top:      rgba(255, 255, 255, 0.90);  /* specular highlight edge */
+    --glass-border:          rgba(200, 210, 240, 0.40);
+    --glass-shadow:          0 8px 32px rgba(99, 102, 241, 0.08), 0 2px 8px rgba(15, 23, 42, 0.06);
+    --glass-shadow-hover:    0 16px 48px rgba(99, 102, 241, 0.14), 0 4px 12px rgba(15, 23, 42, 0.10);
+    --glass-shadow-lifted:   0 24px 64px rgba(99, 102, 241, 0.18), 0 8px 24px rgba(15, 23, 42, 0.12);
+    --glass-glow:            rgba(99, 102, 241, 0.10);
+    --glass-inset-highlight: 0 1px 0 rgba(255,255,255,0.95) inset, 0 -1px 0 rgba(200,210,255,0.12) inset;
+    --glass-text:            #1e293b;
+    --glass-text-secondary:  #475569;
+
+    /* ── Legacy Clay compat ── */
+    --clay-shadow-light:    rgba(255, 255, 255, 0.95);
+    --clay-shadow-dark:     rgba(15, 23, 42, 0.06);
+    --clay-shadow-primary:  rgba(79, 70, 229, 0.14);
+    --clay-border:          rgba(200, 210, 240, 0.36);
+    --clay-highlight:       rgba(255, 255, 255, 0.80);
+    --clay-radius-sm: 10px;
+    --clay-radius-md: 16px;
+    --clay-radius-lg: 22px;
+    --clay-radius-xl: 30px;
     --clay-inset: 4px;
 }
 
-/* Dark Mode Claymorphism */
+/* Dark Mode — iOS 27 Dark Glass (Deep cosmic liquid) */
 html.dark {
-    /* Base Colors - Dark Theme (Deep cosmic navy) */
-    --clay-bg: #090d16;
-    --clay-bg-light: #111827;
-    --clay-bg-dark: #05080e;
-    
-    /* Primary Colors - Dark Mode */
-    --clay-primary: #6366f1;
+    /* ── Base ── */
+    --clay-bg: #0a0e1a;
+    --clay-bg-light: #10172a;
+    --clay-bg-dark: #06090f;
+
+    /* ── Primary ── */
+    --clay-primary: #818cf8;
     --clay-primary-light: #a78bfa;
-    --clay-primary-dark: #4f46e5;
-    
-    /* Accent Colors - Dark Mode */
+    --clay-primary-dark: #6366f1;
+
+    /* ── Accent Dark ── */
     --clay-accent-green: #34d399;
     --clay-accent-red: #f87171;
     --clay-accent-orange: #fbbf24;
     --clay-accent-blue: #60a5fa;
-    
-    /* Shadow Colors - Dark Mode (Deep contrast) */
-    --clay-shadow-light: rgba(255, 255, 255, 0.01);
-    --clay-shadow-dark: rgba(0, 0, 0, 0.45);
-    --clay-shadow-primary: rgba(129, 140, 248, 0.15);
-    
-    /* Border & Highlight - Dark Mode (Thin and crisp) */
-    --clay-border: rgba(255, 255, 255, 0.05);
-    --clay-highlight: rgba(255, 255, 255, 0.03);
-    
-    /* Text Colors - Dark Mode */
-    --clay-text-primary: #f1f5f9;
-    --clay-text-secondary: #94a3b8;
-    --clay-text-muted: #64748b;
+
+    /* ── iOS 27 Glass Variables (Dark) ── */
+    /* Ultra-dark frosted: deep translucent obsidian */
+    --glass-bg:              rgba(18, 24, 42, 0.72);
+    --glass-bg-hover:        rgba(24, 32, 56, 0.82);
+    --glass-bg-active:       rgba(30, 40, 70, 0.90);
+    --glass-blur:            blur(48px) saturate(160%) brightness(0.96);
+    --glass-blur-strong:     blur(72px) saturate(180%) brightness(0.94);
+    --glass-blur-subtle:     blur(24px) saturate(130%);
+    --glass-border-top:      rgba(255, 255, 255, 0.12);  /* specular on dark = subtle white line */
+    --glass-border:          rgba(255, 255, 255, 0.07);
+    --glass-shadow:          0 8px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.30);
+    --glass-shadow-hover:    0 16px 48px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(99, 102, 241, 0.18);
+    --glass-shadow-lifted:   0 24px 72px rgba(0, 0, 0, 0.65), 0 8px 32px rgba(99, 102, 241, 0.22);
+    --glass-glow:            rgba(129, 140, 248, 0.18);
+    --glass-inset-highlight: 0 1px 0 rgba(255,255,255,0.10) inset, 0 -1px 0 rgba(0,0,0,0.20) inset;
+    --glass-text:            #f1f5f9;
+    --glass-text-secondary:  #94a3b8;
+
+    /* ── Legacy Clay compat Dark ── */
+    --clay-shadow-light:    rgba(255, 255, 255, 0.02);
+    --clay-shadow-dark:     rgba(0, 0, 0, 0.50);
+    --clay-shadow-primary:  rgba(129, 140, 248, 0.20);
+    --clay-border:          rgba(255, 255, 255, 0.07);
+    --clay-highlight:       rgba(255, 255, 255, 0.04);
+
+    /* ── Text Colors ── */
+    --clay-text-primary:    #f1f5f9;
+    --clay-text-secondary:  #94a3b8;
+    --clay-text-muted:      #64748b;
 }
 
 /* Dark Mode Text Overrides */
@@ -183,137 +215,102 @@ html.dark .text-slate-500 { color: var(--clay-text-secondary) !important; }
 html.dark .text-slate-400 { color: var(--clay-text-muted) !important; }
 html.dark .text-slate-300 { color: var(--clay-text-muted) !important; }
 
-/* Dark Mode Specific Components */
-html.dark .clay-card {
-    background: linear-gradient(145deg, var(--clay-bg-light), var(--clay-bg));
-}
-
-html.dark .clay-inset {
-    background: var(--clay-bg-dark);
-    box-shadow: 
-        inset 4px 4px 8px rgba(0, 0, 0, 0.5),
-        inset -4px -4px 8px rgba(255, 255, 255, 0.02);
-}
-
-html.dark .clay-input {
-    background: var(--clay-bg-dark);
-    color: var(--clay-text-primary);
-    box-shadow: 
-        inset 4px 4px 8px rgba(0, 0, 0, 0.5),
-        inset -4px -4px 8px rgba(255, 255, 255, 0.02);
-}
-
-html.dark .clay-input::placeholder {
-    color: #475569;
-}
-
-html.dark .clay-sidebar {
-    background: linear-gradient(180deg, var(--clay-bg-light) 0%, var(--clay-bg) 100%);
-}
-
-html.dark .clay-nav-item {
-    color: var(--clay-text-secondary);
-}
-
-html.dark .clay-nav-item:hover {
-    background: linear-gradient(145deg, var(--clay-bg-light), var(--clay-bg));
-    color: var(--clay-primary);
-}
-
-html.dark .clay-nav-item.active {
-    background: linear-gradient(135deg, var(--clay-primary-light), var(--clay-primary)) !important;
-    color: white !important;
-    border: none !important;
-    outline: none !important;
-    box-shadow: 0 4px 18px rgba(139, 92, 246, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.12) !important;
-}
-
+/* Dark mode nav active — handled via CSS variables + .active rule above */
 html.dark .clay-btn {
-    background: linear-gradient(145deg, var(--clay-bg-light), var(--clay-bg));
     color: var(--clay-text-secondary);
 }
-
 html.dark .clay-btn:hover {
     color: var(--clay-primary);
 }
 
-/* ============================================
-   LOGIN PAGE STYLING
-   ============================================ */
+
+/* ════════════════════════════════════════════
+   iOS 27 LOGIN PAGE — Ultra Glass
+   ════════════════════════════════════════════ */
 
 /* Login Container */
 #loginView {
-    background: radial-gradient(ellipse at 50% 30%, #1a3a52 0%, #0a1428 40%, #000000 100%);
+    background: radial-gradient(ellipse at 40% 20%, #1e3a5f 0%, #0d1e40 35%, #04090f 100%);
     position: relative;
     overflow-y: auto;
     min-height: 100vh;
     width: 100%;
 }
 
-/* Login Card */
+/* Login Card — Ultra frosted glass panel */
 .login-card {
-    background: transparent;
-    box-shadow: 
-        0 20px 40px rgba(0, 0, 0, 0.2),
-        0 0 50px rgba(99, 102, 241, 0.12);
-    border: 1px solid rgba(99, 102, 241, 0.03);
-    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(60px) saturate(180%) brightness(1.04);
+    -webkit-backdrop-filter: blur(60px) saturate(180%) brightness(1.04);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-top: 1px solid rgba(255, 255, 255, 0.38);
+    box-shadow:
+        0 32px 80px rgba(0, 0, 0, 0.45),
+        0 8px 24px rgba(0, 0, 0, 0.25),
+        0 0 80px rgba(99, 102, 241, 0.08),
+        0 1px 0 rgba(255,255,255,0.35) inset;
 }
 
 /* Login Branding Background */
 .login-branding-bg {
-    background: linear-gradient(180deg, #1e3a5f 0%, #0f1f35 50%, #0a1428 100%);
-    box-shadow: 
-        inset -8px 0 24px rgba(0, 0, 0, 0.2);
+    background: linear-gradient(160deg, rgba(30,58,95,0.90) 0%, rgba(15,31,53,0.95) 100%);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow: inset -1px 0 0 rgba(255,255,255,0.08);
 }
 
 /* Login Form Background */
 .login-form-bg {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(245, 248, 252, 0.9) 100%);
-    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(40px) saturate(160%) brightness(1.06);
+    -webkit-backdrop-filter: blur(40px) saturate(160%) brightness(1.06);
+    border-left: 1px solid rgba(255,255,255,0.60);
 }
 
-/* Feature Mini Card — full definition at bottom of file */
-
-/* ============================================
-   DARK MODE LOGIN PAGE
-   ============================================ */
-
 html.dark #loginView {
-    background: radial-gradient(ellipse at 50% 30%, #1a3a52 0%, #0a1428 40%, #000000 100%);
+    background: radial-gradient(ellipse at 40% 20%, #1a2a4a 0%, #080e20 40%, #02040a 100%);
 }
 
 html.dark .login-card {
-    background: transparent;
-    box-shadow: 
-        20px 20px 40px rgba(0, 0, 0, 0.5),
-        -20px -20px 40px rgba(255, 255, 255, 0.03),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    backdrop-filter: blur(10px);
+    background: rgba(10, 14, 28, 0.72);
+    backdrop-filter: blur(72px) saturate(160%) brightness(0.92);
+    -webkit-backdrop-filter: blur(72px) saturate(160%) brightness(0.92);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow:
+        0 40px 100px rgba(0, 0, 0, 0.70),
+        0 8px 32px rgba(0, 0, 0, 0.50),
+        0 0 80px rgba(129, 140, 248, 0.10),
+        0 1px 0 rgba(255,255,255,0.08) inset;
 }
 
 html.dark .login-branding-bg {
-    background: linear-gradient(180deg, #1e3a5f 0%, #0f1f35 50%, #0a1428 100%);
-    box-shadow: 
-        inset -8px 0 24px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(160deg, rgba(20,36,68,0.95) 0%, rgba(8,14,32,0.98) 100%);
+    box-shadow: inset -1px 0 0 rgba(255,255,255,0.05);
 }
 
 html.dark .login-form-bg {
-    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    background: rgba(10, 14, 28, 0.90);
+    backdrop-filter: blur(40px) saturate(130%);
+    -webkit-backdrop-filter: blur(40px) saturate(130%);
+    border-left: 1px solid rgba(255,255,255,0.06);
 }
 
 html.dark .feature-mini-card {
-    background: rgba(30, 41, 59, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
-
 html.dark .feature-mini-card:hover {
-    background: rgba(40, 50, 70, 0.7);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
 }
-
 html.dark .feature-card-icon {
-    background: linear-gradient(145deg, #1e293b, #0f172a);
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.08);
     color: #818cf8;
 }
@@ -429,198 +426,266 @@ body {
    CLAYMORPHISM CORE CLASSES
    ============================================ */
 
-/* Main Claymorphism Card - Elevated 3D look */
+/* ════════════════════════════════════════════
+   iOS 27 GLASS CARD — Ultra-Frosted Liquid Glass
+   ════════════════════════════════════════════ */
 .clay-card {
-    background: linear-gradient(145deg, var(--clay-bg-light), var(--clay-bg));
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     border-radius: var(--clay-radius-lg);
-    box-shadow: 
-        4px 4px 10px var(--clay-shadow-dark),
-        -4px -4px 10px var(--clay-shadow-light),
-        inset 0 1px 0 var(--clay-highlight);
-    border: 1px solid var(--clay-border);
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 1px solid var(--glass-border);
+    border-top: 1px solid var(--glass-border-top);
+    box-shadow: var(--glass-shadow), var(--glass-inset-highlight);
+    transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    overflow: hidden;
 }
-
+.clay-card::before {
+    /* inner specular highlight layer */
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 60%);
+    pointer-events: none;
+    z-index: 0;
+}
+.clay-card > * { position: relative; z-index: 1; }
 .clay-card:hover {
+    background: var(--glass-bg-hover);
     transform: translateY(-2px);
-    box-shadow: 
-        6px 10px 20px var(--clay-shadow-dark),
-        -6px -6px 15px var(--clay-shadow-light),
-        inset 0 1px 0 var(--clay-highlight);
+    box-shadow: var(--glass-shadow-hover), var(--glass-inset-highlight);
 }
 
-/* Pressed/Inset Claymorphism - Highly Cleaned */
+/* Pressed/Inset — recessed glass well */
 .clay-inset {
-    background: var(--clay-bg-dark);
+    background: rgba(200, 210, 240, 0.18);
+    backdrop-filter: var(--glass-blur-subtle);
+    -webkit-backdrop-filter: var(--glass-blur-subtle);
     border-radius: var(--clay-radius-md);
-    box-shadow: 
-        inset 2px 2px 5px var(--clay-shadow-dark),
-        inset -2px -2px 5px var(--clay-shadow-light);
-    border: 1px solid var(--clay-border);
+    box-shadow: inset 0 2px 8px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.60);
+    border: 1px solid var(--glass-border);
+}
+html.dark .clay-inset {
+    background: rgba(0, 0, 0, 0.25);
+    box-shadow: inset 0 2px 12px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
-/* Button - Sleek Soft 3D UI */
+/* ════════════════════════════════════════════
+   iOS 27 GLASS BUTTON
+   ════════════════════════════════════════════ */
 .clay-btn {
-    background: linear-gradient(145deg, var(--clay-bg-light), var(--clay-bg));
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur-subtle);
+    -webkit-backdrop-filter: var(--glass-blur-subtle);
     border-radius: var(--clay-radius-md);
-    box-shadow: 
-        3px 3px 8px var(--clay-shadow-dark),
-        -3px -3px 8px var(--clay-shadow-light),
-        inset 0 1px 0 var(--clay-highlight);
-    border: 1px solid var(--clay-border);
-    color: #475569;
+    border: 1px solid var(--glass-border);
+    border-top: 1px solid var(--glass-border-top);
+    box-shadow: var(--glass-shadow), var(--glass-inset-highlight);
+    color: var(--glass-text-secondary);
     font-weight: 600;
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
     cursor: pointer;
+    position: relative;
+    overflow: hidden;
 }
-
+.clay-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 70%);
+    border-radius: inherit;
+    pointer-events: none;
+}
 .clay-btn:hover {
-    transform: translateY(-1.5px);
-    box-shadow: 
-        4px 6px 12px var(--clay-shadow-dark),
-        -4px -4px 10px var(--clay-shadow-light),
-        inset 0 1px 0 var(--clay-highlight);
+    background: var(--glass-bg-hover);
+    transform: translateY(-1.5px) scale(1.01);
+    box-shadow: var(--glass-shadow-hover), var(--glass-inset-highlight);
+    color: var(--clay-primary);
 }
-
 .clay-btn:active {
-    transform: translateY(0.5px);
-    box-shadow: 
-        inset 2px 2px 4px var(--clay-shadow-dark),
-        inset -2px -2px 4px var(--clay-shadow-light);
+    transform: translateY(0.5px) scale(0.99);
+    background: var(--glass-bg-active);
+    box-shadow: inset 0 2px 6px rgba(15,23,42,0.10), inset 0 1px 0 rgba(255,255,255,0.80);
 }
 
-/* Primary Button - Sleek Premium Glow */
+/* Primary Glass Button — tinted indigo glow */
 .clay-btn-primary {
-    background: linear-gradient(145deg, var(--clay-primary-light), var(--clay-primary));
+    background: linear-gradient(145deg, rgba(139,92,246,0.90), rgba(99,102,241,0.85));
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
     color: white;
-    box-shadow: 
-        3px 3px 8px var(--clay-shadow-primary),
-        -2px -2px 6px rgba(255, 255, 255, 0.25),
-        inset 0 1px 0 rgba(255, 255, 255, 0.15);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255,255,255,0.20);
+    border-top: 1px solid rgba(255,255,255,0.38);
+    box-shadow: 0 4px 20px rgba(99,102,241,0.32), 0 1px 0 rgba(255,255,255,0.22) inset;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.18);
 }
-
 .clay-btn-primary:hover {
-    background: linear-gradient(145deg, var(--clay-primary), var(--clay-primary-dark));
-    box-shadow: 
-        4px 6px 12px var(--clay-shadow-primary),
-        -3px -3px 8px rgba(255, 255, 255, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    background: linear-gradient(145deg, rgba(139,92,246,1), rgba(79,70,229,0.95));
+    box-shadow: 0 8px 32px rgba(99,102,241,0.48), 0 1px 0 rgba(255,255,255,0.28) inset;
+    transform: translateY(-2px) scale(1.01);
+    color: white;
 }
+.clay-btn-primary:active { transform: translateY(0) scale(0.99); }
 
-/* Success Button */
+/* Success Glass Button */
 .clay-btn-success {
-    background: linear-gradient(145deg, #34d399, #10b981);
+    background: linear-gradient(145deg, rgba(52,211,153,0.90), rgba(16,185,129,0.85));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     color: white;
-    box-shadow: 
-        3px 3px 8px rgba(16, 185, 129, 0.15),
-        -2px -2px 6px rgba(255, 255, 255, 0.25),
-        inset 0 1px 0 rgba(255, 255, 255, 0.15);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255,255,255,0.20);
+    border-top: 1px solid rgba(255,255,255,0.36);
+    box-shadow: 0 4px 20px rgba(16,185,129,0.28), 0 1px 0 rgba(255,255,255,0.20) inset;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.15);
 }
 
-/* Danger Button */
+/* Danger Glass Button */
 .clay-btn-danger {
-    background: linear-gradient(145deg, #f87171, #ef4444);
+    background: linear-gradient(145deg, rgba(248,113,113,0.90), rgba(239,68,68,0.85));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     color: white;
-    box-shadow: 
-        3px 3px 8px rgba(239, 68, 68, 0.15),
-        -2px -2px 6px rgba(255, 255, 255, 0.25),
-        inset 0 1px 0 rgba(255, 255, 255, 0.15);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-top: 1px solid rgba(255,255,255,0.34);
+    box-shadow: 0 4px 20px rgba(239,68,68,0.28), 0 1px 0 rgba(255,255,255,0.18) inset;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.15);
 }
 
-/* Input Field - Elegant Soft Bevel */
+/* ════════════════════════════════════════════
+   iOS 27 GLASS INPUT FIELD
+   ════════════════════════════════════════════ */
 .clay-input {
-    background: var(--clay-bg-dark);
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
     border-radius: var(--clay-radius-md);
-    box-shadow: 
-        inset 2px 2px 4px var(--clay-shadow-dark),
-        inset -2px -2px 4px var(--clay-shadow-light);
-    border: 1px solid var(--clay-border);
+    border: 1px solid rgba(200, 210, 240, 0.45);
+    border-top: 1px solid rgba(255, 255, 255, 0.85);
+    box-shadow: inset 0 2px 6px rgba(15,23,42,0.06), 0 1px 0 rgba(255,255,255,0.90) inset;
     padding: 12px 16px;
     font-size: 0.875rem;
     color: #1e293b;
     font-weight: 500;
     outline: none;
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Chrome/Safari/Edge Autocomplete/Autofill Override to keep inputs theme-compliant */
+/* Autofill overrides */
 .clay-input:-webkit-autofill,
 .clay-input:-webkit-autofill:hover, 
 .clay-input:-webkit-autofill:focus, 
 .clay-input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 1000px #f1f5f9 inset !important;
+    -webkit-box-shadow: 0 0 0 1000px rgba(240,244,255,0.95) inset !important;
     -webkit-text-fill-color: #1e293b !important;
     transition: background-color 5000s ease-in-out 0s;
 }
-
 html.dark .clay-input:-webkit-autofill,
 html.dark .clay-input:-webkit-autofill:hover, 
 html.dark .clay-input:-webkit-autofill:focus, 
 html.dark .clay-input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 1000px #05080e inset !important;
+    -webkit-box-shadow: 0 0 0 1000px rgba(10,14,26,0.95) inset !important;
     -webkit-text-fill-color: #f1f5f9 !important;
 }
 
 .clay-input:focus {
-    background: var(--clay-bg-light);
-    box-shadow: 
-        inset 2px 2px 4px var(--clay-shadow-dark),
-        inset -2px -2px 4px var(--clay-shadow-light),
-        0 0 0 3px var(--clay-shadow-primary);
-    border-color: var(--clay-primary);
+    background: rgba(255, 255, 255, 0.80);
+    border-color: rgba(99, 102, 241, 0.55);
+    box-shadow:
+        inset 0 2px 6px rgba(15,23,42,0.05),
+        0 0 0 3.5px rgba(99,102,241,0.15),
+        0 1px 0 rgba(255,255,255,0.90) inset;
 }
 
-.clay-input::placeholder {
-    color: #94a3b8;
+.clay-input::placeholder { color: #94a3b8; }
+
+html.dark .clay-input {
+    background: rgba(10, 14, 30, 0.65);
+    backdrop-filter: blur(24px) saturate(130%);
+    -webkit-backdrop-filter: blur(24px) saturate(130%);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-top: 1px solid rgba(255,255,255,0.12);
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.05) inset;
+    color: #f1f5f9;
+}
+html.dark .clay-input::placeholder { color: #475569; }
+html.dark .clay-input:focus {
+    background: rgba(16, 22, 42, 0.80);
+    border-color: rgba(129,140,248,0.50);
+    box-shadow:
+        inset 0 2px 8px rgba(0,0,0,0.30),
+        0 0 0 3.5px rgba(129,140,248,0.18),
+        0 1px 0 rgba(255,255,255,0.06) inset;
 }
 
-/* Badge / Tag - Translucent Glassy */
+/* ════════════════════════════════════════════
+   iOS 27 GLASS BADGE
+   ════════════════════════════════════════════ */
 .clay-badge {
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.8), rgba(245, 248, 252, 0.6));
+    background: rgba(255, 255, 255, 0.70);
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
     border-radius: 50px;
     padding: 4px 12px;
     font-size: 0.75rem;
     font-weight: 700;
-    box-shadow: 
-        1px 2px 4px var(--clay-shadow-dark),
-        -1px -1px 3px var(--clay-shadow-light);
-    border: 1px solid var(--clay-border);
+    border: 1px solid rgba(200,210,240,0.45);
+    border-top: 1px solid rgba(255,255,255,0.90);
+    box-shadow: 0 2px 8px rgba(15,23,42,0.06);
 }
 
-/* Modal - Glassmorphism Floating Panel */
+/* ════════════════════════════════════════════
+   iOS 27 GLASS MODAL — Deep floating panel
+   ════════════════════════════════════════════ */
 .clay-modal {
-    background: linear-gradient(160deg, rgba(255, 255, 255, 0.8) 0%, rgba(245, 248, 252, 0.65) 100%);
-    backdrop-filter: blur(20px) saturate(180%);
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(60px) saturate(200%) brightness(1.08);
+    -webkit-backdrop-filter: blur(60px) saturate(200%) brightness(1.08);
     border-radius: var(--clay-radius-xl);
-    box-shadow: 
-        0 20px 40px -10px rgba(15, 23, 42, 0.12),
-        0 1px 0 rgba(255, 255, 255, 0.6) inset;
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(200, 210, 240, 0.45);
+    border-top: 1px solid rgba(255, 255, 255, 0.95);
+    box-shadow:
+        0 32px 80px rgba(15, 23, 42, 0.18),
+        0 8px 24px rgba(99, 102, 241, 0.10),
+        0 1px 0 rgba(255, 255, 255, 0.90) inset;
 }
 
 html.dark .clay-modal {
-    background: linear-gradient(160deg, rgba(17, 24, 39, 0.75) 0%, rgba(5, 8, 14, 0.65) 100%);
-    backdrop-filter: blur(20px) saturate(180%);
+    background: rgba(12, 18, 36, 0.80);
+    backdrop-filter: blur(72px) saturate(160%) brightness(0.92);
+    -webkit-backdrop-filter: blur(72px) saturate(160%) brightness(0.92);
     border-radius: var(--clay-radius-xl);
-    box-shadow: 
-        0 25px 50px -12px rgba(0, 0, 0, 0.6),
-        0 1px 0 rgba(255, 255, 255, 0.05) inset;
-    border: 1px solid rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-top: 1px solid rgba(255,255,255,0.14);
+    box-shadow:
+        0 40px 100px rgba(0, 0, 0, 0.65),
+        0 8px 32px rgba(129, 140, 248, 0.20),
+        0 1px 0 rgba(255,255,255,0.08) inset;
 }
 
-/* Sidebar - Modern Glassy */
+/* ════════════════════════════════════════════
+   iOS 27 GLASS SIDEBAR
+   ════════════════════════════════════════════ */
 .clay-sidebar {
-    background: linear-gradient(180deg, var(--clay-bg-light) 0%, var(--clay-bg) 100%);
+    background: rgba(248, 250, 255, 0.78);
+    backdrop-filter: blur(48px) saturate(180%) brightness(1.04);
+    -webkit-backdrop-filter: blur(48px) saturate(180%) brightness(1.04);
     border-radius: 0 var(--clay-radius-lg) var(--clay-radius-lg) 0;
-    box-shadow: 
-        4px 0 20px rgba(15, 23, 42, 0.02);
-    border-right: 1px solid var(--clay-border);
+    border-right: 1px solid rgba(200, 210, 240, 0.38);
+    box-shadow: 4px 0 40px rgba(99, 102, 241, 0.06), 1px 0 0 rgba(255,255,255,0.80) inset;
+}
+html.dark .clay-sidebar {
+    background: rgba(10, 14, 28, 0.82);
+    backdrop-filter: blur(56px) saturate(150%) brightness(0.94);
+    -webkit-backdrop-filter: blur(56px) saturate(150%) brightness(0.94);
+    border-right: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 4px 0 48px rgba(0,0,0,0.40), 1px 0 0 rgba(255,255,255,0.04) inset;
 }
 
-/* Nav Item - Clean and Responsive */
+/* ════════════════════════════════════════════
+   iOS 27 GLASS NAV ITEM
+   ════════════════════════════════════════════ */
 .clay-nav-item {
     background: transparent;
     border-radius: var(--clay-radius-md);
@@ -628,43 +693,66 @@ html.dark .clay-modal {
     color: #64748b;
     font-weight: 600;
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 1px solid transparent;
 }
-
 .clay-nav-item:hover {
-    background: linear-gradient(145deg, var(--clay-bg-light), var(--clay-bg));
+    background: rgba(255, 255, 255, 0.60);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
     color: var(--clay-primary);
-    box-shadow: 
-        2px 2px 6px var(--clay-shadow-dark),
-        -2px -2px 6px var(--clay-shadow-light);
+    border: 1px solid rgba(200,210,240,0.35);
+    border-top: 1px solid rgba(255,255,255,0.80);
+    box-shadow: 0 2px 12px rgba(99,102,241,0.08);
+    transform: translateX(2px);
 }
-
+html.dark .clay-nav-item:hover {
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    color: var(--clay-primary);
+    border: 1px solid rgba(255,255,255,0.08);
+}
 .clay-nav-item.active {
-    background: linear-gradient(135deg, var(--clay-primary-light), var(--clay-primary)) !important;
+    background: linear-gradient(135deg, rgba(139,92,246,0.88), rgba(99,102,241,0.85)) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
     color: white !important;
-    border: none !important;
-    outline: none !important;
-    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.22), inset 0 1px 1px rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255,255,255,0.22) !important;
+    border-top: 1px solid rgba(255,255,255,0.40) !important;
+    box-shadow: 0 6px 20px rgba(99,102,241,0.32), 0 1px 0 rgba(255,255,255,0.22) inset !important;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.20) !important;
+    transform: translateX(0) !important;
 }
 
-/* Stats Card - Soft and Floating */
+/* ════════════════════════════════════════════
+   iOS 27 GLASS STAT CARD
+   ════════════════════════════════════════════ */
 .clay-stat-card {
-    background: linear-gradient(145deg, var(--clay-bg-light), var(--clay-bg));
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     border-radius: var(--clay-radius-lg);
     padding: 20px;
-    box-shadow: 
-        4px 4px 10px var(--clay-shadow-dark),
-        -4px -4px 10px var(--clay-shadow-light),
-        inset 0 1px 0 var(--clay-highlight);
-    border: 1px solid var(--clay-border);
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 1px solid var(--glass-border);
+    border-top: 1px solid var(--glass-border-top);
+    box-shadow: var(--glass-shadow), var(--glass-inset-highlight);
+    transition: all 0.30s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    overflow: hidden;
 }
-
+.clay-stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 45%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0) 100%);
+    border-radius: inherit;
+    pointer-events: none;
+}
 .clay-stat-card:hover {
-    transform: translateY(-3px) scale(1.01);
-    box-shadow: 
-        6px 8px 16px var(--clay-shadow-dark),
-        -6px -6px 16px var(--clay-shadow-light),
-        inset 0 1px 0 var(--clay-highlight);
+    background: var(--glass-bg-hover);
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: var(--glass-shadow-lifted), var(--glass-inset-highlight);
 }
 
 /* Icon Container */
@@ -840,35 +928,40 @@ html.dark .clay-modal {
     pointer-events: none;
 }
 
-/* ============================================
-   LEGACY COMPATIBILITY (Glassmorphism → Clay)
-   ============================================ */
-
-/* Keep old glass classes for compatibility */
+/* ════════════════════════════════════════════
+   LEGACY GLASS CLASSES — Upgraded to iOS 27
+   ════════════════════════════════════════════ */
 .glass {
-    background: linear-gradient(145deg, var(--clay-bg-light), var(--clay-bg));
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur-subtle);
+    -webkit-backdrop-filter: var(--glass-blur-subtle);
     border-radius: var(--clay-radius-md);
-    box-shadow: 
-        6px 6px 12px var(--clay-shadow-dark),
-        -6px -6px 12px var(--clay-shadow-light);
-    border: 1px solid var(--clay-border);
+    border: 1px solid var(--glass-border);
+    border-top: 1px solid var(--glass-border-top);
+    box-shadow: var(--glass-shadow);
 }
 
 .glass-strong {
-    background: linear-gradient(160deg, var(--clay-bg-light), var(--clay-bg));
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur-strong);
+    -webkit-backdrop-filter: var(--glass-blur-strong);
     border-radius: var(--clay-radius-lg);
-    box-shadow: 
-        10px 10px 20px var(--clay-shadow-dark),
-        -10px -10px 20px var(--clay-shadow-light);
+    border: 1px solid var(--glass-border);
+    border-top: 1px solid var(--glass-border-top);
+    box-shadow: var(--glass-shadow-lifted), var(--glass-inset-highlight);
 }
 
 .glass-subtle {
-    background: var(--clay-bg);
+    background: rgba(255, 255, 255, 0.30);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
     border-radius: var(--clay-radius-sm);
-    box-shadow: 
-        inset 3px 3px 6px var(--clay-shadow-dark),
-        inset -3px -3px 6px var(--clay-shadow-light);
+    border: 1px solid rgba(200,210,240,0.28);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.70);
 }
+html.dark .glass { background: var(--glass-bg); border: 1px solid var(--glass-border); border-top-color: var(--glass-border-top); }
+html.dark .glass-strong { background: var(--glass-bg); border: 1px solid var(--glass-border); border-top-color: var(--glass-border-top); }
+html.dark .glass-subtle { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); }
 
 /* Legacy Input Field */
 .input-field {
@@ -1813,4 +1906,260 @@ textarea:focus-visible {
 button:focus:not(:focus-visible),
 a:focus:not(:focus-visible) {
     outline: none !important;
-}
+}
+
+/* ════════════════════════════════════════════
+   iOS-style 4-Tab Bottom Bar — Mobile
+   iOS System Blue palette — light & dark
+   ════════════════════════════════════════════ */
+
+:root {
+    --ios-blue:      #007AFF;   /* iOS 17/18 system blue — light mode */
+    --ios-blue-dark: #0A84FF;   /* iOS 17/18 system blue — dark mode  */
+    --ios-inactive:  #8E8E93;   /* iOS secondary label                 */
+    --ios-inactive-dark: #636366;
+}
+
+/* ── Slide-up entrance ── */
+@keyframes mobileNavSlideUp {
+    0%   { transform: translateY(100%) scale(0.96); opacity: 0; }
+    65%  { transform: translateY(-3px) scale(1.005); opacity: 1; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+#mobileBottomNav {
+    animation: mobileNavSlideUp 0.50s cubic-bezier(0.34, 1.46, 0.64, 1) forwards;
+}
+
+/* ── Glass pill (light) ── */
+#mobileNavPill {
+    background: rgba(255,255,255,0.76);
+    backdrop-filter: blur(48px) saturate(180%) brightness(1.05);
+    -webkit-backdrop-filter: blur(48px) saturate(180%) brightness(1.05);
+    border: 1px solid rgba(200,210,235,0.55);
+    border-top: 1px solid rgba(255,255,255,0.96);
+    box-shadow:
+        0 2px 0 rgba(255,255,255,0.92) inset,
+        0 8px 32px rgba(0,0,0,0.08);
+}
+
+/* ── Sliding indicator — iOS blue subtle tint ── */
+#mobileNavIndicator {
+    background: rgba(0,122,255,0.11);
+    border: 1px solid rgba(0,122,255,0.20);
+    transition: left 0.36s cubic-bezier(0.34,1.20,0.64,1),
+                width 0.36s cubic-bezier(0.34,1.20,0.64,1);
+}
+
+/* ── Tab button base ── */
+.mobile-nav-btn {
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    outline: none;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+}
+.mobile-nav-btn .mobile-nav-icon {
+    color: var(--ios-inactive);
+    transition: color 0.20s ease, transform 0.20s ease;
+}
+.mobile-nav-btn .mobile-nav-label {
+    color: var(--ios-inactive);
+    transition: color 0.20s ease;
+}
+
+/* ── Active state — iOS blue icon + label ── */
+.mobile-nav-btn.active .mobile-nav-icon {
+    color: var(--ios-blue);
+    transform: scale(1.08) translateY(-1px);
+}
+.mobile-nav-btn.active .mobile-nav-label {
+    color: var(--ios-blue);
+    font-weight: 700;
+}
+
+/* ── Tap press ── */
+.mobile-nav-btn:active .mobile-nav-icon {
+    transform: scale(0.86);
+}
+
+/* ── Bottom vignette fade (light mode) ── */
+#mobileBottomFade {
+    background: linear-gradient(
+        to top,
+        rgba(0,0,0,0.24) 0%,
+        rgba(0,0,0,0.08) 50%,
+        transparent 100%
+    );
+}
+
+/* ── More sheet items ── */
+.more-sheet-item {
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+    outline: none;
+    border-radius: 16px;
+}
+
+/* ── Safe area (iPhone X+ home bar) ── */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    #mobileBottomNav {
+        padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    }
+    #mobileBottomFade {
+        height: calc(130px + env(safe-area-inset-bottom));
+    }
+}
+
+/* ────────────────────────────────────────────
+   DARK MODE — iOS Navy Blue palette
+   Matches iOS dark system background (#1C1C1E)
+   but shifted to deep blue (#0E1226 family)
+   ──────────────────────────────────────────── */
+
+html.dark #mobileNavPill {
+    /*
+     * iOS dark tab bar: deep navy blue-black, not pure #18181C.
+     * rgb(12,18,38) = deep indigo-navy, very dark but clearly blue-tinted.
+     * High blur (56px) + slight desaturate brightness to not wash out icons.
+     */
+    background: rgba(12, 18, 38, 0.86) !important;
+    backdrop-filter: blur(56px) saturate(140%) brightness(0.90) !important;
+    -webkit-backdrop-filter: blur(56px) saturate(140%) brightness(0.90) !important;
+
+    /*
+     * iOS-style border:
+     * – top: ultra-thin specular white line (like glass edge catching light)
+     * – sides/bottom: imperceptible
+     */
+    border: 1px solid rgba(99, 130, 220, 0.12) !important;
+    border-top: 1px solid rgba(140, 165, 255, 0.18) !important;
+
+    /*
+     * iOS shadow system:
+     * – No harsh black. Instead: soft ambient blue-tinted glow upward,
+     *   very subtle inner highlight at top, and a diffused dark base.
+     */
+    box-shadow:
+        0 1px 0 rgba(140,165,255,0.10) inset,        /* inner top specular */
+        0 -12px 32px rgba(8, 14, 40, 0.32),           /* soft ambient up-glow */
+        0 -1px 0 rgba(99, 130, 220, 0.10),            /* top separator line */
+        0 4px 24px rgba(5, 10, 28, 0.28) !important;  /* base depth */
+}
+
+html.dark #mobileNavIndicator {
+    /* iOS active indicator on dark: subtle blue tint, not bold */
+    background: rgba(10, 132, 255, 0.14) !important;
+    border: 1px solid rgba(10, 132, 255, 0.22) !important;
+    box-shadow: 0 0 12px rgba(10, 132, 255, 0.12) !important;
+}
+
+html.dark .mobile-nav-btn .mobile-nav-icon,
+html.dark .mobile-nav-btn .mobile-nav-label {
+    /* iOS secondary label on dark: slate-blue grey, not neutral grey */
+    color: rgba(140, 155, 195, 0.72);
+}
+html.dark .mobile-nav-btn.active .mobile-nav-icon,
+html.dark .mobile-nav-btn.active .mobile-nav-label {
+    color: var(--ios-blue-dark); /* #0A84FF */
+}
+
+html.dark #mobileBottomFade {
+    /*
+     * iPhone OLED bottom fade: deep blue-black, not pure black.
+     * Matches the navy pill color, blends naturally into dark background.
+     */
+    background: linear-gradient(
+        to top,
+        rgba(8, 14, 36, 0.62) 0%,
+        rgba(8, 14, 36, 0.28) 45%,
+        transparent 100%
+    );
+}
+
+/* Dark more sheet — deep navy blue, not black */
+html.dark #moreSheetCard {
+    background: rgba(10, 16, 34, 0.96) !important;
+    backdrop-filter: blur(64px) saturate(140%) brightness(0.88) !important;
+    -webkit-backdrop-filter: blur(64px) saturate(140%) brightness(0.88) !important;
+    border: 1px solid rgba(99, 130, 220, 0.12) !important;
+    border-top: 1px solid rgba(140, 165, 255, 0.18) !important;
+    box-shadow:
+        0 -8px 48px rgba(8, 14, 40, 0.40),
+        0 -1px 0 rgba(140,165,255,0.10),
+        0 1px 0 rgba(140,165,255,0.08) inset !important;
+}
+html.dark #moreSheetCard .text-slate-800 { color: #e8edf8 !important; }
+html.dark #moreSheetCard .text-slate-400 { color: rgba(140,155,195,0.70) !important; }
+/* Drag handle bar: blue-tinted white */
+html.dark #moreSheetCard [style*="rgba(0,0,0,0.18)"] {
+    background: rgba(140, 165, 255, 0.22) !important;
+}
+/* Divider line: blue-tinted */
+html.dark #moreSheetCard [style*="rgba(0,0,0,0.07)"] {
+    background: rgba(99, 130, 220, 0.10) !important;
+}
+/* Section title: blue-tinted label */
+html.dark #moreSheetCard [style*="rgba(0,0,0,0.36)"] {
+    color: rgba(140, 165, 255, 0.40) !important;
+}
+
+/* ────────────────────────────────────────
+   DARK MODE — iOS Deep Navy Blue
+   Bottom bar: rgb(12,18,38) family (not black)
+   Shadow: soft ambient blue-tinted glow, iOS-like
+   ──────────────────────────────────────── */
+html.dark #mobileNavPill {
+    background: rgba(12, 18, 38, 0.86) !important;
+    backdrop-filter: blur(56px) saturate(140%) brightness(0.90) !important;
+    -webkit-backdrop-filter: blur(56px) saturate(140%) brightness(0.90) !important;
+    border: 1px solid rgba(99, 130, 220, 0.12) !important;
+    border-top: 1px solid rgba(140, 165, 255, 0.18) !important;
+    box-shadow:
+        0 1px 0 rgba(140,165,255,0.10) inset,
+        0 -12px 32px rgba(8, 14, 40, 0.30),
+        0 -1px 0 rgba(99, 130, 220, 0.10),
+        0 4px 24px rgba(5, 10, 28, 0.25) !important;
+}
+
+html.dark #mobileNavIndicator {
+    background: rgba(10, 132, 255, 0.14) !important;
+    border: 1px solid rgba(10, 132, 255, 0.22) !important;
+    box-shadow: 0 0 12px rgba(10, 132, 255, 0.12) !important;
+}
+
+html.dark .mobile-nav-btn .mobile-nav-icon,
+html.dark .mobile-nav-btn .mobile-nav-label {
+    color: rgba(140, 155, 195, 0.72);
+}
+html.dark .mobile-nav-btn.active .mobile-nav-icon,
+html.dark .mobile-nav-btn.active .mobile-nav-label {
+    color: var(--ios-blue-dark);
+}
+
+html.dark #mobileBottomFade {
+    background: linear-gradient(
+        to top,
+        rgba(8, 14, 36, 0.62) 0%,
+        rgba(8, 14, 36, 0.26) 45%,
+        transparent 100%
+    );
+}
+
+html.dark #moreSheetCard {
+    background: rgba(10, 16, 34, 0.96) !important;
+    backdrop-filter: blur(64px) saturate(140%) brightness(0.88) !important;
+    -webkit-backdrop-filter: blur(64px) saturate(140%) brightness(0.88) !important;
+    border: 1px solid rgba(99, 130, 220, 0.12) !important;
+    border-top: 1px solid rgba(140, 165, 255, 0.18) !important;
+    box-shadow:
+        0 -8px 48px rgba(8, 14, 40, 0.38),
+        0 -1px 0 rgba(140,165,255,0.10),
+        0 1px 0 rgba(140,165,255,0.08) inset !important;
+}
+html.dark #moreSheetCard .text-slate-800 { color: #e8edf8 !important; }
+html.dark #moreSheetCard .text-slate-400 { color: rgba(140,155,195,0.70) !important; }
+html.dark #moreSheetCard [style*="rgba(0,0,0,0.18)"] { background: rgba(140,165,255,0.22) !important; }
+html.dark #moreSheetCard [style*="rgba(0,0,0,0.07)"]  { background: rgba(99,130,220,0.10) !important; }
+html.dark #moreSheetCard [style*="rgba(0,0,0,0.36)"]  { color: rgba(140,165,255,0.40) !important; }
+
