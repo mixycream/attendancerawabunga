@@ -628,10 +628,47 @@ function showSyncSuccess(btn) {
     }, 1800);
 }
 
+// ─── Cache helpers ───────────────────────────────────────────────────────────
+function _saveToCache(emps, lgArr, cfg) {
+    try {
+        localStorage.setItem('mbg_cache_employees', JSON.stringify(emps));
+        // Simpan hanya log 30 hari terakhir agar cache tidak bengkak
+        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
+        const recentLogs = lgArr.filter(l => new Date(l.date) >= cutoff);
+        localStorage.setItem('mbg_cache_logs', JSON.stringify(recentLogs));
+        localStorage.setItem('mbg_cache_ts', Date.now().toString());
+    } catch(e) { /* storage full, silently fail */ }
+}
+function _loadFromCache() {
+    try {
+        const ts = parseInt(localStorage.getItem('mbg_cache_ts') || '0');
+        if (!ts) return false;
+        const emps = JSON.parse(localStorage.getItem('mbg_cache_employees') || 'null');
+        const lgArr = JSON.parse(localStorage.getItem('mbg_cache_logs') || 'null');
+        if (!emps || !lgArr) return false;
+        employees = emps;
+        logs = lgArr;
+        return true;
+    } catch(e) { return false; }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function fetchData(force = false) {
     // Find which sync button was clicked (if manual)
     const triggerBtn = force ? (_syncingButton || document.getElementById('adminSyncBtn') || document.querySelector('[onclick*="fetchData(true)"]')) : null;
-    
+
+    // Jika tidak force, coba muat dari cache dulu → tampil UI instan
+    if (!force) {
+        const loaded = _loadFromCache();
+        if (loaded) {
+            try { refreshUI(); } catch(e) {}
+            // Lanjut fetch di background untuk update data
+            toggleLoader(false);
+            _fetchDataBackground();
+            return;
+        }
+    }
+
     if (force && triggerBtn) {
         if (!triggerBtn.disabled) setSyncButtonLoading(triggerBtn, true);
     } else {
@@ -648,6 +685,8 @@ async function fetchData(force = false) {
             if(data.status === 'success') {
                 employees = data.employees;
                 logs = data.logs;
+                // Simpan ke cache setelah fetch berhasil
+                _saveToCache(data.employees, data.logs, data.config);
 
                 if(data.config) {
                     if(data.config.overtimeRate) {
@@ -761,6 +800,32 @@ async function fetchData(force = false) {
     } else {
         toggleLoader(false);
     }
+}
+
+// Fetch di background tanpa loader — untuk refresh setelah cache load
+async function _fetchDataBackground() {
+    try {
+        const res = await fetch(SCRIPT_URL + '?action=getData&_t=' + Date.now());
+        const data = await res.json();
+        if (data.status === 'success') {
+            employees = data.employees;
+            logs = data.logs;
+            _saveToCache(data.employees, data.logs, data.config);
+            // Update config silently
+            if (data.config) {
+                if (data.config.shifts) appConfig.shifts = data.config.shifts;
+                appConfig.disableLate = data.config.disableLate === true || data.config.disableLate === 'true';
+                appConfig.disableEarly = data.config.disableEarly === true || data.config.disableEarly === 'true';
+                appConfig.disableBoth = data.config.disableBoth === true || data.config.disableBoth === 'true';
+                appConfig.disableGeofence = data.config.disableGeofence === true || data.config.disableGeofence === 'true';
+                appConfig.autoOutType = data.config.autoOutType || 'global';
+                appConfig.autoOutGlobalMinutes = parseInt(data.config.autoOutGlobalMinutes || '240');
+                appConfig.autoOutDivisionsConfig = data.config.autoOutDivisionsConfig || '{}';
+            }
+            try { refreshUI(); } catch(e) {}
+            autoClockOutForgotten();
+        }
+    } catch(e) { /* background fetch failed silently */ }
 }
 
 async function postData(action, payload) {
@@ -2581,7 +2646,16 @@ function renderDivisionGrid() {
 
 // --- SECURITY LOGIC UPDATED ---
 function validateEmployee(id) {
-    const cleanId = String(id).trim().replace(/\s+/g, ' ');
+    let parsedId = id;
+    try {
+        const parsed = JSON.parse(id);
+        if (parsed && parsed.id) {
+            parsedId = parsed.id;
+        }
+    } catch (e) {
+        // Not a JSON payload, proceed with raw id
+    }
+    const cleanId = String(parsedId).trim().replace(/\s+/g, ' ');
     const emp = employees.find(e => String(e.id).trim() == cleanId || e.name.trim().replace(/\s+/g, ' ').toLowerCase() == cleanId.toLowerCase());
     if(emp) {
         // Block other roles from self attendance
@@ -7193,17 +7267,34 @@ function addEmployee(e) {
         payload.image = newEmpPhotoBase64;
     }
 
-    postData('addEmployee', payload);
+    // OPTIMISTIC UI: tambahkan ke lokal array dulu → tampil instan
+    const newEmp = { id, name, division: div, salary, role,
+        photo: newEmpPhotoBase64 ? 'data:image/jpeg;base64,' + newEmpPhotoBase64 : '' };
+    employees.push(newEmp);
+    _saveToCache(employees, logs, appConfig);
+    refreshUI();
+    showToast(`${name} ditambahkan`, 'success');
+
     e.target.reset();
     const creds = document.getElementById('newEmpCreds'); if (creds) creds.classList.add('hidden');
     handleDivisionRolePreset('new');
-    
+
     // Clear photo upload fields
     newEmpPhotoBase64 = '';
     const preview = document.getElementById('newEmpPhotoPreview');
     if (preview) preview.innerHTML = `<i class="fas fa-camera text-base"></i>`;
     const photoInput = document.getElementById('newEmpPhotoInput');
     if (photoInput) photoInput.value = '';
+
+    // Kirim ke server di background — rollback jika gagal
+    postData('addEmployee', payload).then(success => {
+        if (!success) {
+            employees = employees.filter(emp2 => emp2.id !== id);
+            _saveToCache(employees, logs, appConfig);
+            refreshUI();
+            showToast(`Gagal menyimpan ${name} ke server. Coba lagi.`, 'error');
+        }
+    });
 }
 async function deleteEmployee() {
     if (!editingEmployeeId) return;
@@ -7733,8 +7824,31 @@ function volUploadQR(event) {
 }
 
 function volValidateQR(data) {
-    const cleanData = String(data).trim().replace(/\s+/g, ' ');
-    const emp = employees.find(e => String(e.id).trim() == cleanData || e.name.trim().replace(/\s+/g, ' ').toLowerCase() == cleanData.toLowerCase());
+    let parsedId = data;
+    let parsedObj = null;
+    try {
+        const parsed = JSON.parse(data);
+        if (parsed && parsed.id) {
+            parsedId = parsed.id;
+            parsedObj = parsed;
+        }
+    } catch (e) {
+        // Not a JSON payload, proceed with raw data
+    }
+    const cleanData = String(parsedId).trim().replace(/\s+/g, ' ');
+    
+    // 1. Cari relawan di database lokal atau buat dari metadata QR Code
+    let emp = employees.find(e => String(e.id).trim() == cleanData || e.name.trim().replace(/\s+/g, ' ').toLowerCase() == cleanData.toLowerCase());
+    
+    if (!emp && parsedObj) {
+        emp = {
+            id: parsedObj.id,
+            name: parsedObj.n || cleanData,
+            division: parsedObj.d || 'Relawan',
+            pt: parsedObj.pt || 'SPPG Rawa Bunga 1'
+        };
+    }
+
     if (!emp) {
         showToast('QR tidak dikenali', 'error');
         requestAnimationFrame(volScanLoop);
@@ -7748,25 +7862,52 @@ function volValidateQR(data) {
         return;
     }
 
-    // No pre-blocking geofence checks here; validation happens dynamically on the selfie page
-
     volScannedEmployee = emp;
     if (volScanStream) volScanStream.getTracks().forEach(t => t.stop());
 
-    // Auto-detect tipe absen berdasarkan log terakhir karyawan
-    volAbsenType = volDetectAbsenType(emp.id);
+    // 2. Cek ketersediaan log di memori lokal HP
+    const hasLocalLogs = logs.some(l => String(l.empId) === String(emp.id));
 
-    // Move to selfie page
-    volShowPage('selfie');
-    volPopulateSelfieInfo();
-    volStartSelfie('user');
+    if (hasLocalLogs || logs.length > 0) {
+        // Cache Hit: Tentukan tipe absensi INSTAN (0ms)!
+        volAbsenType = volDetectAbsenType(emp.id);
+        volShowPage('selfie');
+        volPopulateSelfieInfo(false);
+        volStartSelfie('user');
+    } else {
+        // Cache Miss: Tampilkan Card Relawan INSTAN (0ms), tetapi pasang Skeleton Shimmer pada Badge Status
+        volAbsenType = 'IN'; // Temporary fallback
+        volShowPage('selfie');
+        volPopulateSelfieInfo(true); // true = tampilkan skeleton loader pada status badge
+        volStartSelfie('user');
+
+        // Fetch log status secara asinkron di latar belakang
+        fetch(SCRIPT_URL + '?action=getData&_t=' + Date.now())
+            .then(res => res.json())
+            .then(resData => {
+                if (resData.status === 'success' && resData.logs) {
+                    logs = resData.logs;
+                    if (resData.employees && resData.employees.length > 0) employees = resData.employees;
+                    _saveToCache(employees, logs, appConfig);
+                    // Update status & hapus skeleton loader secara halus
+                    volAbsenType = volDetectAbsenType(emp.id);
+                    volPopulateSelfieInfo(false);
+                } else {
+                    volPopulateSelfieInfo(false);
+                }
+            })
+            .catch(() => {
+                volPopulateSelfieInfo(false);
+            });
+    }
+
     // Enable submit based on geofence after camera is ready
     setTimeout(() => {
         volUpdateGeofenceUI();
     }, 1000);
 }
 
-function volPopulateSelfieInfo() {
+function volPopulateSelfieInfo(isPendingStatus = false) {
     const nameEl = document.getElementById('volSelfieName');
     const divEl = document.getElementById('volSelfieDiv');
     const typeEl = document.getElementById('volSelfieType');
@@ -7777,13 +7918,41 @@ function volPopulateSelfieInfo() {
         if (nameEl) nameEl.innerText = volScannedEmployee.name;
         if (divEl) divEl.innerText = volScannedEmployee.division;
     }
-    if (kitchenEl) kitchenEl.innerText = 'SPPG Rawa Bunga 1';
+    
+    const ptName = (volScannedEmployee && volScannedEmployee.pt) || appConfig.kitchenName || 'SPPG Rawa Bunga 1';
+    if (kitchenEl) kitchenEl.innerHTML = `<i class="fas fa-store-alt text-emerald-500 text-[8px]"></i> ${ptName}`;
+
+    // Tampilkan Skeleton Shimmer jika status sedang dalam proses verifikasi server
+    if (isPendingStatus) {
+        if (typeEl) {
+            typeEl.className = 'text-[8px] font-extrabold text-transparent bg-slate-300 dark:bg-slate-700 px-3 py-0.5 rounded animate-pulse select-none min-w-[70px] inline-block';
+            typeEl.innerText = 'LOADING...';
+        }
+        if (iconEl) {
+            iconEl.className = 'w-11 h-11 bg-slate-200 dark:bg-slate-800 rounded-xl flex items-center justify-center text-lg text-slate-400 shrink-0 animate-pulse';
+            iconEl.innerHTML = '<i class="fas fa-circle-notch animate-spin text-sm text-indigo-500"></i>';
+        }
+        return;
+    }
+
     if (volAbsenType === 'IN') {
-        if (typeEl) { typeEl.innerText = 'ABSEN MASUK'; typeEl.className = 'text-[10px] font-bold text-white bg-emerald-500 px-2 py-0.5 rounded'; }
-        if (iconEl) iconEl.innerHTML = '<i class="fas fa-sign-in-alt"></i>';
+        if (typeEl) { 
+            typeEl.innerText = 'ABSEN MASUK'; 
+            typeEl.className = 'text-[8px] font-extrabold text-white bg-emerald-500 px-2 py-0.5 rounded shadow-sm transition-all duration-300'; 
+        }
+        if (iconEl) { 
+            iconEl.className = 'w-11 h-11 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center text-lg text-white shadow-lg shadow-emerald-500/20 shrink-0 transition-all duration-300';
+            iconEl.innerHTML = '<i class="fas fa-sign-in-alt"></i>'; 
+        }
     } else {
-        if (typeEl) { typeEl.innerText = 'ABSEN PULANG'; typeEl.className = 'text-[10px] font-bold text-white bg-blue-500 px-2 py-0.5 rounded'; }
-        if (iconEl) iconEl.innerHTML = '<i class="fas fa-sign-out-alt"></i>';
+        if (typeEl) { 
+            typeEl.innerText = 'ABSEN PULANG'; 
+            typeEl.className = 'text-[8px] font-extrabold text-white bg-blue-500 px-2 py-0.5 rounded shadow-sm transition-all duration-300'; 
+        }
+        if (iconEl) { 
+            iconEl.className = 'w-11 h-11 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-lg text-white shadow-lg shadow-blue-500/20 shrink-0 transition-all duration-300';
+            iconEl.innerHTML = '<i class="fas fa-sign-out-alt"></i>'; 
+        }
     }
 }
 
@@ -8501,8 +8670,8 @@ async function volSubmitSelfie() {
     const video = document.getElementById('volFaceVideo');
     const canvas = document.getElementById('volSnapCanvas');
     if (!canvas || !video) return;
-    canvas.width = 400;
-    canvas.height = 533;
+    canvas.width = 280;
+    canvas.height = 373;
     const ctx = canvas.getContext('2d');
     if (volCurrentFacingMode === 'user') { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -8528,7 +8697,7 @@ async function volSubmitSelfie() {
     ctx.fillStyle = volAbsenType === 'IN' ? '#34d399' : '#60a5fa';
     ctx.fillText(volAbsenType === 'IN' ? 'ABSEN MASUK' : 'ABSEN PULANG', canvas.width - 110, canvas.height - barH + 18);
 
-    const photoBase64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+    const photoBase64 = canvas.toDataURL('image/jpeg', 0.42).split(',')[1];
 
     const payload = {
         empId: volScannedEmployee.id,
@@ -8583,10 +8752,30 @@ async function volSubmitSelfie() {
         toggleLoader(false);
         const empName = volScannedEmployee ? volScannedEmployee.name : '';
         const absenType = finalType;
+
+        // Update log lokal INSTAN — tidak perlu fetchData() full
+        const now2 = new Date();
+        logs.unshift({
+            row: -1, // placeholder, bukan row sheet asli
+            date: today,
+            time: `${String(now2.getHours()).padStart(2,'0')}:${String(now2.getMinutes()).padStart(2,'0')}`,
+            empId: payload.empId,
+            name: payload.name,
+            type: finalType,
+            photo: '',
+            overtime: overtimeHours,
+            location: payload.location,
+            lateMinutes: lateMinutes,
+            note: payload.note || '',
+            absentBy: 'Mandiri'
+        });
+        // Update cache dengan log baru
+        _saveToCache(employees, logs, appConfig);
+
         volCancelFlow();
         showAbsenSuccess({
             type: absenType, name: empName, message: toastMsg,
-            onDone: async () => { await fetchData(true); volUpdateTodayStatus(); }
+            onDone: () => { volUpdateTodayStatus(); }
         });
     }
 }
@@ -8618,52 +8807,10 @@ async function startAbsenMandiri() {
         volSourceView = 'landing';
     }
 
-    // Ambil data karyawan dari server dulu
-    toggleLoader(true, 'Memuat data...');
-    try {
-        const res = await fetch(SCRIPT_URL + '?action=getData&_t=' + Date.now());
-        const data = await res.json();
-        if (data.status === 'success') {
-            employees = data.employees || [];
-            logs = data.logs || [];
-            if (data.config) {
-                if (data.config.overtimeRate) appConfig.overtimeRate = parseInt(data.config.overtimeRate) || appConfig.overtimeRate;
-                if (data.config.shifts) appConfig.shifts = data.config.shifts;
-                appConfig.disableLate = data.config.disableLate === true || data.config.disableLate === 'true';
-                appConfig.disableEarly = data.config.disableEarly === true || data.config.disableEarly === 'true';
-                appConfig.disableBoth = data.config.disableBoth === true || data.config.disableBoth === 'true';
-                appConfig.disableLateReason = data.config.disableLateReason || '';
-                appConfig.disableEarlyReason = data.config.disableEarlyReason || '';
-                appConfig.disableBothReason = data.config.disableBothReason || '';
-                appConfig.disableGeofence = data.config.disableGeofence === true || data.config.disableGeofence === 'true';
-                appConfig.hideOvertime = data.config.hideOvertime === true || data.config.hideOvertime === 'true';
-                appConfig.allowMultipleIn = data.config.allowMultipleIn === true || data.config.allowMultipleIn === 'true';
-                appConfig.enableLivenessCheck = data.config.enableLivenessCheck === true || data.config.enableLivenessCheck === 'true';
-                appConfig.enableSelfieOnly = data.config.enableSelfieOnly === true || data.config.enableSelfieOnly === 'true';
-                appConfig.geofenceLat = parseFloat(data.config.geofenceLat || "-6.21973");
-                appConfig.geofenceLng = parseFloat(data.config.geofenceLng || "106.87015");
-                appConfig.geofenceRadius = parseInt(data.config.geofenceRadius || "15");
-                appConfig.lateTolerance = parseInt(data.config.lateTolerance || "5");
-                appConfig.lateReasonThreshold = parseInt(data.config.lateReasonThreshold || "25");
-                appConfig.lateWaThreshold = parseInt(data.config.lateWaThreshold || "35");
-                appConfig.lateMaxThreshold = parseInt(data.config.lateMaxThreshold || "60");
-                appConfig.adminWhatsApp = data.config.adminWhatsApp || "6282114806765";
-                appConfig.autoOutType = data.config.autoOutType || "global";
-                appConfig.autoOutGlobalMinutes = parseInt(data.config.autoOutGlobalMinutes || "240");
-                appConfig.autoOutDivisionsConfig = data.config.autoOutDivisionsConfig || "{}";
+    // 1. Coba muat cache lokal secara instan (0ms wait)
+    _loadFromCache();
 
-                // Update GEOFENCE_CONFIG
-                GEOFENCE_CONFIG.lat = appConfig.geofenceLat;
-                GEOFENCE_CONFIG.lng = appConfig.geofenceLng;
-                GEOFENCE_CONFIG.radius = appConfig.geofenceRadius;
-            }
-        }
-    } catch (e) {
-        console.warn('Fetch data for mandiri failed', e);
-    }
-    toggleLoader(false);
-
-    // Animasi transisi smooth masuk ke volunteerLayout
+    // 2. Animasi transisi smooth LANGSUNG masuk ke volunteerLayout (kamera nyala seketika)
     const activeView = volSourceView === 'login' ? document.getElementById('loginView') : document.getElementById('landingView');
     const volunteerLayout = document.getElementById('volunteerLayout');
     
@@ -8675,7 +8822,7 @@ async function startAbsenMandiri() {
             setTimeout(() => {
                 volunteerLayout.classList.remove('view-hidden');
             }, 50);
-        }, 500);
+        }, 300);
     } else {
         // Fallback jika elemen tidak ditemukan
         if (document.getElementById('loginView')) document.getElementById('loginView').classList.add('hidden');
@@ -8683,6 +8830,9 @@ async function startAbsenMandiri() {
         initVolunteer();
         if (volunteerLayout) volunteerLayout.classList.remove('view-hidden');
     }
+
+    // 3. Refresh data di latar belakang tanpa menghambat pembukaan kamera
+    _fetchDataBackground();
 }
 
 // Tombol keluar dari volunteer (kembali ke login/landing)
@@ -9049,25 +9199,35 @@ function initScrollReveal() {
 let currentQrData = { id: '', name: '', division: '' };
 
 function showVolunteerQRCode(id, name, division) {
-    currentQrData = { id, name, division };
-    
+    // Nama PT/Dapur dari config atau fallback
+    const ptName = appConfig.kitchenName || 'SPPG Rawa Bunga 1';
+
+    currentQrData = { id, name, division, pt: ptName };
+
     const modal = document.getElementById('volunteerQrModal');
-    const img = document.getElementById('volunteerQrImage');
+    const img   = document.getElementById('volunteerQrImage');
+    const ptEl  = document.getElementById('volunteerQrPt');
     const nameEl = document.getElementById('volunteerQrName');
-    const divEl = document.getElementById('volunteerQrDiv');
-    const idEl = document.getElementById('volunteerQrId');
-    
+    const divEl  = document.getElementById('volunteerQrDiv');
+    const idEl   = document.getElementById('volunteerQrId');
+
     if (!modal || !img || !nameEl || !divEl || !idEl) return;
-    
-    // Generate QR using API QR Server
-    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(id)}`;
-    nameEl.innerText = name;
-    divEl.innerText = division;
-    idEl.innerText = `ID: ${id}`;
-    
+
+    // Format QR baru: JSON ringkas agar tetap kecil
+    // {"id":"...","n":"...","d":"...","pt":"..."}
+    // Scan lama (plain ID) tetap backward-compatible
+    const qrPayload = JSON.stringify({ id, n: name, d: division, pt: ptName });
+    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&ecc=M&data=${encodeURIComponent(qrPayload)}`;
+
+    if (ptEl)   ptEl.innerText   = ptName;
+    if (nameEl) nameEl.innerText = name;
+    if (divEl)  divEl.innerText  = division;
+    if (idEl)   idEl.innerText   = id;
+
     modal.classList.remove('hidden');
     setTimeout(() => modal.classList.remove('opacity-0'), 10);
 }
+
 
 function closeVolunteerQrModal() {
     const modal = document.getElementById('volunteerQrModal');
@@ -9080,7 +9240,13 @@ async function triggerDownloadQr() {
     if (!currentQrData.id) return;
     toggleLoader(true, "Menyiapkan Unduhan...");
     try {
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(currentQrData.id)}`;
+        const qrPayload = JSON.stringify({
+            id: currentQrData.id,
+            n: currentQrData.name,
+            d: currentQrData.division,
+            pt: currentQrData.pt
+        });
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&ecc=M&data=${encodeURIComponent(qrPayload)}`;
         const response = await fetch(qrUrl);
         if (!response.ok) throw new Error("Network response was not OK");
         const blob = await response.blob();
@@ -9108,7 +9274,13 @@ function printQrCode() {
         showToast("Gagal membuka jendela cetak. Pastikan pop-up diizinkan.", "error");
         return;
     }
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(currentQrData.id)}`;
+    const qrPayload = JSON.stringify({
+        id: currentQrData.id,
+        n: currentQrData.name,
+        d: currentQrData.division,
+        pt: currentQrData.pt
+    });
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&ecc=M&data=${encodeURIComponent(qrPayload)}`;
     
     printWindow.document.write(`
         <html>
