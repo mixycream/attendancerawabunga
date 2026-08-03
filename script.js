@@ -636,6 +636,7 @@ function _saveToCache(emps, lgArr, cfg) {
         const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
         const recentLogs = lgArr.filter(l => new Date(l.date) >= cutoff);
         localStorage.setItem('mbg_cache_logs', JSON.stringify(recentLogs));
+        localStorage.setItem('mbg_cache_config', JSON.stringify(appConfig));
         localStorage.setItem('mbg_cache_ts', Date.now().toString());
     } catch(e) { /* storage full, silently fail */ }
 }
@@ -645,9 +646,13 @@ function _loadFromCache() {
         if (!ts) return false;
         const emps = JSON.parse(localStorage.getItem('mbg_cache_employees') || 'null');
         const lgArr = JSON.parse(localStorage.getItem('mbg_cache_logs') || 'null');
+        const cfg = JSON.parse(localStorage.getItem('mbg_cache_config') || 'null');
         if (!emps || !lgArr) return false;
         employees = emps;
         logs = lgArr;
+        if (cfg) {
+            Object.assign(appConfig, cfg);
+        }
         return true;
     } catch(e) { return false; }
 }
@@ -688,36 +693,8 @@ async function fetchData(force = false) {
                 // Simpan ke cache setelah fetch berhasil
                 _saveToCache(data.employees, data.logs, data.config);
 
-                if(data.config) {
-                    if(data.config.overtimeRate) {
-                        appConfig.overtimeRate = parseInt(data.config.overtimeRate);
-                        localStorage.setItem('mbg_overtime_rate', appConfig.overtimeRate);
-                    }
-                    if(data.config.shifts) {
-                        appConfig.shifts = data.config.shifts;
-                    }
-                    appConfig.disableLate = data.config.disableLate === true || data.config.disableLate === 'true';
-                    appConfig.disableEarly = data.config.disableEarly === true || data.config.disableEarly === 'true';
-                    appConfig.disableBoth = data.config.disableBoth === true || data.config.disableBoth === 'true';
-                    appConfig.disableLateReason = data.config.disableLateReason || '';
-                    appConfig.disableEarlyReason = data.config.disableEarlyReason || '';
-                    appConfig.disableBothReason = data.config.disableBothReason || '';
-                    appConfig.disableGeofence = data.config.disableGeofence === true || data.config.disableGeofence === 'true';
-                    appConfig.hideOvertime = data.config.hideOvertime === true || data.config.hideOvertime === 'true';
-                    appConfig.allowMultipleIn = data.config.allowMultipleIn === true || data.config.allowMultipleIn === 'true';
-                    appConfig.enableLivenessCheck = data.config.enableLivenessCheck === true || data.config.enableLivenessCheck === 'true';
-                    appConfig.enableSelfieOnly = data.config.enableSelfieOnly === true || data.config.enableSelfieOnly === 'true';
-                    appConfig.geofenceLat = parseFloat(data.config.geofenceLat || "-6.21973");
-                    appConfig.geofenceLng = parseFloat(data.config.geofenceLng || "106.87015");
-                    appConfig.geofenceRadius = parseInt(data.config.geofenceRadius || "15");
-                    appConfig.lateTolerance = parseInt(data.config.lateTolerance || "5");
-                    appConfig.lateReasonThreshold = parseInt(data.config.lateReasonThreshold || "25");
-                    appConfig.lateWaThreshold = parseInt(data.config.lateWaThreshold || "35");
-                    appConfig.lateMaxThreshold = parseInt(data.config.lateMaxThreshold || "60");
-                    appConfig.adminWhatsApp = data.config.adminWhatsApp || "6282114806765";
-                    appConfig.autoOutType = data.config.autoOutType || "global";
-                    appConfig.autoOutGlobalMinutes = parseInt(data.config.autoOutGlobalMinutes || "240");
-                    appConfig.autoOutDivisionsConfig = data.config.autoOutDivisionsConfig || "{}";
+                if (data.config) {
+                    _applyConfigData(data.config);
                     
                     appConfig.divisionRolePresets = {};
                     if (data.config.divisionRolePresets) {
@@ -802,6 +779,42 @@ async function fetchData(force = false) {
     }
 }
 
+function _applyConfigData(cfg) {
+    if (!cfg) return;
+    if (cfg.overtimeRate) {
+        appConfig.overtimeRate = parseInt(cfg.overtimeRate);
+        localStorage.setItem('mbg_overtime_rate', appConfig.overtimeRate);
+    }
+    if (cfg.shifts) appConfig.shifts = cfg.shifts;
+    appConfig.disableLate = cfg.disableLate === true || cfg.disableLate === 'true';
+    appConfig.disableEarly = cfg.disableEarly === true || cfg.disableEarly === 'true';
+    appConfig.disableBoth = cfg.disableBoth === true || cfg.disableBoth === 'true';
+    appConfig.disableLateReason = cfg.disableLateReason || '';
+    appConfig.disableEarlyReason = cfg.disableEarlyReason || '';
+    appConfig.disableBothReason = cfg.disableBothReason || '';
+    appConfig.disableGeofence = cfg.disableGeofence === true || cfg.disableGeofence === 'true';
+    appConfig.hideOvertime = cfg.hideOvertime === true || cfg.hideOvertime === 'true';
+    appConfig.allowMultipleIn = cfg.allowMultipleIn === true || cfg.allowMultipleIn === 'true';
+    appConfig.enableLivenessCheck = cfg.enableLivenessCheck === true || cfg.enableLivenessCheck === 'true';
+    appConfig.enableSelfieOnly = cfg.enableSelfieOnly === true || cfg.enableSelfieOnly === 'true';
+    appConfig.geofenceLat = parseFloat(cfg.geofenceLat || "-6.21973");
+    appConfig.geofenceLng = parseFloat(cfg.geofenceLng || "106.87015");
+    appConfig.geofenceRadius = parseInt(cfg.geofenceRadius || "15");
+    appConfig.lateTolerance = parseInt(cfg.lateTolerance || "5");
+    appConfig.lateReasonThreshold = parseInt(cfg.lateReasonThreshold || "25");
+    appConfig.lateWaThreshold = parseInt(cfg.lateWaThreshold || "35");
+    appConfig.lateMaxThreshold = parseInt(cfg.lateMaxThreshold || "60");
+    appConfig.adminWhatsApp = cfg.adminWhatsApp || "6282114806765";
+    appConfig.autoOutType = cfg.autoOutType || "global";
+    appConfig.autoOutGlobalMinutes = parseInt(cfg.autoOutGlobalMinutes || "240");
+    appConfig.autoOutDivisionsConfig = cfg.autoOutDivisionsConfig || "{}";
+
+    // Update GEOFENCE_CONFIG
+    GEOFENCE_CONFIG.lat = appConfig.geofenceLat;
+    GEOFENCE_CONFIG.lng = appConfig.geofenceLng;
+    GEOFENCE_CONFIG.radius = appConfig.geofenceRadius;
+}
+
 // Fetch di background tanpa loader — untuk refresh setelah cache load
 async function _fetchDataBackground() {
     try {
@@ -810,18 +823,8 @@ async function _fetchDataBackground() {
         if (data.status === 'success') {
             employees = data.employees;
             logs = data.logs;
-            _saveToCache(data.employees, data.logs, data.config);
-            // Update config silently
-            if (data.config) {
-                if (data.config.shifts) appConfig.shifts = data.config.shifts;
-                appConfig.disableLate = data.config.disableLate === true || data.config.disableLate === 'true';
-                appConfig.disableEarly = data.config.disableEarly === true || data.config.disableEarly === 'true';
-                appConfig.disableBoth = data.config.disableBoth === true || data.config.disableBoth === 'true';
-                appConfig.disableGeofence = data.config.disableGeofence === true || data.config.disableGeofence === 'true';
-                appConfig.autoOutType = data.config.autoOutType || 'global';
-                appConfig.autoOutGlobalMinutes = parseInt(data.config.autoOutGlobalMinutes || '240');
-                appConfig.autoOutDivisionsConfig = data.config.autoOutDivisionsConfig || '{}';
-            }
+            _applyConfigData(data.config);
+            _saveToCache(data.employees, data.logs, appConfig);
             try { refreshUI(); } catch(e) {}
             autoClockOutForgotten();
         }
@@ -4499,6 +4502,9 @@ async function saveFeatureSettings() {
     GEOFENCE_CONFIG.lng = appConfig.geofenceLng;
     GEOFENCE_CONFIG.radius = appConfig.geofenceRadius;
 
+    // Simpan perubahan config ke cache lokal instan
+    _saveToCache(employees, logs, appConfig);
+
     toggleLoader(true, 'Menyimpan pengaturan...');
     const success = await postData('saveFeatureSettings', {
         disableBoth, disableLate, disableEarly,
@@ -8009,6 +8015,10 @@ function volStartSelfie(mode) {
 }
 
 function volToggleCamera() {
+    if (appConfig.enableSelfieOnly) {
+        showToast('Pengaturan admin membatasi absen hanya dengan kamera depan', 'warning');
+        return;
+    }
     const newMode = volCurrentFacingMode === 'user' ? 'environment' : 'user';
     volStartSelfie(newMode);
 }
