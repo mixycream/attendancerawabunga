@@ -276,7 +276,8 @@ window.onload = () => {
             document.getElementById('loginView').classList.add('hidden');
             const landingView = document.getElementById('landingView');
             if (landingView) landingView.classList.add('hidden');
-            fetchData(true);
+            // Cache-first: muat data lokal instan tanpa blocking loader jika ada cache
+            fetchData(false);
             if (currentUser.role === 'nutritionist') initNutritionist();
             else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(currentUser.role)) initSpecialRoleDashboard();
             else if (currentUser.role === 'employee' || currentUser.role === 'admin_warehouse') initVolunteer();
@@ -379,28 +380,24 @@ async function handleLogin(e) {
         document.getElementById('loginView').classList.add('opacity-0', 'pointer-events-none');
         setLoginLoading(false);
         
-        // Wait for login fade out, then show loading animation
+        // Wait for login fade out, then show dashboard
         setTimeout(async () => {
             document.getElementById('loginView').classList.add('hidden');
             
-            // Explicitly show loader for login flow
-            toggleLoader(true, "Mempersiapkan Dashboard...");
-            
-            // Fetch data and init dashboard
-            await fetchData(true);
+            // Cache-first fetch: jika ada cache lokal, tampil instan
+            await fetchData(false);
             if (user.role === 'security') initSecurity();
             else if (user.role === 'nutritionist') initNutritionist();
             else if (['accountant', 'warehouse', 'head_sppg', 'foundation'].includes(user.role)) initSpecialRoleDashboard();
             else if (user.role === 'employee' || user.role === 'admin_warehouse') initVolunteer();
             else initAdmin();
             
-            // Show success animation before hiding loader
-            showLoaderSuccess("Berhasil Masuk");
+            toggleLoader(false);
             
             // Mark login complete
             isLoginInProgress = false;
             startSessionTimer();
-        }, 500);
+        }, 300);
 
         const remember = document.getElementById('rememberMe')?.checked;
         if (remember) localStorage.setItem('remembered_username', u); else localStorage.removeItem('remembered_username');
@@ -5685,17 +5682,9 @@ async function maSubmit() {
 }
 
 function initAdmin() {
-    if (!isLoginInProgress) {
-        toggleLoader(true, "Mempersiapkan Admin Dashboard...");
-        setTimeout(() => {
-            document.getElementById('adminLayout').classList.remove('hidden');
-            refreshUI();
-            showLoaderSuccess("Admin Dashboard Siap");
-        }, 300);
-    } else {
-        document.getElementById('adminLayout').classList.remove('hidden');
-        refreshUI();
-    }
+    document.getElementById('adminLayout').classList.remove('hidden');
+    refreshUI();
+    toggleLoader(false);
 }
 
 // =============================================
