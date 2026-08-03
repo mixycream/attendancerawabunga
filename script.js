@@ -126,21 +126,26 @@ function initParticleSystem() {
 // Initialize particles when DOM ready
 document.addEventListener('DOMContentLoaded', initParticleSystem);
 
-// Mouse tracking for card glow effect
+// Mouse tracking for card glow effect — OPTIMIZED: throttled via RAF
 const loginCard = document.getElementById('loginCard');
 if (loginCard) {
+    let glowRafPending = false;
     document.addEventListener('mousemove', (e) => {
-        const rect = loginCard.getBoundingClientRect();
-        const x = e.clientX - rect.left - rect.width / 2;
-        const y = e.clientY - rect.top - rect.height / 2;
-        
-        const glow = Math.sqrt(x * x + y * y) / 300;
-        loginCard.style.boxShadow = `
-            0 0 ${60 + glow * 30}px rgba(59, 130, 246, ${0.3 + glow * 0.2}),
-            0 0 ${120 + glow * 60}px rgba(59, 130, 246, ${0.15 + glow * 0.15}),
-            0 25px 50px rgba(0, 0, 0, 0.5)
-        `;
-    });
+        if (glowRafPending) return;
+        glowRafPending = true;
+        requestAnimationFrame(() => {
+            const rect = loginCard.getBoundingClientRect();
+            const x = e.clientX - rect.left - rect.width / 2;
+            const y = e.clientY - rect.top - rect.height / 2;
+            const glow = Math.sqrt(x * x + y * y) / 300;
+            loginCard.style.boxShadow = `
+                0 0 ${60 + glow * 30}px rgba(59, 130, 246, ${0.3 + glow * 0.2}),
+                0 0 ${120 + glow * 60}px rgba(59, 130, 246, ${0.15 + glow * 0.15}),
+                0 25px 50px rgba(0, 0, 0, 0.5)
+            `;
+            glowRafPending = false;
+        });
+    }, { passive: true });
 }
 
 // Helper to call API and return parsed JSON (kept separate from postData which returns boolean)
@@ -626,6 +631,8 @@ function showSyncSuccess(btn) {
 }
 
 // ─── Cache helpers ───────────────────────────────────────────────────────────
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 jam
+
 function _saveToCache(emps, lgArr, cfg) {
     try {
         localStorage.setItem('mbg_cache_employees', JSON.stringify(emps));
@@ -641,6 +648,11 @@ function _loadFromCache() {
     try {
         const ts = parseInt(localStorage.getItem('mbg_cache_ts') || '0');
         if (!ts) return false;
+        // Invalidate cache setelah 6 jam untuk mencegah data stale
+        if (Date.now() - ts > CACHE_TTL_MS) {
+            console.info('[Cache] Expired, fetching fresh data...');
+            return false;
+        }
         const emps = JSON.parse(localStorage.getItem('mbg_cache_employees') || 'null');
         const lgArr = JSON.parse(localStorage.getItem('mbg_cache_logs') || 'null');
         const cfg = JSON.parse(localStorage.getItem('mbg_cache_config') || 'null');

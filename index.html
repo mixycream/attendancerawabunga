@@ -1,132 +1,125 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cloud MBG - Payroll System</title>
+    <title>Cloud MBG - Sistem Absensi & Penggajian Relawan</title>
+    <meta name="description" content="Cloud MBG adalah platform manajemen absensi dan penggajian relawan SPPG berbasis GPS geofencing, selfie verification, dan rekap gaji otomatis.">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Cloud MBG - Sistem Absensi & Penggajian">
+    <meta property="og:description" content="Kelola kehadiran relawan dengan geofencing GPS, verifikasi selfie, dan rekap gaji otomatis.">
+    <meta property="og:type" content="website">
+    <meta name="theme-color" content="#6366f1">
+
     <link rel="icon" type="image/png" href="cloud_mbg_favicon.png">
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Chart.js (NEW: Untuk Grafik Garis) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <!-- Icons & Fonts -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- DNS Prefetch & Preconnect untuk resource eksternal -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+
+    <!-- Preload Critical CSS -->
+    <link rel="preload" href="style.css" as="style">
+
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <!-- Libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css">
 
+    <!-- Tailwind CSS (harus sync, digunakan oleh config di bawah) -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
                     fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
-                    colors: { 
-                        mbg: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 700: '#15803d', 800: '#166534' }, 
-                        slate: { 850: '#1e293b', 900: '#0f172a' } 
+                    colors: {
+                        mbg: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 700: '#15803d', 800: '#166534' },
+                        slate: { 850: '#1e293b', 900: '#0f172a' }
                     }
                 }
             }
         }
     </script>
+
+    <!-- Libraries (defer — tidak perlu blocking render) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous" defer></script>
+
+    <!-- Landing Page Scripts (defer) -->
+    <script src="landing.js" defer></script>
 </head>
 <body class="text-slate-800 h-screen overflow-hidden flex flex-col clay-bg font-sans antialiased selection:bg-blue-600 selection:text-white">
 
-    <!-- PRELOADER SCREEN — Smart Cache-Aware, Max 1.2s, Modern Aesthetic -->
-    <style>
-        @keyframes spin-slow {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .animate-spin-slow { animation: spin-slow 3s linear infinite; }
+    <!-- PRELOADER SCREEN — Smart Cache-Aware, Max 1.4s -->
+    <!-- CSS animations for preloader are in style.css -->
+    <script>
+        // Preloader logic — inline untuk eksekusi segera (tidak defer)
+        (function() {
+            const preloader = document.getElementById('appPreloader');
+            const percentText = document.getElementById('preloaderPercent');
+            const bar = document.getElementById('preloaderProgressBar');
+            const statusText = document.getElementById('preloaderStatusText');
+            const cacheStatus = document.getElementById('preloaderCacheStatus');
 
-        @keyframes preloader-bar-shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(300%); }
-        }
-        .preloader-shimmer::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
-            animation: preloader-bar-shimmer 1.1s ease-in-out infinite;
-        }
+            // Cek cache + validasi TTL (6 jam)
+            const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 jam
+            const cacheTs = parseInt(localStorage.getItem('mbg_cache_ts') || '0');
+            const cacheValid = cacheTs && (Date.now() - cacheTs < CACHE_TTL_MS);
+            const hasCachedData = cacheValid &&
+                !!(localStorage.getItem('mbg_cache_employees') && localStorage.getItem('mbg_cache_logs'));
 
-        @keyframes float-dot {
-            0%, 100% { transform: translateY(0); opacity: 0.5; }
-            50% { transform: translateY(-5px); opacity: 1; }
-        }
+            if (cacheStatus) {
+                cacheStatus.textContent = hasCachedData ? 'Cache: Hit ✓' : 'Cache: Miss';
+            }
 
-        .preloader-hidden {
-            opacity: 0 !important;
-            transform: scale(1.04) !important;
-            filter: blur(12px) !important;
-            pointer-events: none !important;
-        }
+            function dismiss() {
+                if (!preloader) return;
+                preloader.style.transition = 'opacity 0.5s cubic-bezier(0.16,1,0.3,1), transform 0.5s, filter 0.5s';
+                preloader.classList.add('preloader-hidden');
+                setTimeout(() => preloader.remove(), 600);
+            }
 
-        /* Premium View Transitions (Apple/Stripe Grade) */
-        .transition-view {
-            transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1), transform 600ms cubic-bezier(0.16, 1, 0.3, 1), filter 600ms cubic-bezier(0.16, 1, 0.3, 1) !important;
-            will-change: opacity, transform, filter;
-        }
-        .view-hidden {
-            opacity: 0 !important;
-            transform: scale(0.96) translateY(12px) !important;
-            filter: blur(8px) !important;
-            pointer-events: none !important;
-        }
+            if (hasCachedData) {
+                let p = 0;
+                statusText.innerText = 'Cache ditemukan...';
+                const fast = setInterval(() => {
+                    p = Math.min(p + 12, 100);
+                    bar.style.width = p + '%';
+                    percentText.innerText = p + '%';
+                    if (p === 100) { clearInterval(fast); statusText.innerText = 'Siap!'; setTimeout(dismiss, 180); }
+                }, 30);
+                return;
+            }
 
-        /* Premium Scroll Reveal Entrance Animations */
-        .reveal-element {
-            opacity: 0 !important;
-            transform: translateY(40px) scale(0.98) !important;
-            filter: blur(4px) !important;
-            transition: opacity 800ms cubic-bezier(0.16, 1, 0.3, 1), transform 800ms cubic-bezier(0.16, 1, 0.3, 1), filter 800ms cubic-bezier(0.16, 1, 0.3, 1) !important;
-            will-change: opacity, transform, filter;
-        }
-        .reveal-left {
-            opacity: 0 !important;
-            transform: translateX(-40px) !important;
-            filter: blur(4px) !important;
-            transition: opacity 800ms cubic-bezier(0.16, 1, 0.3, 1), transform 800ms cubic-bezier(0.16, 1, 0.3, 1), filter 800ms cubic-bezier(0.16, 1, 0.3, 1) !important;
-            will-change: opacity, transform, filter;
-        }
-        .reveal-right {
-            opacity: 0 !important;
-            transform: translateX(40px) !important;
-            filter: blur(4px) !important;
-            transition: opacity 800ms cubic-bezier(0.16, 1, 0.3, 1), transform 800ms cubic-bezier(0.16, 1, 0.3, 1), filter 800ms cubic-bezier(0.16, 1, 0.3, 1) !important;
-            will-change: opacity, transform, filter;
-        }
-        .reveal-scale {
-            opacity: 0 !important;
-            transform: scale(0.93) !important;
-            filter: blur(4px) !important;
-            transition: opacity 800ms cubic-bezier(0.16, 1, 0.3, 1), transform 800ms cubic-bezier(0.16, 1, 0.3, 1), filter 800ms cubic-bezier(0.16, 1, 0.3, 1) !important;
-            will-change: opacity, transform, filter;
-        }
-        
-        /* Active revealed states */
-        .reveal-element.revealed,
-        .reveal-left.revealed,
-        .reveal-right.revealed,
-        .reveal-scale.revealed {
-            opacity: 1 !important;
-            transform: translate(0) scale(1) !important;
-            filter: blur(0) !important;
-        }
-    </style>
-
+            const steps = [
+                { pct: 30, text: 'Menghubungkan server...' },
+                { pct: 65, text: 'Memuat database...' },
+                { pct: 90, text: 'Menyiapkan tampilan...' },
+                { pct: 100, text: 'Siap!' }
+            ];
+            let currentPct = 0, stepIdx = 0;
+            const interval = setInterval(() => {
+                if (currentPct >= 100) { clearInterval(interval); setTimeout(dismiss, 200); return; }
+                const target = steps[stepIdx].pct;
+                statusText.innerText = steps[stepIdx].text;
+                currentPct = Math.min(currentPct + Math.floor(Math.random() * 6) + 3, target);
+                if (currentPct >= target) stepIdx = Math.min(steps.length - 1, stepIdx + 1);
+                bar.style.width = currentPct + '%';
+                percentText.innerText = currentPct + '%';
+            }, 22);
+            setTimeout(() => { clearInterval(interval); dismiss(); }, 1400);
+        })();
+    </script>
     <div id="appPreloader" class="fixed inset-0 z-[400] flex flex-col items-center justify-center bg-[#090d16] transition-all duration-600 ease-out" style="transition-property:opacity,transform,filter;transition-duration:0.55s;transition-timing-function:cubic-bezier(0.16,1,0.3,1);">
         <!-- Ambient glows -->
         <div class="absolute inset-0 overflow-hidden pointer-events-none">
@@ -763,7 +756,7 @@
             <header class="sticky top-0 w-full z-50 backdrop-blur-md border-b border-slate-200/50 dark:border-white/5 bg-white/70 dark:bg-[#090d16]/75 px-6 py-4 flex items-center justify-between transition-colors duration-300">
                 <div class="flex items-center gap-3">
                     <!-- BGN Logo Outlined Transparant -->
-                    <img src="https://sipgn-sipsmo-web.bgn.go.id/main/media/logos/BGN_logo_dark.png" alt="BGN" class="h-8 object-contain select-none bgn-logo-outline">
+                    <img src="https://sipgn-sipsmo-web.bgn.go.id/main/media/logos/BGN_logo_dark.png" alt="BGN" class="h-8 object-contain select-none bgn-logo-outline" loading="lazy">
                     <span class="text-slate-300 dark:text-slate-700">|</span>
                     <!-- SVG Cloud MBG Logo -->
                     <div class="flex items-center gap-2 select-none">
@@ -1128,330 +1121,8 @@
             </footer>
 
             <!-- LANDING PAGE SCRIPTS (Typist, 3D Constellation Sphere, Pricing & Modals) -->
-            <style>
-                @keyframes cursorBlink {
-                    0%, 100% { opacity: 1; }
-                    50% { opacity: 0; }
-                }
-                .typewriter-cursor {
-                    color: #6366f1 !important;
-                    background: none !important;
-                    -webkit-background-clip: initial !important;
-                    background-clip: initial !important;
-                    -webkit-text-fill-color: initial !important;
-                    font-weight: 300;
-                    margin-left: 2px;
-                    display: inline-block;
-                }
-                .typewriter-cursor.blink {
-                    animation: cursorBlink 0.8s infinite;
-                }
-            </style>
-            <script>
-                // 1. TYPIST ANIMATION (Type, Hold, Erase, Repeat)
-                (function() {
-                    const typist = document.getElementById('typistElement');
-                    if(!typist) return;
-                    const words = [
-                        "automated payroll & salary calculations.",
-                        "seamless geofencing & GPS verification.",
-                        "instant PDF salary slips & ZIP records.",
-                        "real-time dashboard analytics.",
-                        "zero-bug corporate stability."
-                    ];
-                    let wordIdx = 0;
-                    let charIdx = 0;
-                    let isDeleting = false;
-                    let delay = 80;
-
-                    function type() {
-                        const currentWord = words[wordIdx];
-                        let isWaiting = false;
-
-                        if (isDeleting) {
-                            charIdx--;
-                            delay = 30;
-                        } else {
-                            charIdx++;
-                            delay = 80;
-                        }
-
-                        const textToShow = currentWord.substring(0, charIdx);
-
-                        if (!isDeleting && charIdx === currentWord.length) {
-                            isDeleting = true;
-                            delay = 2200; // Hold full sentence
-                            isWaiting = true;
-                        } else if (isDeleting && charIdx === 0) {
-                            isDeleting = false;
-                            wordIdx = (wordIdx + 1) % words.length;
-                            delay = 300; // Switch pause
-                            isWaiting = true;
-                        }
-
-                        const blinkClass = isWaiting ? 'blink' : '';
-                        typist.innerHTML = textToShow + '<span class="typewriter-cursor ' + blinkClass + '">|</span>';
-
-                        setTimeout(type, delay);
-                    }
-                    setTimeout(type, 1000);
-                })();
-
-                // 2. 3D PARTICLE CONSTELLATION SPHERE
-                (function() {
-                    const canvas = document.getElementById('heroCanvasParticles');
-                    if(!canvas) return;
-                    const ctx = canvas.getContext('2d');
-                    let width = canvas.width = canvas.offsetWidth;
-                    let height = canvas.height = canvas.offsetHeight;
-
-                    window.addEventListener('resize', () => {
-                        width = canvas.width = canvas.offsetWidth;
-                        height = canvas.height = canvas.offsetHeight;
-                    });
-
-                    const particles = [];
-                    const numParticles = 160;
-                    const radiusSphere = Math.min(width, height) * 0.35;
-
-                    // Distribute particles uniformly in a 3D sphere
-                    for (let i = 0; i < numParticles; i++) {
-                        const theta = Math.acos((Math.random() * 2) - 1);
-                        const phi = Math.random() * Math.PI * 2;
-                        particles.push({
-                            x3d: Math.sin(theta) * Math.cos(phi) * radiusSphere,
-                            y3d: Math.sin(theta) * Math.sin(phi) * radiusSphere,
-                            z3d: Math.cos(theta) * radiusSphere,
-                            color: Math.random() > 0.4 ? '#6366f1' : '#10b981' // Indigo / Emerald glow
-                        });
-                    }
-
-                    let angleX = 0.001;
-                    let angleY = 0.0015;
-                    let targetAngleX = 0.001;
-                    let targetAngleY = 0.0015;
-
-                    document.addEventListener('mousemove', (e) => {
-                        const dx = (e.clientX - window.innerWidth / 2) / (window.innerWidth / 2);
-                        const dy = (e.clientY - window.innerHeight / 2) / (window.innerHeight / 2);
-                        targetAngleY = dx * 0.004;
-                        targetAngleX = dy * 0.004;
-                    });
-
-                    function rotateX(p, angle) {
-                        const cos = Math.cos(angle);
-                        const sin = Math.sin(angle);
-                        const y = p.y3d * cos - p.z3d * sin;
-                        const z = p.y3d * sin + p.z3d * cos;
-                        p.y3d = y;
-                        p.z3d = z;
-                    }
-
-                    function rotateY(p, angle) {
-                        const cos = Math.cos(angle);
-                        const sin = Math.sin(angle);
-                        const x = p.x3d * cos - p.z3d * sin;
-                        const z = p.x3d * sin + p.z3d * cos;
-                        p.x3d = x;
-                        p.z3d = z;
-                    }
-
-                    function animate() {
-                        ctx.clearRect(0, 0, width, height);
-
-                        angleX += (targetAngleX - angleX) * 0.05;
-                        angleY += (targetAngleY - angleY) * 0.05;
-
-                        const projected = [];
-                        for (let i = 0; i < numParticles; i++) {
-                            const p = particles[i];
-                            rotateX(p, angleX);
-                            rotateY(p, angleY);
-
-                            const fov = 400;
-                            const scale = fov / (fov + p.z3d);
-                            const x2d = (p.x3d * scale) + width / 2;
-                            const y2d = (p.y3d * scale) + height / 2;
-
-                            projected.push({
-                                x: x2d,
-                                y: y2d,
-                                z: p.z3d,
-                                scale: scale,
-                                color: p.color
-                            });
-                        }
-
-                        const isDark = document.documentElement.classList.contains('dark');
-                        const lineColor = isDark ? 'rgba(99, 102, 241, 0.07)' : 'rgba(99, 102, 241, 0.04)';
-                        ctx.strokeStyle = lineColor;
-                        ctx.lineWidth = 0.5;
-
-                        // Draw constellations lines between close particles
-                        for (let i = 0; i < numParticles; i++) {
-                            const p1 = projected[i];
-                            for (let j = i + 1; j < numParticles; j++) {
-                                const p2 = projected[j];
-                                const dx = p1.x - p2.x;
-                                const dy = p1.y - p2.y;
-                                const dist = Math.sqrt(dx * dx + dy * dy);
-
-                                if (dist < 85) {
-                                    ctx.beginPath();
-                                    ctx.moveTo(p1.x, p1.y);
-                                    ctx.lineTo(p2.x, p2.y);
-                                    ctx.stroke();
-                                }
-                            }
-                        }
-
-                        // Draw projected particle spheres
-                        for (let i = 0; i < numParticles; i++) {
-                            const p = projected[i];
-                            const alpha = Math.max(0.1, (p.z + radiusSphere) / (radiusSphere * 2));
-                            ctx.fillStyle = p.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
-                            ctx.beginPath();
-                            ctx.arc(p.x, p.y, Math.max(0.6, p.scale * 1.6), 0, Math.PI * 2);
-                            ctx.fill();
-                        }
-
-                        requestAnimationFrame(animate);
-                    }
-
-                    requestAnimationFrame(animate);
-                })();
-
-                // 3. PRICING period TOGGLE SWITCH (Bulanan / Tahunan dengan Diskon 20%)
-                let isAnnualPricing = false;
-                function togglePricingPeriod() {
-                    isAnnualPricing = !isAnnualPricing;
-                    const circle = document.getElementById('pricingSwitchCircle');
-                    const btn = document.getElementById('pricingSwitchBtn');
-                    
-                    if (isAnnualPricing) {
-                        circle.classList.add('translate-x-6');
-                        circle.classList.remove('translate-x-0');
-                        btn.classList.add('bg-violet-600');
-                        btn.classList.remove('bg-indigo-600');
-                    } else {
-                        circle.classList.remove('translate-x-6');
-                        circle.classList.add('translate-x-0');
-                        btn.classList.add('bg-indigo-600');
-                        btn.classList.remove('bg-violet-600');
-                    }
-                    updatePricingDisplay();
-                }
-
-                function updatePricingDisplay() {
-                    const prices = {
-                        a: isAnnualPricing ? { text: "Rp 119.000", period: "/bln", sub: "Tagihan Tahunan (Hemat 20%)" } : { text: "Rp 149.000", period: "/bln", sub: "Tagihan Bulanan" },
-                        b: isAnnualPricing ? { text: "Rp 239.000", period: "/bln", sub: "Tagihan Tahunan (Hemat 20%)" } : { text: "Rp 299.000", period: "/bln", sub: "Tagihan Bulanan" },
-                        c: isAnnualPricing ? { text: "Rp 399.000", period: "/bln", sub: "Tagihan Tahunan (Hemat 20%)" } : { text: "Rp 499.000", period: "/bln", sub: "Tagihan Bulanan" }
-                    };
-
-                    // Dynamic element updates with slight opacity fade
-                    const elements = [
-                        { el: document.getElementById('pricePlanA'), text: prices.a.text },
-                        { el: document.getElementById('subPlanA'), text: prices.a.sub },
-                        { el: document.getElementById('pricePlanB'), text: prices.b.text },
-                        { el: document.getElementById('subPlanB'), text: prices.b.sub },
-                        { el: document.getElementById('pricePlanC'), text: prices.c.text },
-                        { el: document.getElementById('subPlanC'), text: prices.c.sub }
-                    ];
-
-                    elements.forEach(item => {
-                        if (item.el) {
-                            item.el.classList.add('opacity-40');
-                            setTimeout(() => {
-                                item.el.innerText = item.text;
-                                item.el.classList.remove('opacity-40');
-                            }, 150);
-                        }
-                    });
-
-                    // Update WhatsApp links
-                    const waNumber = "6281414142726";
-                    const textA = isAnnualPricing 
-                        ? "Halo AFKxEnjoyCreamID, saya tertarik untuk berlangganan Cloud MBG *Paket A* (Tahunan) dengan harga Rp 119.000/bulan (Hemat 20%). Mohon info selengkapnya!" 
-                        : "Halo AFKxEnjoyCreamID, saya tertarik untuk berlangganan Cloud MBG *Paket A* (Bulanan) dengan harga Rp 149.000/bulan. Mohon info selengkapnya!";
-                    const textB = isAnnualPricing 
-                        ? "Halo AFKxEnjoyCreamID, saya tertarik untuk berlangganan Cloud MBG *Paket B* (Tahunan - Best Seller) dengan harga Rp 239.000/bulan (Hemat 20%). Mohon info selengkapnya!" 
-                        : "Halo AFKxEnjoyCreamID, saya tertarik untuk berlangganan Cloud MBG *Paket B* (Bulanan - Best Seller) dengan harga Rp 299.000/bulan. Mohon info selengkapnya!";
-                    const textC = isAnnualPricing 
-                        ? "Halo AFKxEnjoyCreamID, saya tertarik untuk berlangganan Cloud MBG *Paket C* (Tahunan) dengan harga Rp 399.000/bulan (Hemat 20%). Mohon info selengkapnya!" 
-                        : "Halo AFKxEnjoyCreamID, saya tertarik untuk berlangganan Cloud MBG *Paket C* (Bulanan) dengan harga Rp 499.000/bulan. Mohon info selengkapnya!";
-
-                    const linkA = document.getElementById('btnOrderPlanA'); if (linkA) linkA.href = `https://wa.me/${waNumber}?text=${encodeURIComponent(textA)}`;
-                    const linkB = document.getElementById('btnOrderPlanB'); if (linkB) linkB.href = `https://wa.me/${waNumber}?text=${encodeURIComponent(textB)}`;
-                    const linkC = document.getElementById('btnOrderPlanC'); if (linkC) linkC.href = `https://wa.me/${waNumber}?text=${encodeURIComponent(textC)}`;
-                }
-
-                // 4. TRANSITION UTILITIES
-                function showLoginScreen() {
-                    const landing = document.getElementById('landingView');
-                    const login = document.getElementById('loginView');
-                    if (!landing || !login) return;
-                    landing.classList.add('view-hidden');
-                    setTimeout(() => {
-                        landing.classList.add('hidden');
-                        login.classList.remove('hidden');
-                        setTimeout(() => {
-                            login.classList.remove('view-hidden');
-                        }, 50);
-                    }, 500);
-                }
-
-                function showLandingView() {
-                    const landing = document.getElementById('landingView');
-                    const login = document.getElementById('loginView');
-                    if (!landing || !login) return;
-                    login.classList.add('view-hidden');
-                    setTimeout(() => {
-                        login.classList.add('hidden');
-                        landing.classList.remove('hidden');
-                        setTimeout(() => {
-                            landing.classList.remove('view-hidden');
-                        }, 50);
-                    }, 500);
-                }
-
-                function openPrivacyModal() {
-                    const modal = document.getElementById('privacyModal');
-                    if (modal) {
-                        modal.classList.remove('hidden');
-                        setTimeout(() => {
-                            modal.classList.remove('opacity-0');
-                            modal.querySelector('.clay-modal')?.classList.remove('scale-95');
-                        }, 10);
-                    }
-                }
-                function closePrivacyModal() {
-                    const modal = document.getElementById('privacyModal');
-                    if (modal) {
-                        modal.classList.add('opacity-0');
-                        modal.querySelector('.clay-modal')?.classList.add('scale-95');
-                        setTimeout(() => modal.classList.add('hidden'), 300);
-                    }
-                }
-                function openTermsModal() {
-                    const modal = document.getElementById('termsModal');
-                    if (modal) {
-                        modal.classList.remove('hidden');
-                        setTimeout(() => {
-                            modal.classList.remove('opacity-0');
-                            modal.querySelector('.clay-modal')?.classList.remove('scale-95');
-                        }, 10);
-                    }
-                }
-                function closeTermsModal() {
-                    const modal = document.getElementById('termsModal');
-                    if (modal) {
-                        modal.classList.add('opacity-0');
-                        modal.querySelector('.clay-modal')?.classList.add('scale-95');
-                        setTimeout(() => modal.classList.add('hidden'), 300);
-                    }
-                }
-            </script>
+            <!-- Typewriter cursor CSS moved to style.css -->
+            <!-- Landing page scripts dipindah ke landing.js (defer) -->
         </div> <!-- /landingView -->
 
         <!-- LOGIN VIEW -->
@@ -1571,7 +1242,7 @@
                     <div class="w-full max-w-md relative z-10">
                         <div class="flex items-center justify-between mb-8">
                             <div class="bg-white px-3 py-1.5 rounded-2xl flex items-center justify-center shadow-sm border border-slate-200/50 dark:border-white/5">
-                                <img src="https://sipgn-sipsmo-web.bgn.go.id/main/media/logos/BGN_logo_dark.png" alt="BGN" class="h-7 object-contain select-none bgn-logo-outline">
+                                <img src="https://sipgn-sipsmo-web.bgn.go.id/main/media/logos/BGN_logo_dark.png" alt="BGN" class="h-7 object-contain select-none bgn-logo-outline" loading="lazy">
                             </div>
                             <div class="flex items-center gap-3">
                                 <!-- Dark Mode Toggle -->
@@ -2459,7 +2130,7 @@
                                             <p style="font-size:10px; margin:2px 0 0; color:#777;">Telp: 0814-1414-2726 | Email: enjoycreamid@gmail.com</p>
                                         </td>
                                         <td style="width:80px; vertical-align:middle; padding:0; text-align:right;">
-                                            <img src="https://sipgn-sipsmo-web.bgn.go.id/main/media/logos/BGN_logo_dark.png" alt="BGN" style="width:70px; height:70px; object-fit:contain;" class="bgn-logo-outline">
+                                            <img src="https://sipgn-sipsmo-web.bgn.go.id/main/media/logos/BGN_logo_dark.png" alt="BGN" style="width:70px; height:70px; object-fit:contain;" class="bgn-logo-outline" loading="lazy">
                                         </td>
                                     </tr>
                                 </table>
@@ -2720,7 +2391,7 @@
                                             <p style="font-size:10px; margin:2px 0 0; color:#777;">Telp: 0814-1414-2726 | Email: enjoycreamid@gmail.com</p>
                                         </td>
                                         <td style="width:80px; vertical-align:middle; padding:0; text-align:right;">
-                                            <img src="https://sipgn-sipsmo-web.bgn.go.id/main/media/logos/BGN_logo_dark.png" alt="BGN" style="width:70px; height:70px; object-fit:contain;" class="bgn-logo-outline">
+                                            <img src="https://sipgn-sipsmo-web.bgn.go.id/main/media/logos/BGN_logo_dark.png" alt="BGN" style="width:70px; height:70px; object-fit:contain;" class="bgn-logo-outline" loading="lazy">
                                         </td>
                                     </tr>
                                 </table>
