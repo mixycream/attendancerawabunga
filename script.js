@@ -8015,14 +8015,23 @@ function volUpdateAbsenButton(empId) {
     const label = document.getElementById('volBtnAbsenLabel');
     if (!btn) return;
 
+    if (_volFetching) {
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+        if (label) label.innerText = 'Menyinkronkan Data...';
+        if (icon) icon.className = 'fas fa-spinner fa-spin text-lg';
+        return;
+    }
+
+    btn.disabled = false;
+    btn.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+
     const type = volDetectAbsenType(empId);
     if (type === 'OUT') {
-        btn.disabled = false;
         btn.className = 'w-full py-4 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-bold shadow-lg shadow-amber-600/30 transition active:scale-95 flex items-center justify-center gap-3 border-t border-white/20';
         if (icon) icon.className = 'fas fa-sign-out-alt text-lg';
         if (label) label.innerText = 'Absen Pulang';
     } else {
-        btn.disabled = false;
         btn.className = 'w-full py-4 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-bold shadow-lg shadow-emerald-600/30 transition active:scale-95 flex items-center justify-center gap-3 border-t border-white/20';
         if (icon) icon.className = 'fas fa-sign-in-alt text-lg';
         if (label) label.innerText = 'Klik untuk Absen';
@@ -8084,6 +8093,11 @@ function volSetDataStatus(state) {
     const dot    = document.getElementById('volDataStatusDot');
     const text   = document.getElementById('volDataStatusText');
     const spinner = document.getElementById('volDataStatusSpinner');
+
+    // Update state tombol absen
+    const empId = volGuestMode ? volScannedEmployee?.id : currentUser?.id;
+    volUpdateAbsenButton(empId);
+
     if (!bar) return;
 
     if (state === 'hidden') {
@@ -8117,7 +8131,7 @@ function volSetDataStatus(state) {
             brd:  'rgba(239,68,68,0.28)',
             dot:  '#ef4444',
             cls:  'text-red-700 dark:text-red-400',
-            msg:  'Offline — QR tetap bisa dicoba, tapi mungkin perlu beberapa detik',
+            msg:  'Offline — Mode lokal aktif, beberapa fitur mungkin memerlukan sinyal',
             spin: false,
             pulse: true
         }
@@ -8156,7 +8170,7 @@ async function _volPreFetch() {
     // Jika ada cache valid di memori (employees sudah ada)
     if (employees && employees.length > 0) {
         _volDataReady = true;
-        volSetDataStatus('hidden');
+        volSetDataStatus('ready');
         // Tetap refresh di background, tapi tidak blocking
         _volFetchBackground();
         return;
@@ -8167,7 +8181,7 @@ async function _volPreFetch() {
     volSetDataStatus('syncing');
 
     try {
-        const res  = await fetch(SCRIPT_URL + '?action=getData&_t=' + Date.now(), { signal: AbortSignal.timeout(12000) });
+        const res  = await fetch(SCRIPT_URL + '?action=getData&_t=' + Date.now(), { signal: AbortSignal.timeout(25000) });
         const data = await res.json();
         if (data.status === 'success') {
             if (data.employees && data.employees.length > 0) employees = data.employees;
@@ -8178,20 +8192,28 @@ async function _volPreFetch() {
             _volFetchedAt = Date.now();
             volSetDataStatus('ready');
         } else {
-            volSetDataStatus('offline');
+            const loaded = _loadFromCache();
+            if ((loaded && employees && employees.length > 0) || (employees && employees.length > 0)) {
+                _volDataReady = true;
+                volSetDataStatus(navigator.onLine ? 'ready' : 'offline');
+            } else {
+                volSetDataStatus(navigator.onLine ? 'ready' : 'offline');
+            }
         }
     } catch (e) {
-        console.warn('[volPreFetch] Network error:', e.message);
-        // Jika ada data cache di localStorage, coba load
+        console.warn('[volPreFetch] Network notice:', e.message);
+        // Jika ada data cache di localStorage/memori, gunakan data tersebut
         const loaded = _loadFromCache();
-        if (loaded && employees && employees.length > 0) {
+        if ((loaded && employees && employees.length > 0) || (employees && employees.length > 0)) {
             _volDataReady = true;
-            volSetDataStatus('offline');
+            volSetDataStatus(navigator.onLine ? 'ready' : 'offline');
         } else {
-            volSetDataStatus('offline');
+            volSetDataStatus(navigator.onLine ? 'ready' : 'offline');
         }
     } finally {
         _volFetching = false;
+        const empId = volGuestMode ? volScannedEmployee?.id : currentUser?.id;
+        volUpdateAbsenButton(empId);
     }
 }
 
@@ -8200,7 +8222,7 @@ async function _volFetchBackground() {
     if (_volFetching) return;
     _volFetching = true;
     try {
-        const res  = await fetch(SCRIPT_URL + '?action=getData&_t=' + Date.now(), { signal: AbortSignal.timeout(10000) });
+        const res  = await fetch(SCRIPT_URL + '?action=getData&_t=' + Date.now(), { signal: AbortSignal.timeout(25000) });
         const data = await res.json();
         if (data.status === 'success') {
             if (data.employees && data.employees.length > 0) employees = data.employees;
@@ -8209,7 +8231,11 @@ async function _volFetchBackground() {
             _volFetchedAt = Date.now();
         }
     } catch (_) { /* silent */ }
-    finally { _volFetching = false; }
+    finally {
+        _volFetching = false;
+        const empId = volGuestMode ? volScannedEmployee?.id : currentUser?.id;
+        volUpdateAbsenButton(empId);
+    }
 }
 
 function initVolunteer() {
@@ -8315,6 +8341,11 @@ function volShowPage(page) {
 }
 
 function volStartAbsen() {
+    if (_volFetching) {
+        showToast('Sedang menyinkronkan data relawan. Harap tunggu sebentar...', 'info');
+        return;
+    }
+
     // Di mode login, sudah tahu user-nya → langsung tentukan tipe
     if (!volGuestMode && currentUser) {
         volAbsenType = volDetectAbsenType(currentUser.id);
@@ -8534,14 +8565,9 @@ function volValidateQR(data) {
     }
 
     if (!emp) {
-        // ── SMART RETRY: jika data masih dimuat (internet lambat) ──
-        // Jangan langsung error, tunggu max 5 detik sambil data tiba
-        if (_volFetching || !_volDataReady) {
-            _volQRRetryWithData(cleanData, parsedObj);
-            return;
-        }
-        showToast('QR tidak dikenali dalam database. Pastikan Anda terdaftar sebagai relawan.', 'error');
-        requestAnimationFrame(volScanLoop);
+        // ── SINKRONISASI REALTIME AUTOMATIS SAAT RETRY ──
+        // Jika data tidak ada di cache lokal, sinkronkan ke database realtime sebelum memutuskan tidak ada
+        _volSyncRealtime(cleanData, parsedObj);
         return;
     }
 
@@ -8598,84 +8624,82 @@ function volValidateQR(data) {
 }
 
 /**
- * _volQRRetryWithData(cleanData, parsedObj)
+ * _volSyncRealtime(cleanData, parsedObj)
  * ─────────────────────────────────────────
- * Dipanggil saat QR terbaca tapi data belum siap (internet lambat).
- * Menampilkan overlay "Memverifikasi QR…" di halaman scan,
- * lalu polling setiap 500ms sampai:
- *   A. Data tiba → coba validate ulang → lanjut selfie  ✅
- *   B. Timeout 5s → tampilkan error ramah               ❌
- *   C. Fetch error → tampilkan error offline             ❌
+ * Dipanggil saat QR terbaca tapi tidak ada di cache lokal.
+ * Melakukan fetch realtime langsung ke server database sebelum membatalkan/menolak QR.
  */
-function _volQRRetryWithData(cleanData, parsedObj) {
-    const MAX_WAIT_MS  = 5000;   // max tunggu 5 detik
-    const POLL_INTERVAL = 400;   // cek setiap 400ms
-    const startedAt    = Date.now();
-
-    // Tampilkan overlay "Memeriksa QR..." di atas area scan
+async function _volSyncRealtime(cleanData, parsedObj) {
     _volShowRetryOverlay(true);
 
-    // Pastikan fetch sedang berjalan (trigger kalau belum)
-    if (!_volFetching) _volPreFetch();
-
-    const interval = setInterval(() => {
-        const elapsed = Date.now() - startedAt;
-
-        // Coba temukan employee di data yang (mungkin sudah) tiba
-        let emp = employees.find(e => {
-            const empIdStr   = String(e.id || '').trim();
-            const empNameStr = String(e.name || '').trim().replace(/\s+/g, ' ').toLowerCase();
-            return empIdStr === cleanData || empNameStr === cleanData.toLowerCase();
-        });
-
-        // Fallback dari metadata QR
-        if (!emp && parsedObj) {
-            emp = {
-                id:       parsedObj.id || cleanData,
-                name:     parsedObj.n  || parsedObj.name     || cleanData,
-                division: parsedObj.d  || parsedObj.division || 'Relawan',
-                pt:       parsedObj.pt || appConfig.kitchenName || 'SPPG Rawa Bunga 1'
-            };
-        }
-
-        // A. Data ditemukan → lanjutkan proses absen
-        if (emp) {
-            clearInterval(interval);
-            _volShowRetryOverlay(false);
+    try {
+        const res = await fetch(SCRIPT_URL + '?action=getData&_t=' + Date.now(), { signal: AbortSignal.timeout(20000) });
+        const data = await res.json();
+        if (data.status === 'success') {
+            if (data.employees && data.employees.length > 0) employees = data.employees;
+            if (data.logs) logs = data.logs;
+            if (data.config) Object.assign(appConfig, data.config);
+            _saveToCache(employees, logs, appConfig);
             _volDataReady = true;
+            _volFetchedAt = Date.now();
+        }
+    } catch (e) {
+        console.warn('[volSyncRealtime] Network sync error:', e);
+    } finally {
+        _volShowRetryOverlay(false);
+    }
 
-            // Mode login: validasi kepemilikan
-            if (!volGuestMode && currentUser && String(emp.id) !== String(currentUser.id)) {
-                showToast('QR ini bukan milik Anda. Gunakan QR Code pribadi Anda.', 'error');
-                requestAnimationFrame(volScanLoop);
-                return;
-            }
+    // Cari ulang relawan di data yang baru saja diperbarui
+    let emp = employees.find(e => {
+        const empIdStr = String(e.id || '').trim();
+        const empNameStr = String(e.name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+        const cleanDataLower = cleanData.toLowerCase();
+        return empIdStr === cleanData || empNameStr === cleanDataLower;
+    });
 
-            volScannedEmployee = emp;
-            if (volScanStream) volScanStream.getTracks().forEach(t => t.stop());
+    if (!emp && parsedObj) {
+        emp = {
+            id: parsedObj.id || cleanData,
+            name: parsedObj.n || parsedObj.name || cleanData,
+            division: parsedObj.d || parsedObj.division || 'Relawan',
+            pt: parsedObj.pt || appConfig.kitchenName || 'SPPG Rawa Bunga 1'
+        };
+    }
 
-            volAbsenType = volDetectAbsenType(emp.id);
-            volShowPage('selfie');
-            volPopulateSelfieInfo(false);
-            volStartSelfie('user');
-            setTimeout(() => volUpdateGeofenceUI(), 1000);
+    if (emp) {
+        // Mode login: validasi kepemilikan
+        if (!volGuestMode && currentUser && String(emp.id) !== String(currentUser.id)) {
+            showToast('QR ini bukan milik Anda. Gunakan QR Code pribadi Anda.', 'error');
+            requestAnimationFrame(volScanLoop);
             return;
         }
 
-        // B. Timeout — data masih tidak ada setelah 5 detik
-        if (elapsed >= MAX_WAIT_MS) {
-            clearInterval(interval);
-            _volShowRetryOverlay(false);
+        volScannedEmployee = emp;
+        if (volScanStream) volScanStream.getTracks().forEach(t => t.stop());
 
-            if (!_volDataReady && !navigator.onLine) {
-                showToast('Tidak ada koneksi internet. Hubungi admin atau coba lagi saat ada sinyal.', 'error');
-            } else {
-                showToast('QR tidak dikenali. Pastikan Anda terdaftar sebagai relawan, atau coba lagi.', 'error');
-            }
-            requestAnimationFrame(volScanLoop);
-        }
-        // Jika belum timeout & data belum ada → lanjut poll
-    }, POLL_INTERVAL);
+        volAbsenType = volDetectAbsenType(emp.id);
+        volShowPage('selfie');
+        volPopulateSelfieInfo(false);
+        volStartSelfie('user');
+        setTimeout(() => volUpdateGeofenceUI(), 1000);
+        return;
+    }
+
+    if (!navigator.onLine) {
+        showToast('Tidak ada koneksi internet. Tidak dapat memverifikasi QR dengan database realtime.', 'error');
+    } else {
+        showToast('QR tidak terdaftar di database realtime. Pastikan Anda terdaftar sebagai relawan.', 'error');
+    }
+    requestAnimationFrame(volScanLoop);
+}
+
+/**
+ * _volQRRetryWithData(cleanData, parsedObj)
+ * ─────────────────────────────────────────
+ * Deprecated fallback polling wrapper.
+ */
+function _volQRRetryWithData(cleanData, parsedObj) {
+    _volSyncRealtime(cleanData, parsedObj);
 }
 
 /**
