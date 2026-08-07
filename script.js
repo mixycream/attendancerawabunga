@@ -8015,25 +8015,37 @@ function volUpdateAbsenButton(empId) {
     const label = document.getElementById('volBtnAbsenLabel');
     if (!btn) return;
 
-    if (_volFetching) {
+    // Alihkan indikator menyinkronkan LANGSUNG ke TOMBOL UTAMA (Pill Translucent Glass Style)
+    if (_volFetching || !_volDataReady) {
         btn.disabled = true;
-        btn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+        btn.className = 'w-full max-w-xs mx-auto py-4 px-8 rounded-full bg-slate-900/40 dark:bg-slate-900/60 backdrop-blur-xl text-amber-300 font-bold text-sm shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_20px_rgba(0,0,0,0.3)] opacity-85 cursor-not-allowed pointer-events-none flex items-center justify-center gap-2.5 border border-amber-500/20 border-t-white/30';
         if (label) label.innerText = 'Menyinkronkan Data...';
-        if (icon) icon.className = 'fas fa-spinner fa-spin text-lg';
+        if (icon) {
+            icon.innerHTML = '';
+            icon.className = 'fas fa-spinner fa-spin text-base text-amber-400';
+        }
         return;
     }
 
     btn.disabled = false;
-    btn.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+    btn.classList.remove('opacity-90', 'opacity-85', 'cursor-not-allowed', 'pointer-events-none');
 
     const type = volDetectAbsenType(empId);
     if (type === 'OUT') {
-        btn.className = 'w-full py-4 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-bold shadow-lg shadow-amber-600/30 transition active:scale-95 flex items-center justify-center gap-3 border-t border-white/20';
-        if (icon) icon.className = 'fas fa-sign-out-alt text-lg';
+        // Soft Translucent Amber Pill Glass (Absen Pulang)
+        btn.className = 'w-full max-w-xs mx-auto py-4 px-8 rounded-full bg-gradient-to-r from-amber-500/30 via-amber-600/25 to-amber-700/30 hover:from-amber-500/40 hover:to-amber-600/40 text-amber-950 dark:text-amber-100 font-bold text-sm shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_10px_25px_rgba(245,158,11,0.2)] backdrop-blur-xl transition-all duration-300 active:scale-95 flex items-center justify-center gap-2.5 border border-amber-400/35 border-t-white/50';
+        if (icon) {
+            icon.innerHTML = '<span class="relative inline-flex items-center justify-center"><i class="fas fa-user text-sm text-amber-600 dark:text-amber-400"></i><i class="fas fa-camera text-[8px] absolute -bottom-1 -right-1.5 text-amber-600 dark:text-amber-400"></i></span>';
+            icon.className = 'relative inline-flex items-center justify-center';
+        }
         if (label) label.innerText = 'Absen Pulang';
     } else {
-        btn.className = 'w-full py-4 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white font-bold shadow-lg shadow-emerald-600/30 transition active:scale-95 flex items-center justify-center gap-3 border-t border-white/20';
-        if (icon) icon.className = 'fas fa-sign-in-alt text-lg';
+        // Soft Translucent Emerald Pill Glass (Klik untuk Absen)
+        btn.className = 'w-full max-w-xs mx-auto py-4 px-8 rounded-full bg-gradient-to-r from-emerald-500/30 via-emerald-600/25 to-teal-600/30 hover:from-emerald-500/40 hover:to-teal-600/40 text-emerald-950 dark:text-emerald-100 font-bold text-sm shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_10px_25px_rgba(16,185,129,0.2)] backdrop-blur-xl transition-all duration-300 active:scale-95 flex items-center justify-center gap-2.5 border border-emerald-400/35 border-t-white/50';
+        if (icon) {
+            icon.innerHTML = '<span class="relative inline-flex items-center justify-center"><i class="fas fa-user text-sm text-emerald-600 dark:text-emerald-400"></i><i class="fas fa-camera text-[8px] absolute -bottom-1 -right-1.5 text-emerald-600 dark:text-emerald-400"></i></span>';
+            icon.className = 'relative inline-flex items-center justify-center';
+        }
         if (label) label.innerText = 'Klik untuk Absen';
     }
 }
@@ -8085,72 +8097,14 @@ const _VOL_DATA_STALE_MS = 5 * 60 * 1000; // 5 menit = stale threshold
 /**
  * volSetDataStatus(state)
  * state: 'syncing' | 'ready' | 'offline' | 'hidden'
- * Mengupdate pill status bar di atas tombol Absen.
+ * Mengupdate status langsung pada Tombol Utama.
  */
 function volSetDataStatus(state) {
-    const bar    = document.getElementById('volDataStatusBar');
-    const inner  = document.getElementById('volDataStatusInner');
-    const dot    = document.getElementById('volDataStatusDot');
-    const text   = document.getElementById('volDataStatusText');
-    const spinner = document.getElementById('volDataStatusSpinner');
+    const bar = document.getElementById('volDataStatusBar');
+    if (bar) bar.classList.add('hidden');
 
-    // Update state tombol absen
     const empId = volGuestMode ? volScannedEmployee?.id : currentUser?.id;
     volUpdateAbsenButton(empId);
-
-    if (!bar) return;
-
-    if (state === 'hidden') {
-        bar.classList.add('hidden');
-        return;
-    }
-
-    bar.classList.remove('hidden');
-
-    const styles = {
-        syncing: {
-            bg:   'rgba(251,191,36,0.12)',
-            brd:  'rgba(251,191,36,0.30)',
-            dot:  '#f59e0b',
-            cls:  'text-amber-700 dark:text-amber-400',
-            msg:  'Menyinkronkan data relawan…',
-            spin: true,
-            pulse: true
-        },
-        ready: {
-            bg:   'rgba(16,185,129,0.10)',
-            brd:  'rgba(16,185,129,0.28)',
-            dot:  '#10b981',
-            cls:  'text-emerald-700 dark:text-emerald-400',
-            msg:  'Data siap — silakan scan QR',
-            spin: false,
-            pulse: false
-        },
-        offline: {
-            bg:   'rgba(239,68,68,0.10)',
-            brd:  'rgba(239,68,68,0.28)',
-            dot:  '#ef4444',
-            cls:  'text-red-700 dark:text-red-400',
-            msg:  'Offline — Mode lokal aktif, beberapa fitur mungkin memerlukan sinyal',
-            spin: false,
-            pulse: true
-        }
-    };
-
-    const s = styles[state];
-    if (!s) return;
-    inner.style.background = s.bg;
-    inner.style.border     = '1px solid ' + s.brd;
-    dot.style.background   = s.dot;
-    dot.className          = 'w-2 h-2 rounded-full shrink-0' + (s.pulse ? ' animate-pulse' : '');
-    text.className         = s.cls + ' leading-tight';
-    text.textContent       = s.msg;
-    if (spinner) spinner.style.display = s.spin ? '' : 'none';
-
-    // Auto-hide status 'ready' setelah 4 detik
-    if (state === 'ready') {
-        setTimeout(() => volSetDataStatus('hidden'), 4000);
-    }
 }
 
 /**
@@ -8161,22 +8115,12 @@ function volSetDataStatus(state) {
 async function _volPreFetch() {
     if (_volFetching) return;
 
-    // Jika data sudah fresh (< 5 menit), skip fetch
-    if (_volDataReady && (Date.now() - _volFetchedAt < _VOL_DATA_STALE_MS)) {
-        volSetDataStatus('hidden');
-        return;
+    // Coba muat cache lokal terlebih dahulu jika memori masih kosong
+    if (!employees || employees.length === 0) {
+        _loadFromCache();
     }
 
-    // Jika ada cache valid di memori (employees sudah ada)
-    if (employees && employees.length > 0) {
-        _volDataReady = true;
-        volSetDataStatus('ready');
-        // Tetap refresh di background, tapi tidak blocking
-        _volFetchBackground();
-        return;
-    }
-
-    // Cache kosong — perlu fetch dari network
+    // Selalu tunjukkan status menyinkronkan & kunci tombol saat proses fetch dimulai
     _volFetching = true;
     volSetDataStatus('syncing');
 
@@ -8202,7 +8146,7 @@ async function _volPreFetch() {
         }
     } catch (e) {
         console.warn('[volPreFetch] Network notice:', e.message);
-        // Jika ada data cache di localStorage/memori, gunakan data tersebut
+        // Jika ada data cache di localStorage/memori, gunakan data tersebut sebagai fallback
         const loaded = _loadFromCache();
         if ((loaded && employees && employees.length > 0) || (employees && employees.length > 0)) {
             _volDataReady = true;
@@ -8280,9 +8224,9 @@ function initVolunteer() {
         volUpdateTodayStatus();
         volShowPage('home');
 
-        // ── PRE-FETCH: ambil data relawan sebelum user scan ──
-        // Ditunda 600ms agar UI render dulu, baru network request
-        setTimeout(() => _volPreFetch(), 600);
+        // Tampilkan status syncing & panggil pre-fetch
+        volSetDataStatus('syncing');
+        _volPreFetch();
 
         toggleLoader(false);
         }, 300);
@@ -8324,6 +8268,10 @@ function initVolunteer() {
         volUpdateGeofenceUI();
         volUpdateTodayStatus();
         volShowPage('home');
+
+        // Tampilkan status syncing & panggil pre-fetch
+        volSetDataStatus('syncing');
+        _volPreFetch();
     }
 }
 
@@ -8341,7 +8289,8 @@ function volShowPage(page) {
 }
 
 function volStartAbsen() {
-    if (_volFetching) {
+    const hasData = employees && employees.length > 0;
+    if (_volFetching && !hasData) {
         showToast('Sedang menyinkronkan data relawan. Harap tunggu sebentar...', 'info');
         return;
     }
@@ -9640,6 +9589,7 @@ function volCancelFlow() {
 // --- Fungsi untuk masuk mode Absen Mandiri dari halaman login (tanpa akun) ---
 async function startAbsenMandiri() {
     volGuestMode = true;
+    _volDataReady = false; // Reset ketersediaan data agar tombol langsung terkunci di awal
 
     // Tentukan sumber pemanggilan (apakah dari loginView atau landingView)
     const loginView = document.getElementById('loginView');
@@ -9652,7 +9602,7 @@ async function startAbsenMandiri() {
     // 1. Coba muat cache lokal secara instan (0ms wait)
     _loadFromCache();
 
-    // 2. Animasi transisi smooth LANGSUNG masuk ke volunteerLayout (kamera nyala seketika)
+    // 2. Animasi transisi smooth LANGSUNG masuk ke volunteerLayout
     const activeView = volSourceView === 'login' ? document.getElementById('loginView') : document.getElementById('landingView');
     const volunteerLayout = document.getElementById('volunteerLayout');
     
@@ -9672,9 +9622,6 @@ async function startAbsenMandiri() {
         initVolunteer();
         if (volunteerLayout) volunteerLayout.classList.remove('view-hidden');
     }
-
-    // 3. Refresh data di latar belakang tanpa menghambat pembukaan kamera
-    _fetchDataBackground();
 }
 
 // Tombol keluar dari volunteer (kembali ke login/landing)
