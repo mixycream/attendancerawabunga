@@ -431,6 +431,9 @@
             <button onclick="submitEarlyReason()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-500 to-violet-600 text-white font-bold shadow-lg shadow-purple-500/30">
                 Kirim Alasan & Lanjutkan
             </button>
+            <button onclick="dismissEarlyOutModal()" class="w-full mt-3 py-2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition">
+                Batalkan Absen Pulang
+            </button>
         </div>
     </div>
 
@@ -462,6 +465,38 @@
             </div>
             <button onclick="dismissLateBlocked()" class="mt-4 w-full py-3 rounded-2xl bg-white/20 backdrop-blur-md text-white font-bold text-sm border border-white/30 transition-all duration-300 hover:bg-white/30 active:scale-95">
                 Batalkan Absen
+            </button>
+        </div>
+    </div>
+
+    <!-- EARLY WA MODAL (Pulang Kritis Wajib WA) -->
+    <div id="earlyWaModal" class="fixed inset-0 z-[310] hidden items-center justify-center p-6" style="pointer-events:none;">
+        <div id="earlyWaBg" class="absolute inset-0 bg-black/0 transition-all duration-500"></div>
+        <div id="earlyWaCard" class="relative w-full max-w-sm text-center transform scale-50 opacity-0 transition-all duration-500" style="pointer-events:auto;">
+            <!-- Icon circle -->
+            <div class="mx-auto w-28 h-28 rounded-full flex items-center justify-center mb-5 relative">
+                <div class="absolute inset-0 rounded-full bg-amber-400 animate-absen-ping opacity-30"></div>
+                <div class="absolute inset-0 rounded-full bg-amber-400 animate-absen-ping2 opacity-20"></div>
+                <div class="relative w-24 h-24 rounded-full flex items-center justify-center text-white text-4xl shadow-2xl bg-gradient-to-br from-amber-500 to-orange-600">
+                    <i class="fas fa-walking" id="earlyWaIcon" style="opacity:0; transition: opacity 0.3s, transform 0.3s; transform: scale(0.3);"></i>
+                </div>
+            </div>
+            <div id="earlyWaBadge" class="inline-flex items-center gap-2 bg-white/20 border border-white/30 text-white px-3 py-1 rounded-full text-xs font-bold mb-3">
+                <i class="fas fa-clock text-[10px]"></i> 60+ Menit Lebih Awal
+            </div>
+            <h2 class="text-2xl font-black text-white drop-shadow-lg">Pulang Lebih Awal!</h2>
+            <p id="earlyWaMsg" class="text-sm text-white/80 mt-2 drop-shadow leading-relaxed"></p>
+            <!-- Form alasan untuk WA -->
+            <div class="mt-4 text-left bg-white/15 backdrop-blur-md rounded-2xl p-4 border border-white/20">
+                <label class="text-[10px] font-bold text-white/60 uppercase ml-1">Alasan — Wajib Konfirmasi ke Admin via WhatsApp</label>
+                <textarea id="earlyWaReasonInput" rows="3" class="w-full mt-2 p-3 rounded-xl bg-white/20 text-white placeholder-white/40 border border-white/30 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-300" placeholder="Tulis alasan pulang awal di sini..." oninput="document.getElementById('earlyWaWarn').classList.add('hidden')"></textarea>
+                <p id="earlyWaWarn" class="hidden text-[11px] text-amber-200 font-semibold mt-1 ml-1"><i class="fas fa-exclamation-circle mr-1"></i>Wajib diisi alasan sebelum kirim.</p>
+                <button onclick="sendEarlyWA()" class="w-full mt-3 py-3 rounded-xl bg-emerald-500 text-white font-bold hover:bg-emerald-600 transition shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2">
+                    <i class="fab fa-whatsapp text-lg"></i> Kirim via WhatsApp & Simpan Pulang
+                </button>
+            </div>
+            <button onclick="dismissEarlyWa()" class="mt-4 w-full py-3 rounded-2xl bg-white/20 backdrop-blur-md text-white font-bold text-sm border border-white/30 transition-all duration-300 hover:bg-white/30 active:scale-95">
+                Batalkan Absen Pulang
             </button>
         </div>
     </div>
@@ -2814,6 +2849,35 @@
                                 </div>
                             </div>
 
+                            <!-- Parameter Pulang Lebih Awal (Early Out) -->
+                            <div class="clay-inset rounded-2xl p-5 space-y-4">
+                                <div class="font-bold text-sm text-slate-800 flex items-center gap-2 border-b border-slate-100 dark:border-white/5 pb-2">
+                                    <i class="fas fa-sign-out-alt text-amber-500"></i> Batasan Toleransi & Pulang Lebih Awal (Early Out)
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <div>
+                                        <label class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Toleransi Pulang / Tanpa Alasan (Menit)</label>
+                                        <input type="number" id="earlyTolerance" class="w-full text-xs font-bold text-slate-700 bg-white border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white rounded-xl px-3 py-2 focus:ring-2 focus:ring-amber-400 outline-none" placeholder="15">
+                                        <span class="text-[9px] text-slate-400 block mt-1">Bebas pulang langsung tanpa isi alasan</span>
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Wajib Alasan Non-WA (Menit)</label>
+                                        <input type="number" id="earlyReasonThreshold" class="w-full text-xs font-bold text-slate-700 bg-white border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white rounded-xl px-3 py-2 focus:ring-2 focus:ring-amber-400 outline-none" placeholder="20">
+                                        <span class="text-[9px] text-slate-400 block mt-1">Wajib isi alasan di form aplikasi web</span>
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Wajib Konfirmasi WA (Menit)</label>
+                                        <input type="number" id="earlyWaThreshold" class="w-full text-xs font-bold text-slate-700 bg-white border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white rounded-xl px-3 py-2 focus:ring-2 focus:ring-amber-400 outline-none" placeholder="60">
+                                        <span class="text-[9px] text-slate-400 block mt-1">Wajib alasan & konfirmasi WhatsApp ke Admin</span>
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Batas Buka Absen Pulang (Menit)</label>
+                                        <input type="number" id="earlyMaxThreshold" class="w-full text-xs font-bold text-slate-700 bg-white border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white rounded-xl px-3 py-2 focus:ring-2 focus:ring-amber-400 outline-none" placeholder="120">
+                                        <span class="text-[9px] text-slate-400 block mt-1">Default 2 jam (120 mnt). Lebih awal diblokir</span>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Nomor WhatsApp Admin -->
                             <div class="clay-inset rounded-2xl p-5 space-y-4">
                                 <div class="font-bold text-sm text-slate-800 flex items-center gap-2 border-b border-slate-100 dark:border-white/5 pb-2">
@@ -4346,6 +4410,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <!-- MAIN SCRIPT -->
-    <script src="script.js?v=3.0.5"></script>
+    <script src="script.js?v=3.0.6"></script>
 </body>
 </html>

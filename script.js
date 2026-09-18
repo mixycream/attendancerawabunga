@@ -506,6 +506,10 @@ let appConfig = {
     lateReasonThreshold: 25,
     lateWaThreshold: 35,
     lateMaxThreshold: 60,
+    earlyTolerance: 15,
+    earlyReasonThreshold: 20,
+    earlyWaThreshold: 60,
+    earlyMaxThreshold: 120,
     adminWhatsApp: "6282114806765",
     autoOutType: "global",
     autoOutGlobalMinutes: 240,
@@ -1127,6 +1131,10 @@ function _applyConfigData(cfg) {
     appConfig.lateReasonThreshold = parseInt(cfg.lateReasonThreshold || "25");
     appConfig.lateWaThreshold = parseInt(cfg.lateWaThreshold || "35");
     appConfig.lateMaxThreshold = parseInt(cfg.lateMaxThreshold || "60");
+    appConfig.earlyTolerance = parseInt(cfg.earlyTolerance !== undefined ? cfg.earlyTolerance : "15");
+    appConfig.earlyReasonThreshold = parseInt(cfg.earlyReasonThreshold !== undefined ? cfg.earlyReasonThreshold : "20");
+    appConfig.earlyWaThreshold = parseInt(cfg.earlyWaThreshold !== undefined ? cfg.earlyWaThreshold : "60");
+    appConfig.earlyMaxThreshold = parseInt(cfg.earlyMaxThreshold !== undefined ? cfg.earlyMaxThreshold : "120");
     appConfig.adminWhatsApp = cfg.adminWhatsApp || "6282114806765";
     appConfig.autoOutType = cfg.autoOutType || "global";
     appConfig.autoOutGlobalMinutes = parseInt(cfg.autoOutGlobalMinutes || "240");
@@ -3403,10 +3411,17 @@ async function submitAbsence(type) {
         if (divConfig && typeof divConfig !== 'string' && lastLog && lastLog.type === 'IN') {
              const shiftEndH = parseInt(divConfig.end.split(':')[0]);
              const shiftStartH = parseInt(divConfig.start.split(':')[0]);
-             let logDateParts = lastLog.date.split('-'); 
-             let logYear = parseInt(logDateParts[0]);
-             let logMonth = parseInt(logDateParts[1]) - 1; 
-             let logDay = parseInt(logDateParts[2]);
+             let logDateParts = String(lastLog.date).split(/[-/]/); 
+             let logYear, logMonth, logDay;
+             if (logDateParts[0].length === 4) {
+                 logYear = parseInt(logDateParts[0]);
+                 logMonth = parseInt(logDateParts[1]) - 1;
+                 logDay = parseInt(logDateParts[2]);
+             } else {
+                 logDay = parseInt(logDateParts[0]);
+                 logMonth = parseInt(logDateParts[1]) - 1;
+                 logYear = parseInt(logDateParts[2]);
+             }
              let expectedEnd = new Date(logYear, logMonth, logDay, shiftEndH, parseInt(divConfig.end.split(':')[1]));
              if (shiftEndH < shiftStartH) expectedEnd.setDate(expectedEnd.getDate() + 1);
              const diffMs = now - expectedEnd;
@@ -3421,14 +3436,28 @@ async function submitAbsence(type) {
                      toastMessage = appConfig.hideOvertime ? 'Absen Pulang Berhasil.' : `Lembur: ${overtimeHours} Jam`;
                  }
              } else {
-                 if (diffMinutes < -120) {
-                     return showToast("Tidak bisa absen pulang!\nMaksimal 2 jam sebelum jam pulang.", "error");
-                 } else if (diffMinutes < -20) {
+                 if (diffMinutes < 0) {
                      earlyMinutes = Math.abs(diffMinutes);
-                     needsReason = 'early';
-                     toastMessage = `Pulang ${earlyMinutes} menit lebih awal.`;
-                 } else if (diffMinutes < 0) {
-                     toastMessage = 'Absen Pulang Berhasil.';
+                     const earlyMax = appConfig.earlyMaxThreshold !== undefined ? appConfig.earlyMaxThreshold : 120;
+                     const earlyWa = appConfig.earlyWaThreshold !== undefined ? appConfig.earlyWaThreshold : 60;
+                     const earlyReason = appConfig.earlyReasonThreshold !== undefined ? appConfig.earlyReasonThreshold : 20;
+                     const earlyTol = appConfig.earlyTolerance !== undefined ? appConfig.earlyTolerance : 15;
+
+                     if (earlyMinutes > earlyMax) {
+                         const maxHours = Math.round(earlyMax / 60);
+                         const maxDesc = earlyMax % 60 === 0 ? `${maxHours} jam` : `${earlyMax} menit`;
+                         return showToast(`Tidak bisa absen pulang!\nAbsen pulang dibuka maksimal ${maxDesc} sebelum jam pulang (${divConfig.end} WIB).`, "error");
+                     } else if (earlyMinutes >= earlyWa) {
+                         needsReason = 'early_wa';
+                         toastMessage = `Pulang ${earlyMinutes} menit lebih awal — konfirmasi ke Admin.`;
+                     } else if (earlyMinutes >= earlyReason) {
+                         needsReason = 'early';
+                         toastMessage = `Pulang ${earlyMinutes} menit lebih awal.`;
+                     } else if (earlyMinutes <= earlyTol) {
+                         toastMessage = 'Absen Pulang Berhasil.';
+                     } else {
+                         toastMessage = `Pulang ${earlyMinutes} menit lebih awal.`;
+                     }
                  } else if (diffMinutes > 40) {
                      overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
                      toastMessage = appConfig.hideOvertime ? 'Absen Pulang Berhasil.' : `Lembur: ${overtimeHours} Jam`;
@@ -3485,6 +3514,15 @@ async function submitAbsence(type) {
         document.getElementById('earlyNoteInput').value = '';
         document.getElementById('earlyOutModal').classList.remove('hidden');
         setTimeout(() => document.getElementById('earlyOutModal').classList.remove('opacity-0'), 10);
+        return;
+    }
+
+    if (needsReason === 'early_wa') {
+        pendingAttendancePayload = payload;
+        pendingAttendancePayload._earlyMinutes = earlyMinutes;
+        pendingAttendancePayload._toastMessage = toastMessage;
+        const divConfig = appConfig.shifts[scannedEmployee.division];
+        showEarlyWaModal(scannedEmployee.name, scannedEmployee.division, divConfig ? (typeof divConfig === 'string' ? divConfig : divConfig.end) : '-');
         return;
     }
 
@@ -3583,16 +3621,22 @@ function dismissLateBlocked() {
     const overlay = document.getElementById('lateBlockedModal');
     const bg = document.getElementById('lateBlockedBg');
     const card = document.getElementById('lateBlockedCard');
-    bg.style.backgroundColor = 'rgba(0,0,0,0)';
-    card.style.transform = 'scale(0.5)';
-    card.style.opacity = '0';
+    if (bg) bg.style.backgroundColor = 'rgba(0,0,0,0)';
+    if (card) {
+        card.style.transform = 'scale(0.5)';
+        card.style.opacity = '0';
+    }
     setTimeout(() => {
-        overlay.classList.add('hidden');
-        overlay.classList.remove('flex');
-        overlay.style.pointerEvents = 'none';
+        if (overlay) {
+            overlay.classList.add('hidden');
+            overlay.classList.remove('flex');
+            overlay.style.pointerEvents = 'none';
+        }
+        pendingAttendancePayload = null;
+        if (typeof volCancelFlow === 'function') volCancelFlow();
+        if (typeof resetSecurityFlow === 'function') resetSecurityFlow();
     }, 400);
 }
-
 
 async function sendLateWA() {
     const reason = (document.getElementById('lateBlockedReasonInput').value || '').trim();
@@ -3619,19 +3663,10 @@ async function sendLateWA() {
     const payloadToSend = { ...pendingAttendancePayload };
     pendingAttendancePayload = null;
 
-    // --- Step 1: Simpan absen ke server DULU (await, bukan fire-and-forget) ---
+    toggleLoader(true, 'Menyimpan absen terlambat...');
     let saveSuccess = false;
     try {
-        toggleLoader(true, 'Menyimpan absen terlambat...');
-        const form = new URLSearchParams();
-        Object.keys(payloadToSend).forEach(k => {
-            if (payloadToSend[k] !== undefined && payloadToSend[k] !== null)
-                form.append(k, String(payloadToSend[k]));
-        });
-        form.set('action', 'attendance');
-        const res = await fetch(SCRIPT_URL, { method: 'POST', body: form });
-        const json = await res.json().catch(() => null);
-        saveSuccess = json && (json.status === 'success' || json.duplicate === true);
+        saveSuccess = await postData('attendance', payloadToSend);
     } catch (err) {
         console.error('[sendLateWA] Gagal simpan:', err);
     }
@@ -3688,6 +3723,182 @@ Wassalamualaikum Warahmatullahi Wabarakatuh.`;
     } else {
         resetSecurityFlow();
         showAbsenSuccess({ type: 'IN', name: empName, message: `Absen tercatat! Konfirmasi WA terkirim ke Admin.` });
+        fetchData(false).catch(() => {});
+    }
+}
+
+// --- Early WA Modal (Pulang Kritis Wajib WA) ---
+let _earlyWaInfo = {};
+
+function showEarlyWaModal(name, division, shiftEnd) {
+    _earlyWaInfo = { name, division, shiftEnd };
+    const overlay = document.getElementById('earlyWaModal');
+    if (!overlay) return;
+    const bg = document.getElementById('earlyWaBg');
+    const card = document.getElementById('earlyWaCard');
+    const icon = document.getElementById('earlyWaIcon');
+    const msg = document.getElementById('earlyWaMsg');
+    const badge = document.getElementById('earlyWaBadge');
+
+    const earlyMin = pendingAttendancePayload ? (pendingAttendancePayload._earlyMinutes || 0) : 0;
+    if (badge) badge.innerHTML = `<i class="fas fa-clock text-[10px]"></i> ${earlyMin} Menit Lebih Awal`;
+
+    if (msg) {
+        msg.textContent = `Maaf ${name}, kamu pulang ${earlyMin} menit sebelum jadwal shift divisi ${division} berakhir (${shiftEnd} WIB). Wajib isi alasan & konfirmasi ke Admin via WhatsApp.`;
+    }
+    const input = document.getElementById('earlyWaReasonInput');
+    if (input) input.value = '';
+    const warn = document.getElementById('earlyWaWarn');
+    if (warn) warn.classList.add('hidden');
+
+    // Reset animation state
+    if (icon) {
+        icon.style.opacity = '0';
+        icon.style.transform = 'scale(0.3)';
+    }
+    if (card) {
+        card.style.transform = 'scale(0.5)';
+        card.style.opacity = '0';
+    }
+    if (bg) bg.style.backgroundColor = 'rgba(0,0,0,0)';
+
+    overlay.classList.remove('hidden');
+    overlay.classList.add('flex');
+    overlay.style.pointerEvents = 'auto';
+
+    requestAnimationFrame(() => {
+        if (bg) bg.style.backgroundColor = 'rgba(120,53,15,0.92)';
+        if (card) {
+            card.style.transform = 'scale(1)';
+            card.style.opacity = '1';
+        }
+        setTimeout(() => {
+            if (icon) {
+                icon.style.opacity = '1';
+                icon.style.transform = 'scale(1)';
+            }
+        }, 300);
+    });
+}
+
+function dismissEarlyWa() {
+    const overlay = document.getElementById('earlyWaModal');
+    if (!overlay) return;
+    const bg = document.getElementById('earlyWaBg');
+    const card = document.getElementById('earlyWaCard');
+    if (bg) bg.style.backgroundColor = 'rgba(0,0,0,0)';
+    if (card) {
+        card.style.transform = 'scale(0.5)';
+        card.style.opacity = '0';
+    }
+    setTimeout(() => {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+        overlay.style.pointerEvents = 'none';
+        pendingAttendancePayload = null;
+        if (typeof volCancelFlow === 'function') volCancelFlow();
+        if (typeof resetSecurityFlow === 'function') resetSecurityFlow();
+    }, 400);
+}
+
+function dismissEarlyOutModal() {
+    const modal = document.getElementById('earlyOutModal');
+    if (modal) {
+        modal.classList.add('opacity-0');
+        setTimeout(() => modal.classList.add('hidden'), 300);
+    }
+    pendingAttendancePayload = null;
+    if (typeof volCancelFlow === 'function') volCancelFlow();
+    if (typeof resetSecurityFlow === 'function') resetSecurityFlow();
+}
+
+async function sendEarlyWA() {
+    const reason = (document.getElementById('earlyWaReasonInput')?.value || '').trim();
+    if (!reason) {
+        document.getElementById('earlyWaWarn')?.classList.remove('hidden');
+        document.getElementById('earlyWaReasonInput')?.focus();
+        return;
+    }
+    if (!pendingAttendancePayload) return;
+
+    const waBtn = document.querySelector('#earlyWaCard button[onclick="sendEarlyWA()"]');
+    if (waBtn) {
+        waBtn.disabled = true;
+        waBtn.innerHTML = '<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"></circle><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></svg> Menyimpan absen pulang...';
+    }
+
+    const earlyMin = pendingAttendancePayload._earlyMinutes || 0;
+    const toastMsg = pendingAttendancePayload._toastMessage || pendingAttendancePayload._toastMsg || `Pulang ${earlyMin}m lebih awal.`;
+    pendingAttendancePayload.note = `[Pulang ${earlyMin} mnt >${appConfig.earlyWaThreshold}m] ${reason}`;
+    delete pendingAttendancePayload._earlyMinutes;
+    delete pendingAttendancePayload._toastMessage;
+    delete pendingAttendancePayload._toastMsg;
+
+    const isVolunteer = pendingAttendancePayload.absentBy === 'Mandiri';
+    const empName = pendingAttendancePayload.name || '';
+    const payloadToSend = { ...pendingAttendancePayload };
+    pendingAttendancePayload = null;
+
+    toggleLoader(true, 'Menyimpan absen pulang lebih awal...');
+    let saveSuccess = false;
+    try {
+        saveSuccess = await postData('attendance', payloadToSend);
+    } catch (err) {
+        console.error('[sendEarlyWA] Gagal simpan:', err);
+    }
+    toggleLoader(false);
+
+    if (!saveSuccess) {
+        showToast('Gagal menyimpan absen pulang. Coba lagi.', 'error');
+        if (waBtn) {
+            waBtn.disabled = false;
+            waBtn.innerHTML = '<i class="fab fa-whatsapp text-lg"></i> Kirim via WhatsApp & Simpan Pulang';
+        }
+        return;
+    }
+
+    // Step 2: Buka WhatsApp ke Admin
+    const now = new Date();
+    const hour = now.getHours();
+    const greeting = hour < 11 ? 'Pagi' : hour < 15 ? 'Siang' : hour < 18 ? 'Sore' : 'Malam';
+    const name = _earlyWaInfo.name || empName || '-';
+    const division = _earlyWaInfo.division || '-';
+    const shiftEnd = _earlyWaInfo.shiftEnd || '-';
+    const dateStr = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+    const message = `Assalamualaikum Warahmatullahi Wabarakatuh,
+Selamat ${greeting} Admin SPPG Rawa Bunga 1.
+
+Saya *${name}* dari divisi *${division}*.
+
+Dengan ini saya menginformasikan bahwa pada hari *${dateStr}* pukul *${timeStr} WIB*, saya mengajukan izin pulang ${earlyMin} menit lebih awal dari jadwal kepulangan shift divisi pukul *${shiftEnd} WIB*.
+
+Adapun alasan kepulangan awal saya:
+_${reason}_
+
+Absensi kepulangan saya telah *otomatis tercatat* di sistem. Mohon kiranya Admin berkenan meninjau catatan kepulangan awal ini.
+
+Atas perhatian dan izinnya saya ucapkan terima kasih.
+Wassalamualaikum Warahmatullahi Wabarakatuh.`;
+
+    const phone = appConfig.adminWhatsApp || '6282114806765';
+    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank');
+
+    // Step 3: Tutup modal & tampilkan sukses
+    dismissEarlyWa();
+
+    if (isVolunteer) {
+        volCancelFlow();
+        showAbsenSuccess({
+            type: 'EARLY_OUT', name: empName,
+            message: `Absen pulang tercatat! Konfirmasi WA terkirim ke Admin.`,
+            onDone: async () => { await fetchData(true); volUpdateTodayStatus(); }
+        });
+    } else {
+        resetSecurityFlow();
+        showAbsenSuccess({ type: 'EARLY_OUT', name: empName, message: `Absen pulang tercatat! Konfirmasi WA terkirim ke Admin.` });
         fetchData(false).catch(() => {});
     }
 }
@@ -4985,11 +5196,22 @@ function loadSettingsUI() {
     const lReasonThresh = document.getElementById('lateReasonThreshold');
     const lWaThresh = document.getElementById('lateWaThreshold');
     const lMaxThresh = document.getElementById('lateMaxThreshold');
-    const adminWA = document.getElementById('adminWhatsApp');
     if (lTol) lTol.value = appConfig.lateTolerance;
     if (lReasonThresh) lReasonThresh.value = appConfig.lateReasonThreshold;
     if (lWaThresh) lWaThresh.value = appConfig.lateWaThreshold;
     if (lMaxThresh) lMaxThresh.value = appConfig.lateMaxThreshold;
+
+    // Early Out inputs
+    const eTol = document.getElementById('earlyTolerance');
+    const eReasonThresh = document.getElementById('earlyReasonThreshold');
+    const eWaThresh = document.getElementById('earlyWaThreshold');
+    const eMaxThresh = document.getElementById('earlyMaxThreshold');
+    if (eTol) eTol.value = appConfig.earlyTolerance !== undefined ? appConfig.earlyTolerance : 15;
+    if (eReasonThresh) eReasonThresh.value = appConfig.earlyReasonThreshold !== undefined ? appConfig.earlyReasonThreshold : 20;
+    if (eWaThresh) eWaThresh.value = appConfig.earlyWaThreshold !== undefined ? appConfig.earlyWaThreshold : 60;
+    if (eMaxThresh) eMaxThresh.value = appConfig.earlyMaxThreshold !== undefined ? appConfig.earlyMaxThreshold : 120;
+
+    const adminWA = document.getElementById('adminWhatsApp');
     if (adminWA) adminWA.value = appConfig.adminWhatsApp;
 
     // Auto Out type state initialization
@@ -5142,6 +5364,10 @@ async function saveFeatureSettings() {
     const lateReasonThreshold = parseInt(document.getElementById('lateReasonThreshold')?.value) || 25;
     const lateWaThreshold = parseInt(document.getElementById('lateWaThreshold')?.value) || 35;
     const lateMaxThreshold = parseInt(document.getElementById('lateMaxThreshold')?.value) || 60;
+    const earlyTolerance = parseInt(document.getElementById('earlyTolerance')?.value) || 15;
+    const earlyReasonThreshold = parseInt(document.getElementById('earlyReasonThreshold')?.value) || 20;
+    const earlyWaThreshold = parseInt(document.getElementById('earlyWaThreshold')?.value) || 60;
+    const earlyMaxThreshold = parseInt(document.getElementById('earlyMaxThreshold')?.value) || 120;
     const adminWhatsApp = document.getElementById('adminWhatsApp')?.value.trim() || "6282114806765";
     
     const autoOutType = appConfig.autoOutType || 'global';
@@ -5193,6 +5419,10 @@ async function saveFeatureSettings() {
     appConfig.lateReasonThreshold = lateReasonThreshold;
     appConfig.lateWaThreshold = lateWaThreshold;
     appConfig.lateMaxThreshold = lateMaxThreshold;
+    appConfig.earlyTolerance = earlyTolerance;
+    appConfig.earlyReasonThreshold = earlyReasonThreshold;
+    appConfig.earlyWaThreshold = earlyWaThreshold;
+    appConfig.earlyMaxThreshold = earlyMaxThreshold;
     appConfig.adminWhatsApp = adminWhatsApp;
     appConfig.autoOutGlobalMinutes = autoOutGlobalMinutes;
     appConfig.autoOutDivisionsConfig = autoOutDivisionsConfig;
@@ -5212,6 +5442,7 @@ async function saveFeatureSettings() {
         disableGeofence, hideOvertime, allowMultipleIn, enableLivenessCheck, enableSelfieOnly,
         geofenceLat, geofenceLng, geofenceRadius,
         lateTolerance, lateReasonThreshold, lateWaThreshold, lateMaxThreshold,
+        earlyTolerance, earlyReasonThreshold, earlyWaThreshold, earlyMaxThreshold,
         adminWhatsApp, autoOutType, autoOutGlobalMinutes, autoOutDivisionsConfig
     });
     toggleLoader(false);
@@ -10003,10 +10234,17 @@ async function volSubmitSelfie() {
         if (divConfig && typeof divConfig !== 'string' && lastLog && lastLog.type === 'IN') {
             const shiftEndH = parseInt(divConfig.end.split(':')[0]);
             const shiftStartH = parseInt(divConfig.start.split(':')[0]);
-            let logDateParts = lastLog.date.split('-');
-            let logYear = parseInt(logDateParts[0]);
-            let logMonth = parseInt(logDateParts[1]) - 1;
-            let logDay = parseInt(logDateParts[2]);
+            let logDateParts = String(lastLog.date).split(/[-/]/);
+            let logYear, logMonth, logDay;
+            if (logDateParts[0].length === 4) {
+                logYear = parseInt(logDateParts[0]);
+                logMonth = parseInt(logDateParts[1]) - 1;
+                logDay = parseInt(logDateParts[2]);
+            } else {
+                logDay = parseInt(logDateParts[0]);
+                logMonth = parseInt(logDateParts[1]) - 1;
+                logYear = parseInt(logDateParts[2]);
+            }
             let expectedEnd = new Date(logYear, logMonth, logDay, shiftEndH, parseInt(divConfig.end.split(':')[1]));
             if (shiftEndH < shiftStartH) expectedEnd.setDate(expectedEnd.getDate() + 1);
             const diffMs = now - expectedEnd;
@@ -10021,14 +10259,28 @@ async function volSubmitSelfie() {
                     toastMsg = appConfig.hideOvertime ? 'Absen Pulang Berhasil.' : `Lembur: ${overtimeHours} Jam`;
                 }
             } else {
-                if (diffMinutes < -120) {
-                    return showToast("Tidak bisa absen pulang!\nMaksimal 2 jam sebelum jam pulang.", "error");
-                } else if (diffMinutes < -20) {
+                if (diffMinutes < 0) {
                     earlyMinutes = Math.abs(diffMinutes);
-                    needsReason = 'early';
-                    toastMsg = `Pulang ${earlyMinutes} menit lebih awal.`;
-                } else if (diffMinutes < 0) {
-                    toastMsg = 'Absen Pulang Berhasil.';
+                    const earlyMax = appConfig.earlyMaxThreshold !== undefined ? appConfig.earlyMaxThreshold : 120;
+                    const earlyWa = appConfig.earlyWaThreshold !== undefined ? appConfig.earlyWaThreshold : 60;
+                    const earlyReason = appConfig.earlyReasonThreshold !== undefined ? appConfig.earlyReasonThreshold : 20;
+                    const earlyTol = appConfig.earlyTolerance !== undefined ? appConfig.earlyTolerance : 15;
+
+                    if (earlyMinutes > earlyMax) {
+                        const maxHours = Math.round(earlyMax / 60);
+                        const maxDesc = earlyMax % 60 === 0 ? `${maxHours} jam` : `${earlyMax} menit`;
+                        return showToast(`Tidak bisa absen pulang!\nAbsen pulang dibuka maksimal ${maxDesc} sebelum jam pulang (${divConfig.end} WIB).`, "error");
+                    } else if (earlyMinutes >= earlyWa) {
+                        needsReason = 'early_wa';
+                        toastMsg = `Pulang ${earlyMinutes} menit lebih awal — konfirmasi ke Admin.`;
+                    } else if (earlyMinutes >= earlyReason) {
+                        needsReason = 'early';
+                        toastMsg = `Pulang ${earlyMinutes} menit lebih awal.`;
+                    } else if (earlyMinutes <= earlyTol) {
+                        toastMsg = 'Absen Pulang Berhasil.';
+                    } else {
+                        toastMsg = `Pulang ${earlyMinutes} menit lebih awal.`;
+                    }
                 } else if (diffMinutes > 40) {
                     overtimeHours = Math.floor((diffMinutes - 41) / 60) + 1;
                     toastMsg = appConfig.hideOvertime ? 'Absen Pulang Berhasil.' : `Lembur: ${overtimeHours} Jam`;
@@ -10107,6 +10359,15 @@ async function volSubmitSelfie() {
         document.getElementById('earlyNoteInput').value = '';
         document.getElementById('earlyOutModal').classList.remove('hidden');
         setTimeout(() => document.getElementById('earlyOutModal').classList.remove('opacity-0'), 10);
+        return;
+    }
+
+    if (needsReason === 'early_wa') {
+        pendingAttendancePayload = payload;
+        pendingAttendancePayload._earlyMinutes = earlyMinutes;
+        pendingAttendancePayload._toastMsg = toastMsg;
+        const divConfig = appConfig.shifts[volScannedEmployee.division];
+        showEarlyWaModal(volScannedEmployee.name, volScannedEmployee.division, divConfig ? (typeof divConfig === 'string' ? divConfig : divConfig.end) : '-');
         return;
     }
 
