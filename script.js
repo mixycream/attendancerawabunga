@@ -1,3 +1,277 @@
+// --- KONFIGURASI SUPABASE ---
+const SUPABASE_URL = "https://yvatyhyylduujepyztoz.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2YXR5aHl5bGR1dWplcHl6dG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NjI2ODEsImV4cCI6MjEwNTIzODY4MX0.rU0beeNBrmkzAVC3ogwl3-DtdBzjLU9qWDfEWqHabkc";
+let sbClient = null;
+try {
+    if (window.supabase && typeof window.supabase.createClient === 'function') {
+        sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+} catch(e) {
+    console.error("Supabase client init error:", e);
+}
+
+// Helper Upload Foto ke Supabase Storage (50ms)
+async function sbUploadPhoto(base64Str, fileName) {
+    if (!sbClient || !base64Str || !base64Str.startsWith('data:image')) return base64Str || '';
+    try {
+        const parts = base64Str.split(',');
+        const mime = (parts[0].match(/:(.*?);/) || [])[1] || 'image/jpeg';
+        const bstr = atob(parts[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: mime });
+        const cleanName = `${Date.now()}_${(fileName || 'foto').replace(/[^a-zA-Z0-9_-]/g, '_')}.jpg`;
+        
+        const { data, error } = await sbClient.storage
+            .from('attendance-photos')
+            .upload(cleanName, blob, { contentType: mime, upsert: true });
+
+        if (error) {
+            console.warn('Storage upload warning:', error);
+            return '';
+        }
+        const { data: pubUrl } = sbClient.storage
+            .from('attendance-photos')
+            .getPublicUrl(cleanName);
+        return pubUrl.publicUrl || '';
+    } catch(err) {
+        console.warn('sbUploadPhoto error:', err);
+        return '';
+    }
+}
+
+// Fetch Semua Data dari Supabase (~50ms)
+async function sbFetchData() {
+    if (!sbClient) throw new Error("Supabase not initialized");
+    const [empRes, logRes, shiftRes, cfgRes] = await Promise.all([
+        sbClient.from('employees').select('*').order('name', { ascending: true }),
+        sbClient.from('attendance_logs').select('*').order('date', { ascending: false }).order('time', { ascending: false }),
+        sbClient.from('shifts').select('*'),
+        sbClient.from('app_config').select('*')
+    ]);
+
+    if (empRes.error) throw empRes.error;
+    if (logRes.error) throw logRes.error;
+
+    const emps = (empRes.data || []).map(e => ({
+        id: e.id,
+        name: e.name,
+        division: e.division || '',
+        salary: Number(e.salary) || 0,
+        photo: e.photo || '',
+        role: e.role || 'employee',
+        username: e.username || '',
+        password: e.password || ''
+    }));
+
+    const parsedLogs = (logRes.data || []).map(l => ({
+        id: l.id,
+        row: l.id,
+        date: l.date,
+        time: l.time,
+        empId: l.emp_id,
+        name: l.name,
+        type: l.type,
+        photo: l.photo || '',
+        overtime: Number(l.overtime) || 0,
+        location: l.location || '',
+        lateMinutes: Number(l.late_minutes) || 0,
+        note: l.note || '',
+        absentBy: l.absent_by || '-'
+    }));
+
+    const shiftsObj = {};
+    (shiftRes.data || []).forEach(s => {
+        shiftsObj[s.division] = { start: s.start_time, end: s.end_time };
+    });
+
+    const cfgObj = { shifts: shiftsObj };
+    (cfgRes.data || []).forEach(c => {
+        cfgObj[c.key] = c.value;
+    });
+
+    return {
+        status: 'success',
+        employees: emps,
+        logs: parsedLogs,
+        config: cfgObj
+    };
+}
+
+async function unifiedGetData() {
+    if (sbClient) {
+        try {
+            const data = await sbFetchData();
+            if (data && data.status === 'success') return data;
+        } catch (sbErr) {
+            console.warn("Supabase unifiedGetData error, trying GAS:", sbErr);
+        }
+    }
+    const res = await fetch(SCRIPT_URL + '?action=getData&_t=' + Date.now(), { signal: AbortSignal.timeout(15000) });
+    return await res.json();
+}
+
+async function sbPostData(action, payload) {
+    if (!sbClient) throw new Error("Supabase client not initialized");
+
+    if (action === 'attendance') {
+        const rawImg = payload.photo || payload.image || '';
+        let photoUrl = '';
+        if (rawImg && rawImg.startsWith('data:image')) {
+            photoUrl = await sbUploadPhoto(rawImg, `${payload.name}_${payload.date}_${payload.type}`);
+        } else if (rawImg) {
+            photoUrl = rawImg;
+        }
+
+        const dateStr = payload.date || getLocalDateStr(new Date());
+        let timeStr = payload.forcedTime ? payload.forcedTime + ':00' : (payload.time || new Date().toLocaleTimeString('id-ID', { hour12: false }));
+        if (timeStr.length === 5) timeStr += ':00';
+
+        if (payload.absentBy === 'Admin') {
+            const { data: dups } = await sbClient.from('attendance_logs')
+                .select('id')
+                .eq('emp_id', payload.empId)
+                .eq('date', dateStr)
+                .eq('type', payload.type)
+                .eq('absent_by', 'Admin')
+                .limit(1);
+            if (dups && dups.length > 0) {
+                return { status: 'success', duplicate: true };
+            }
+        }
+
+        const { error } = await sbClient.from('attendance_logs').insert([{
+            date: dateStr,
+            time: timeStr,
+            emp_id: payload.empId,
+            name: payload.name,
+            type: payload.type,
+            photo: photoUrl,
+            overtime: parseInt(payload.overtime) || 0,
+            location: payload.location || '',
+            late_minutes: parseInt(payload.lateMinutes) || 0,
+            note: payload.note || '',
+            absent_by: payload.absentBy || 'Relawan'
+        }]);
+
+        if (error) throw error;
+        return { status: 'success' };
+    }
+
+    if (action === 'addEmployee') {
+        const { error } = await sbClient.from('employees').upsert([{
+            id: payload.id,
+            name: payload.name,
+            division: payload.division || '',
+            salary: parseFloat(payload.salary) || 0,
+            photo: payload.photo || '',
+            role: payload.role || 'employee',
+            username: payload.username || null,
+            password: payload.password || null
+        }]);
+        if (error) throw error;
+        return { status: 'success' };
+    }
+
+    if (action === 'deleteEmployee') {
+        const { error } = await sbClient.from('employees').delete().eq('id', payload.id);
+        if (error) throw error;
+        return { status: 'success' };
+    }
+
+    if (action === 'saveConfig') {
+        const promises = [];
+        if (payload.shifts) {
+            for (const [div, times] of Object.entries(payload.shifts)) {
+                promises.push(sbClient.from('shifts').upsert([{
+                    division: div,
+                    start_time: typeof times === 'string' ? times : times.start,
+                    end_time: typeof times === 'string' ? times : times.end
+                }]));
+            }
+        }
+        for (const [k, v] of Object.entries(payload)) {
+            if (k === 'shifts' || k === 'action') continue;
+            promises.push(sbClient.from('app_config').upsert([{
+                key: k,
+                value: typeof v === 'object' ? JSON.stringify(v) : String(v)
+            }]));
+        }
+        await Promise.all(promises);
+        return { status: 'success' };
+    }
+
+    if (action === 'deleteAttendance') {
+        const idToDelete = payload.row || payload.id;
+        const { error } = await sbClient.from('attendance_logs').delete().eq('id', idToDelete);
+        if (error) throw error;
+        return { status: 'success' };
+    }
+
+    if (action === 'deleteAttendanceByEmpDate') {
+        const { error } = await sbClient.from('attendance_logs').delete()
+            .eq('emp_id', payload.empId)
+            .eq('date', payload.date);
+        if (error) throw error;
+        return { status: 'success' };
+    }
+
+    if (action === 'confirmAttendance') {
+        const { error } = await sbClient.from('attendance_logs').update({
+            type: payload.newStatus
+        }).eq('id', payload.row || payload.id);
+        if (error) throw error;
+        return { status: 'success' };
+    }
+
+    if (action === 'confirmViolation') {
+        const { error } = await sbClient.from('violations').insert([{
+            emp_id: payload.empId,
+            name: payload.name,
+            date: payload.date,
+            type: payload.type,
+            penalty: parseFloat(payload.penalty) || 0,
+            status: 'confirmed'
+        }]);
+        if (error) throw error;
+        return { status: 'success' };
+    }
+
+    if (action === 'login') {
+        const u = String(payload.username || '').toLowerCase().trim();
+        const p = String(payload.password || '').trim();
+
+        if (u === 'admin' && p === '!1AdminRawaBunga1') {
+            return { status: "success", user: { u: 'admin', role: 'admin', name: 'Administrator' } };
+        }
+
+        const { data: users, error } = await sbClient.from('employees')
+            .select('*')
+            .ilike('username', u)
+            .eq('password', p)
+            .limit(1);
+
+        if (!error && users && users.length > 0) {
+            const user = users[0];
+            return {
+                status: "success",
+                user: {
+                    u: user.username || user.name,
+                    role: user.role || 'employee',
+                    name: user.name,
+                    id: user.id
+                }
+            };
+        }
+        return { status: "error", message: "Username atau password salah" };
+    }
+
+    return null;
+}
+
 // --- KONFIGURASI UTAMA ---
 // Paste URL Google Apps Script kamu di sini (Wajib)
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyqxduCZY259dcYWXnq9cF53GbB34ATgR8AJQ9TVqqlKOxjHKRzyIXbJeethB7yll2G/exec"; 
@@ -150,6 +424,16 @@ if (loginCard) {
 
 // Helper to call API and return parsed JSON (kept separate from postData which returns boolean)
 async function callApi(action, payload) {
+    if (sbClient) {
+        try {
+            const data = await sbPostData(action, payload);
+            if (data) {
+                return { ok: true, data: data };
+            }
+        } catch(sbErr) {
+            console.warn("Supabase callApi error, trying GAS fallback:", sbErr);
+        }
+    }
     try {
         const form = new URLSearchParams();
         const dataObj = { action, ...payload };
@@ -693,8 +977,7 @@ async function fetchData(force = false) {
 
     while (retries > 0) {
         try {
-            const res = await fetch(SCRIPT_URL + "?action=getData&_t=" + Date.now(), { timeout: 10000 });
-            const data = await res.json();
+            const data = await unifiedGetData();
 
             if(data.status === 'success') {
                 employees = data.employees;
@@ -827,9 +1110,8 @@ function _applyConfigData(cfg) {
 // Fetch di background tanpa loader — untuk refresh setelah cache load
 async function _fetchDataBackground() {
     try {
-        const res = await fetch(SCRIPT_URL + '?action=getData&_t=' + Date.now());
-        const data = await res.json();
-        if (data.status === 'success') {
+        const data = await unifiedGetData();
+        if (data && data.status === 'success') {
             employees = data.employees;
             logs = data.logs;
             _applyConfigData(data.config);
@@ -843,23 +1125,46 @@ async function _fetchDataBackground() {
 async function postData(action, payload) {
     toggleLoader(true, "Upload ke Cloud...");
     try {
-        const dataObj = { action, ...payload };
-        
-        // Use JSON for requests with large data (photos), form-encoded for small data
-        const hasLargeData = (payload.photo || payload.image) ? true : false;
-        
-        let res;
-        if (hasLargeData) {
-            // Send as JSON for photo uploads (primary)
+        let json = null;
+        if (sbClient) {
             try {
-                res = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(dataObj)
-                });
-            } catch (jsonErr) {
-                // Fallback to form-encoded when JSON/preflight fails (common: Failed to fetch)
-                console.warn('JSON upload failed, retrying with form-encoded:', jsonErr);
+                json = await sbPostData(action, payload);
+            } catch (sbErr) {
+                console.warn("Supabase postData error, falling back to GAS:", sbErr);
+            }
+        }
+
+        if (!json) {
+            const dataObj = { action, ...payload };
+            
+            // Use JSON for requests with large data (photos), form-encoded for small data
+            const hasLargeData = (payload.photo || payload.image) ? true : false;
+            
+            let res;
+            if (hasLargeData) {
+                // Send as JSON for photo uploads (primary)
+                try {
+                    res = await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(dataObj)
+                    });
+                } catch (jsonErr) {
+                    // Fallback to form-encoded when JSON/preflight fails (common: Failed to fetch)
+                    console.warn('JSON upload failed, retrying with form-encoded:', jsonErr);
+                    const form = new URLSearchParams();
+                    Object.keys(dataObj).forEach(k => {
+                        if (dataObj[k] === undefined || dataObj[k] === null) return;
+                        const val = dataObj[k];
+                        form.append(k, (typeof val === 'object') ? JSON.stringify(val) : String(val));
+                    });
+                    res = await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        body: form
+                    });
+                }
+            } else {
+                // Send as form-encoded for other requests
                 const form = new URLSearchParams();
                 Object.keys(dataObj).forEach(k => {
                     if (dataObj[k] === undefined || dataObj[k] === null) return;
@@ -871,28 +1176,14 @@ async function postData(action, payload) {
                     body: form
                 });
             }
-        } else {
-            // Send as form-encoded for other requests
-            const form = new URLSearchParams();
-            Object.keys(dataObj).forEach(k => {
-                if (dataObj[k] === undefined || dataObj[k] === null) return;
-                const val = dataObj[k];
-                form.append(k, (typeof val === 'object') ? JSON.stringify(val) : String(val));
-            });
-            res = await fetch(SCRIPT_URL, {
-                method: 'POST',
-                body: form
-            });
-        }
 
-        // Try to parse JSON response from server
-        let json;
-        try { json = await res.json(); } catch (parseErr) { json = null; }
+            try { json = await res.json(); } catch (parseErr) { json = null; }
 
-        if (!res.ok) {
-            const msg = (json && json.message) ? json.message : `HTTP ${res.status}`;
-            showToast("Gagal menyimpan: " + msg, "error");
-            return false;
+            if (!res.ok) {
+                const msg = (json && json.message) ? json.message : `HTTP ${res.status}`;
+                showToast("Gagal menyimpan: " + msg, "error");
+                return false;
+            }
         }
 
         if (json && json.status && json.status === 'success') {
@@ -5807,6 +6098,14 @@ function maUpdateProgress(current, total, successCount, failCount, entryName) {
 }
 
 async function maSendOneEntry(entry) {
+    if (sbClient) {
+        try {
+            const res = await sbPostData('attendance', entry);
+            if (res && res.status === 'success') return true;
+        } catch(sbErr) {
+            console.warn("Supabase maSendOneEntry error, trying GAS fallback:", sbErr);
+        }
+    }
     const maxRetries = 3;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
@@ -8360,8 +8659,7 @@ async function _volPreFetch() {
     volSetDataStatus('syncing');
 
     try {
-        const res  = await fetch(SCRIPT_URL + '?action=getData&_t=' + Date.now(), { signal: AbortSignal.timeout(25000) });
-        const data = await res.json();
+        const data = await unifiedGetData();
         if (data.status === 'success') {
             if (data.employees && data.employees.length > 0) employees = data.employees;
             if (data.logs)                                    logs     = data.logs;
@@ -8401,9 +8699,8 @@ async function _volFetchBackground() {
     if (_volFetching) return;
     _volFetching = true;
     try {
-        const res  = await fetch(SCRIPT_URL + '?action=getData&_t=' + Date.now(), { signal: AbortSignal.timeout(25000) });
-        const data = await res.json();
-        if (data.status === 'success') {
+        const data = await unifiedGetData();
+        if (data && data.status === 'success') {
             if (data.employees && data.employees.length > 0) employees = data.employees;
             if (data.logs) logs = data.logs;
             _saveToCache(employees, logs, appConfig);
@@ -8782,10 +9079,9 @@ function volValidateQR(data) {
         volStartSelfie('user');
 
         // Fetch log status secara asinkron di latar belakang
-        fetch(SCRIPT_URL + '?action=getData&_t=' + Date.now())
-            .then(res => res.json())
+        unifiedGetData()
             .then(resData => {
-                if (resData.status === 'success' && resData.logs) {
+                if (resData && resData.status === 'success' && resData.logs) {
                     logs = resData.logs;
                     if (resData.employees && resData.employees.length > 0) employees = resData.employees;
                     _saveToCache(employees, logs, appConfig);
@@ -8817,9 +9113,8 @@ async function _volSyncRealtime(cleanData, parsedObj) {
     _volShowRetryOverlay(true);
 
     try {
-        const res = await fetch(SCRIPT_URL + '?action=getData&_t=' + Date.now(), { signal: AbortSignal.timeout(20000) });
-        const data = await res.json();
-        if (data.status === 'success') {
+        const data = await unifiedGetData();
+        if (data && data.status === 'success') {
             if (data.employees && data.employees.length > 0) employees = data.employees;
             if (data.logs) logs = data.logs;
             if (data.config) Object.assign(appConfig, data.config);
