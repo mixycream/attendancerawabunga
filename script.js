@@ -213,7 +213,7 @@ async function sbPostData(action, payload) {
         return { status: 'success' };
     }
 
-    if (action === 'saveConfig') {
+    if (action === 'saveConfig' || action === 'saveFeatureSettings') {
         const promises = [];
         if (payload.shifts) {
             for (const [div, times] of Object.entries(payload.shifts)) {
@@ -221,7 +221,7 @@ async function sbPostData(action, payload) {
                     division: div,
                     start_time: typeof times === 'string' ? times : times.start,
                     end_time: typeof times === 'string' ? times : times.end
-                }]));
+                }], { onConflict: 'division' }));
             }
         }
         for (const [k, v] of Object.entries(payload)) {
@@ -229,7 +229,7 @@ async function sbPostData(action, payload) {
             promises.push(sbClient.from('app_config').upsert([{
                 key: k,
                 value: typeof v === 'object' ? JSON.stringify(v) : String(v)
-            }]));
+            }], { onConflict: 'key' }));
         }
         await Promise.all(promises);
         return { status: 'success' };
