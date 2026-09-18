@@ -10430,8 +10430,54 @@ function volCancelFlow() {
     volUpdateTodayStatus();
 }
 
-// --- Fungsi untuk masuk mode Absen Mandiri dari halaman login (tanpa akun) ---
-async function startAbsenMandiri() {
+// --- MODAL PERHATIAN GPS SEBELUM MASUK ABSEN ---
+let gpsNoticeProceedCallback = null;
+
+function openGpsNoticeModal(callback) {
+    gpsNoticeProceedCallback = typeof callback === 'function' ? callback : executeStartAbsenMandiri;
+    const modal = document.getElementById('gpsNoticeModal');
+    if (!modal) {
+        if (gpsNoticeProceedCallback) gpsNoticeProceedCallback();
+        return;
+    }
+    modal.classList.remove('hidden');
+    requestAnimationFrame(() => {
+        modal.classList.remove('opacity-0');
+        const clay = modal.querySelector('.clay-modal');
+        if (clay) {
+            clay.classList.remove('scale-95');
+            clay.classList.add('scale-100');
+        }
+    });
+}
+
+function closeGpsNoticeModal() {
+    const modal = document.getElementById('gpsNoticeModal');
+    if (!modal) return;
+    modal.classList.add('opacity-0');
+    const clay = modal.querySelector('.clay-modal');
+    if (clay) {
+        clay.classList.remove('scale-100');
+        clay.classList.add('scale-95');
+    }
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        gpsNoticeProceedCallback = null;
+    }, 300);
+}
+
+function confirmGpsAndProceed() {
+    const cb = gpsNoticeProceedCallback || executeStartAbsenMandiri;
+    closeGpsNoticeModal();
+    if (cb) {
+        setTimeout(() => {
+            cb();
+        }, 120);
+    }
+}
+
+// --- Fungsi untuk masuk mode Absen Mandiri dari halaman login / landing ---
+function startAbsenMandiri() {
     volGuestMode = true;
 
     // Tentukan sumber pemanggilan (apakah dari loginView atau landingView)
@@ -10442,6 +10488,13 @@ async function startAbsenMandiri() {
         volSourceView = 'landing';
     }
 
+    // Tampilkan modal peringatan GPS terlebih dahulu
+    openGpsNoticeModal(() => {
+        executeStartAbsenMandiri();
+    });
+}
+
+async function executeStartAbsenMandiri() {
     // 1. Muat cache lokal secara instan (0ms wait)
     const hasCache = _loadFromCache();
     if ((hasCache && employees && employees.length > 0) || (employees && employees.length > 0)) {
