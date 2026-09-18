@@ -1738,10 +1738,39 @@ function renderSalary(filteredLogsOverride) {
                 let dailyCellsHtml = '';
                 for (let dIdx = 0; dIdx < 14; dIdx++) {
                     const val = item.dailySalaries[dIdx];
-                    const cellContent = val > 0 
-                        ? `<span class="text-emerald-600 font-extrabold">${val.toLocaleString()}</span>` 
-                        : `<span class="text-slate-300">-</span>`;
-                    dailyCellsHtml += `<td class="border-r border-slate-200/60 dark:border-white/5 p-1.5 text-center font-mono text-[10px]">${cellContent}</td>`;
+                    const cellDate = dates[dIdx];
+                    const cellKey = `${item.id}_${cellDate}`;
+                    
+                    let cellContent = '';
+                    let tdClass = 'border-r border-slate-200/60 dark:border-white/5 p-1.5 text-center font-mono text-[10px] align-middle';
+                    let tdAttributes = '';
+
+                    if (val > 0) {
+                        cellContent = `<span class="text-emerald-600 dark:text-emerald-400 font-extrabold">${val.toLocaleString()}</span>`;
+                    } else {
+                        if (quickAbsenMode) {
+                            const isSelected = quickAbsenSelected.has(cellKey);
+                            if (isSelected) {
+                                cellContent = `
+                                    <div class="w-full py-1 px-1 rounded-md bg-emerald-500 text-white font-extrabold text-[9px] flex items-center justify-center gap-0.5 shadow-sm">
+                                        <i class="fas fa-check text-[8px]"></i>
+                                        <span>Pilih</span>
+                                    </div>`;
+                                tdClass += ' bg-emerald-50/90 dark:bg-emerald-500/15 cursor-pointer select-none ring-2 ring-inset ring-emerald-500/40';
+                            } else {
+                                cellContent = `
+                                    <div class="w-full py-1 px-1 rounded-md border border-dashed border-blue-400/70 hover:border-blue-500 hover:bg-blue-500/10 text-blue-500 dark:text-blue-400 font-bold text-[9px] flex items-center justify-center gap-0.5 transition-all active:scale-95">
+                                        <i class="fas fa-plus text-[7px] opacity-70"></i>
+                                        <span>Absen</span>
+                                    </div>`;
+                                tdClass += ' cursor-pointer hover:bg-blue-50/50 dark:hover:bg-white/[0.02] select-none';
+                            }
+                            tdAttributes = `onclick="toggleQuickAbsenCell('${item.id}', '${item.name.replace(/'/g, "\\'")}', '${item.division}', '${cellDate}')" title="Klik untuk pilih absen masuk+keluar (${item.name} - ${cellDate})"`;
+                        } else {
+                            cellContent = `<span class="text-slate-300 dark:text-slate-600">-</span>`;
+                        }
+                    }
+                    dailyCellsHtml += `<td class="${tdClass}" ${tdAttributes}>${cellContent}</td>`;
                 }
 
                 // Divisi cell is only rendered on the first row of the group with rowspan=K
@@ -1798,6 +1827,212 @@ function renderSalary(filteredLogsOverride) {
             <td class="p-2.5 text-right font-extrabold text-blue-700 bg-blue-100/50">Rp ${grandTotalUpah.toLocaleString()}</td>
         </tr>`;
     }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// QUICK ABSEN MATRIX SYSTEM (Absen Cepat dari Tabel Kehadiran)
+// ═══════════════════════════════════════════════════════════════
+let quickAbsenMode = false;
+const quickAbsenSelected = new Map(); // key: `${empId}_${date}`, value: { empId, name, division, date }
+
+function toggleQuickAbsenMode(forceState) {
+    if (typeof forceState === 'boolean') {
+        quickAbsenMode = forceState;
+    } else {
+        quickAbsenMode = !quickAbsenMode;
+    }
+
+    const btnToggle = document.getElementById('btnQuickAbsenToggle');
+    const labelToggle = document.getElementById('btnQuickAbsenToggleLabel');
+    const actionBar = document.getElementById('quickAbsenActionBar');
+
+    if (quickAbsenMode) {
+        if (btnToggle) {
+            btnToggle.className = 'flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all active:scale-95';
+        }
+        if (labelToggle) labelToggle.textContent = 'Batal Pilih';
+        if (actionBar) actionBar.classList.remove('hidden');
+    } else {
+        quickAbsenSelected.clear();
+        if (btnToggle) {
+            btnToggle.className = 'flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all active:scale-95';
+        }
+        if (labelToggle) labelToggle.textContent = 'Pilih Absen (Choose)';
+        if (actionBar) actionBar.classList.add('hidden');
+    }
+
+    updateQuickAbsenUI();
+    renderSalary();
+}
+
+function toggleQuickAbsenCell(empId, name, division, date) {
+    if (!quickAbsenMode) return;
+    const key = `${empId}_${date}`;
+    if (quickAbsenSelected.has(key)) {
+        quickAbsenSelected.delete(key);
+    } else {
+        quickAbsenSelected.set(key, { empId, name, division, date });
+    }
+    updateQuickAbsenUI();
+    renderSalary();
+}
+
+function quickAbsenSelectAllVisibleEmpty() {
+    if (!quickAbsenMode) return;
+    const tglMulai = document.getElementById('salaryTglMulai')?.value || '';
+    if (!tglMulai) return;
+
+    const start = new Date(tglMulai + 'T00:00:00');
+    const dates = [];
+    for (let i = 0; i < 14; i++) {
+        const curr = new Date(start);
+        curr.setDate(start.getDate() + i);
+        dates.push(getLocalDateStr(curr));
+    }
+
+    const useLogs = logs || [];
+    const ALLOWED_ROLES = ['employee', 'admin_warehouse'];
+
+    employees.filter(e => ALLOWED_ROLES.includes(e.role || 'employee')).forEach(emp => {
+        dates.forEach(d => {
+            const hasAttendance = useLogs.some(l => String(l.empId) === String(emp.id) && l.date === d && l.type === 'IN');
+            if (!hasAttendance) {
+                const key = `${emp.id}_${d}`;
+                quickAbsenSelected.set(key, { empId: emp.id, name: emp.name, division: emp.division, date: d });
+            }
+        });
+    });
+
+    updateQuickAbsenUI();
+    renderSalary();
+}
+
+function quickAbsenClearSelection() {
+    quickAbsenSelected.clear();
+    updateQuickAbsenUI();
+    renderSalary();
+}
+
+function updateQuickAbsenUI() {
+    const count = quickAbsenSelected.size;
+    const countBadge = document.getElementById('quickAbsenCountBadge');
+    const btnSubmit = document.getElementById('btnQuickAbsenSubmit');
+    const submitLabel = document.getElementById('btnQuickAbsenSubmitLabel');
+
+    if (countBadge) {
+        countBadge.textContent = `${count} dipilih`;
+    }
+    if (btnSubmit) {
+        btnSubmit.disabled = count === 0;
+    }
+    if (submitLabel) {
+        submitLabel.textContent = count > 0 ? `Absenkan Masuk + Keluar (${count})` : 'Absenkan Masuk + Keluar';
+    }
+}
+
+async function quickAbsenSubmitSelected() {
+    if (quickAbsenSelected.size === 0) {
+        showToast('Pilih minimal 1 kotak kosong untuk diabsenkan.', 'error');
+        return;
+    }
+
+    const entries = [];
+    const defaultLoc = `${GEOFENCE_CONFIG.lat}, ${GEOFENCE_CONFIG.lng}`;
+
+    quickAbsenSelected.forEach(item => {
+        const divConfig = appConfig.shifts[item.division] || null;
+        const defaultIn = divConfig ? (typeof divConfig === 'string' ? '08:00' : divConfig.start) : '08:00';
+        const defaultOut = divConfig ? (typeof divConfig === 'string' ? '17:00' : divConfig.end) : '17:00';
+
+        // Entry Masuk (IN)
+        entries.push({
+            empId: item.empId,
+            name: item.name,
+            type: 'IN',
+            date: item.date,
+            forcedTime: defaultIn,
+            location: defaultLoc,
+            image: '',
+            overtime: 0,
+            lateMinutes: 0,
+            note: 'Absen Cepat Matrix',
+            absentBy: 'Admin'
+        });
+
+        // Entry Pulang (OUT)
+        entries.push({
+            empId: item.empId,
+            name: item.name,
+            type: 'OUT',
+            date: item.date,
+            forcedTime: defaultOut,
+            location: defaultLoc,
+            image: '',
+            overtime: 0,
+            lateMinutes: 0,
+            note: 'Absen Cepat Matrix',
+            absentBy: 'Admin'
+        });
+    });
+
+    const totalKotak = quickAbsenSelected.size;
+    const confirmMsg = `Kirim absensi MASUK + KELUAR untuk ${totalKotak} kotak tanggal terpilih (${entries.length} entri total)?\nJam masuk & pulang akan otomatis menggunakan shift divisi masing-masing.`;
+
+    if (!confirm(confirmMsg)) return;
+
+    // Visual progress indicator
+    const btnSubmit = document.getElementById('btnQuickAbsenSubmit');
+    const origHTML = btnSubmit ? btnSubmit.innerHTML : '';
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...';
+    }
+
+    const inlineProgress = document.getElementById('quickAbsenProgress');
+    const progressBar = document.getElementById('quickAbsenProgressBar');
+    const progressCount = document.getElementById('quickAbsenProgressCount');
+    const progressDetail = document.getElementById('quickAbsenProgressDetail');
+
+    if (inlineProgress) inlineProgress.classList.remove('hidden');
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+        const currentIdx = i + 1;
+        const pct = Math.round((currentIdx / entries.length) * 100);
+
+        if (progressBar) progressBar.style.width = pct + '%';
+        if (progressCount) progressCount.textContent = `${currentIdx}/${entries.length}`;
+        if (progressDetail) progressDetail.textContent = `Mengirim ${entry.name} (${entry.type}) - ${entry.date}...`;
+
+        const ok = await maSendOneEntry(entry);
+        if (ok) {
+            successCount++;
+        } else {
+            failCount++;
+        }
+    }
+
+    if (inlineProgress) inlineProgress.classList.add('hidden');
+    if (btnSubmit) {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = origHTML;
+    }
+
+    if (failCount === 0) {
+        showToast(`${totalKotak} tanggal berhasil diabsenkan (Masuk + Pulang)!`, 'success');
+    } else {
+        showToast(`${successCount} entri berhasil, ${failCount} gagal.`, 'warning');
+    }
+
+    // Matikan mode pilih dan bersihkan seleksi
+    toggleQuickAbsenMode(false);
+
+    // Refresh data dan tabel
+    await fetchData(false);
+    renderSalary();
 }
 
 // --- CETAK REKAP GAJI (Print with Kop Surat) ---
@@ -8015,8 +8250,8 @@ function volUpdateAbsenButton(empId) {
     const label = document.getElementById('volBtnAbsenLabel');
     if (!btn) return;
 
-    // Alihkan indikator menyinkronkan LANGSUNG ke TOMBOL UTAMA (Pill Translucent Glass Style)
-    if (_volFetching || !_volDataReady) {
+    // Tombol HANYA terkunci jika benar-benar belum ada data sama sekali di memori/cache
+    if (!_volDataReady && (!employees || employees.length === 0)) {
         btn.disabled = true;
         btn.className = 'w-full max-w-xs mx-auto py-4 px-8 rounded-full bg-slate-900/40 dark:bg-slate-900/60 backdrop-blur-xl text-amber-300 font-bold text-sm shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_20px_rgba(0,0,0,0.3)] opacity-85 cursor-not-allowed pointer-events-none flex items-center justify-center gap-2.5 border border-amber-500/20 border-t-white/30';
         if (label) label.innerText = 'Menyinkronkan Data...';
@@ -9589,7 +9824,6 @@ function volCancelFlow() {
 // --- Fungsi untuk masuk mode Absen Mandiri dari halaman login (tanpa akun) ---
 async function startAbsenMandiri() {
     volGuestMode = true;
-    _volDataReady = false; // Reset ketersediaan data agar tombol langsung terkunci di awal
 
     // Tentukan sumber pemanggilan (apakah dari loginView atau landingView)
     const loginView = document.getElementById('loginView');
@@ -9599,8 +9833,13 @@ async function startAbsenMandiri() {
         volSourceView = 'landing';
     }
 
-    // 1. Coba muat cache lokal secara instan (0ms wait)
-    _loadFromCache();
+    // 1. Muat cache lokal secara instan (0ms wait)
+    const hasCache = _loadFromCache();
+    if ((hasCache && employees && employees.length > 0) || (employees && employees.length > 0)) {
+        _volDataReady = true; // Siap langsung tanpa muter!
+    } else {
+        _volDataReady = false;
+    }
 
     // 2. Animasi transisi smooth LANGSUNG masuk ke volunteerLayout
     const activeView = volSourceView === 'login' ? document.getElementById('loginView') : document.getElementById('landingView');

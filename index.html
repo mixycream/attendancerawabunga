@@ -2268,17 +2268,60 @@
                             </div>
 
                             <!-- TABLE REKAP HARIAN (2 MINGGU) - Hanya tampil di Web, tidak ikut dicetak -->
-                            <div class="mt-8 no-print border-t border-slate-100 pt-6" id="dailySalarySection">
+                            <div class="mt-8 no-print border-t border-slate-100 dark:border-white/5 pt-6" id="dailySalarySection">
                                 <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
-                                    <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-                                        <i class="fas fa-table text-blue-600"></i> Detail Kehadiran Harian & Potongan (2 Minggu)
+                                    <h4 class="font-bold text-slate-800 dark:text-white text-sm flex items-center gap-2">
+                                        <i class="fas fa-table text-blue-600 dark:text-blue-400"></i> Detail Kehadiran Harian &amp; Potongan (2 Minggu)
                                         <span class="bg-blue-100 dark:bg-blue-500/10 text-blue-800 dark:text-blue-400 border border-blue-100/50 dark:border-blue-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Hanya Tampil di Web</span>
                                     </h4>
-                                    <button onclick="downloadDirectRekapExcel()" id="btnDownloadDirectExcel" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all">
-                                        <i class="fas fa-file-excel"></i> Download Excel
-                                    </button>
+                                    <div class="flex items-center gap-2">
+                                        <button onclick="toggleQuickAbsenMode()" id="btnQuickAbsenToggle" type="button" class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all active:scale-95">
+                                            <i class="fas fa-check-square"></i>
+                                            <span id="btnQuickAbsenToggleLabel">Pilih Absen (Choose)</span>
+                                        </button>
+                                        <button onclick="downloadDirectRekapExcel()" id="btnDownloadDirectExcel" type="button" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all active:scale-95">
+                                            <i class="fas fa-file-excel"></i> Download Excel
+                                        </button>
+                                    </div>
                                 </div>
-                                <div class="overflow-x-auto border border-slate-200 rounded-xl">
+
+                                <!-- QUICK ABSEN ACTION BAR (Muncul saat mode Choose aktif) -->
+                                <div id="quickAbsenActionBar" class="hidden mb-3 p-3 rounded-xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-emerald-500/10 border border-blue-500/30 flex items-center justify-between flex-wrap gap-3">
+                                    <div class="flex items-center gap-2 text-xs">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse shrink-0"></span>
+                                        <span class="font-bold text-slate-700 dark:text-slate-200">Mode Pilih Absen:</span>
+                                        <span class="text-slate-500 dark:text-slate-400 hidden sm:inline">Klik kotak kosong pada tanggal yang ingin diabsenkan.</span>
+                                        <span id="quickAbsenCountBadge" class="ml-1 px-2.5 py-0.5 rounded-full bg-blue-600 text-white text-[11px] font-extrabold shadow-sm">0 dipilih</span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <button onclick="quickAbsenSelectAllVisibleEmpty()" type="button" class="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-lg transition-all active:scale-95">
+                                            <i class="fas fa-tasks mr-1"></i> Pilih Semua Kosong
+                                        </button>
+                                        <button onclick="quickAbsenClearSelection()" type="button" class="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-lg transition-all active:scale-95">
+                                            Reset
+                                        </button>
+                                        <button id="btnQuickAbsenSubmit" onclick="quickAbsenSubmitSelected()" type="button" disabled class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-extrabold rounded-lg shadow-md shadow-emerald-600/20 transition-all active:scale-95 flex items-center gap-1.5">
+                                            <i class="fas fa-check-circle"></i>
+                                            <span id="btnQuickAbsenSubmitLabel">Absenkan Masuk + Keluar</span>
+                                        </button>
+                                    </div>
+
+                                    <!-- Progress Bar Inline Quick Absen -->
+                                    <div id="quickAbsenProgress" class="hidden w-full pt-2 mt-1 border-t border-blue-500/20">
+                                        <div class="flex justify-between items-center text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
+                                            <span id="quickAbsenProgressText" class="flex items-center gap-1.5">
+                                                <i class="fas fa-spinner fa-spin text-blue-500"></i>
+                                                <span id="quickAbsenProgressDetail">Mengirim data absensi...</span>
+                                            </span>
+                                            <span id="quickAbsenProgressCount" class="font-mono text-blue-600 dark:text-blue-400 font-bold">0/0</span>
+                                        </div>
+                                        <div class="w-full bg-slate-200 dark:bg-slate-700/60 rounded-full h-2 overflow-hidden">
+                                            <div id="quickAbsenProgressBar" class="bg-gradient-to-r from-blue-500 to-emerald-500 h-2 rounded-full transition-all duration-200" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="overflow-x-auto border border-slate-200 dark:border-white/5 rounded-xl">
                                     <table class="w-full text-xs text-left">
                                         <thead id="dailySalaryTableHeader" class="bg-slate-100/50 dark:bg-slate-950/40 text-slate-700 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-white/5">
                                         </thead>
