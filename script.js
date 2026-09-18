@@ -120,7 +120,10 @@ async function sbFetchData() {
 
     const cfgObj = { shifts: shiftsObj };
     (cfgRes.data || []).forEach(c => {
-        cfgObj[c.key] = c.value;
+        let val = c.value;
+        if (val === 'true') val = true;
+        else if (val === 'false') val = false;
+        cfgObj[c.key] = val;
     });
 
     return {
@@ -979,7 +982,7 @@ function _loadFromCache() {
         employees = emps;
         logs = lgArr;
         if (cfg) {
-            Object.assign(appConfig, cfg);
+            _applyConfigData(cfg);
         }
         return true;
     } catch(e) { return false; }
@@ -3330,7 +3333,7 @@ async function submitAbsence(type) {
     const empLogs = logs.filter(l => l.empId === scannedEmployee.id).sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
     const lastLog = empLogs.length > 0 ? empLogs[0] : null;
 
-    const bothDisabled = appConfig.disableBoth || (appConfig.disableLate && appConfig.disableEarly);
+    const bothDisabled = appConfig.disableBoth === true || (appConfig.disableLate === true && appConfig.disableEarly === true);
     if(type === 'IN') {
         if(lastLog && lastLog.type === 'IN' && !appConfig.allowMultipleIn) {
             showToast("Sesi Masih Aktif!", "error");
@@ -3373,7 +3376,7 @@ async function submitAbsence(type) {
 
             if (diffMin > 0) {
                 lateMinutes = diffMin;
-                const lateDisabled = appConfig.disableBoth || appConfig.disableLate;
+                const lateDisabled = appConfig.disableBoth === true || appConfig.disableLate === true;
                 if (lateDisabled) {
                     // Admin matikan fitur telat — bebas masuk
                     const reason = appConfig.disableBoth ? appConfig.disableBothReason : appConfig.disableLateReason;
@@ -3426,7 +3429,7 @@ async function submitAbsence(type) {
              if (shiftEndH < shiftStartH) expectedEnd.setDate(expectedEnd.getDate() + 1);
              const diffMs = now - expectedEnd;
              const diffMinutes = Math.floor(diffMs / 60000);
-             const earlyDisabled = appConfig.disableBoth || appConfig.disableEarly;
+             const earlyDisabled = appConfig.disableBoth === true || appConfig.disableEarly === true;
              if (earlyDisabled) {
                  if (diffMinutes < 0) {
                      const reason = appConfig.disableBoth ? appConfig.disableBothReason : appConfig.disableEarlyReason;
@@ -4359,7 +4362,7 @@ function checkClockInAllowed(empId, division) {
     const isOvernight = shiftEndMin <= shiftStartMin;
 
     // Jika fitur telat+pulang awal dimatikan → bebas masuk kapan saja, bypass window 30 menit
-    const lateDisabled = appConfig.disableBoth || appConfig.disableLate;
+    const lateDisabled = appConfig.disableBoth === true || appConfig.disableLate === true;
     if (lateDisabled) return { allowed: true };
 
     // Cek 2: Apakah dalam window 30 menit sebelum shift?
@@ -8944,7 +8947,7 @@ async function _volPreFetch() {
         if (data.status === 'success') {
             if (data.employees && data.employees.length > 0) employees = data.employees;
             if (data.logs)                                    logs     = data.logs;
-            if (data.config)                                  Object.assign(appConfig, data.config);
+            if (data.config)                                  _applyConfigData(data.config);
             _saveToCache(employees, logs, appConfig);
             _volDataReady = true;
             _volFetchedAt = Date.now();
@@ -9398,7 +9401,7 @@ async function _volSyncRealtime(cleanData, parsedObj) {
         if (data && data.status === 'success') {
             if (data.employees && data.employees.length > 0) employees = data.employees;
             if (data.logs) logs = data.logs;
-            if (data.config) Object.assign(appConfig, data.config);
+            if (data.config) _applyConfigData(data.config);
             _saveToCache(employees, logs, appConfig);
             _volDataReady = true;
             _volFetchedAt = Date.now();
@@ -10148,7 +10151,7 @@ async function volSubmitSelfie() {
         .sort((a, b) => parseLogDateTime(b.date, b.time) - parseLogDateTime(a.date, a.time));
     const lastLog = empLogs.length > 0 ? empLogs[0] : null;
 
-    const volBothDisabled = appConfig.disableBoth || (appConfig.disableLate && appConfig.disableEarly);
+    const volBothDisabled = appConfig.disableBoth === true || (appConfig.disableLate === true && appConfig.disableEarly === true);
     if (volAbsenType === 'IN') {
         if (lastLog && lastLog.type === 'IN' && !appConfig.allowMultipleIn) {
             showToast('Sesi masih aktif! Kamu sudah Absen Masuk.', 'error');
@@ -10197,7 +10200,7 @@ async function volSubmitSelfie() {
             const diffMin = Math.floor(diffMs / 60000);
             if (diffMin > 0) {
                 lateMinutes = diffMin;
-                const lateDisabled = appConfig.disableBoth || appConfig.disableLate;
+                const lateDisabled = appConfig.disableBoth === true || appConfig.disableLate === true;
                 if (lateDisabled) {
                     // Admin matikan fitur telat — bebas masuk
                     const reason = appConfig.disableBoth ? appConfig.disableBothReason : appConfig.disableLateReason;
@@ -10249,7 +10252,7 @@ async function volSubmitSelfie() {
             if (shiftEndH < shiftStartH) expectedEnd.setDate(expectedEnd.getDate() + 1);
             const diffMs = now - expectedEnd;
             const diffMinutes = Math.floor(diffMs / 60000);
-            const earlyDisabled = appConfig.disableBoth || appConfig.disableEarly;
+            const earlyDisabled = appConfig.disableBoth === true || appConfig.disableEarly === true;
             if (earlyDisabled) {
                 if (diffMinutes < 0) {
                     const reason = appConfig.disableBoth ? appConfig.disableBothReason : appConfig.disableEarlyReason;
