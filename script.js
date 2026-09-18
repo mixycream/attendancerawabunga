@@ -10,33 +10,63 @@ try {
     console.error("Supabase client init error:", e);
 }
 
-// Helper Upload Foto ke Supabase Storage (50ms)
-async function sbUploadPhoto(base64Str, fileName) {
-    if (!sbClient || !base64Str || !base64Str.startsWith('data:image')) return base64Str || '';
+// Helper Normalisasi Format Waktu (HH:mm:ss) & Date Parser
+function getCleanTimeStr(d = new Date()) {
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    const ss = String(d.getSeconds()).padStart(2, '0');
+    return `${hh}:${mm}:${ss}`;
+}
+
+function parseLogDateTime(dateStr, timeStr) {
+    if (!dateStr) return new Date();
+    const cleanTime = String(timeStr || '00:00:00').replace(/\./g, ':').trim();
+    const parts = cleanTime.split(':');
+    const hh = (parts[0] || '00').padStart(2, '0');
+    const mm = (parts[1] || '00').padStart(2, '0');
+    const ss = (parts[2] || '00').padStart(2, '0');
+    const d = new Date(`${dateStr}T${hh}:${mm}:${ss}`);
+    return isNaN(d.getTime()) ? new Date() : d;
+}
+
+// Helper Upload Foto ke Supabase Storage (~50ms)
+async function sbUploadPhoto(photoData, fileName) {
+    if (!sbClient || !photoData) return '';
+    // Jika sudah berupa URL storage/web, langsung kembalikan
+    if (photoData.startsWith('http://') || photoData.startsWith('https://')) return photoData;
+
     try {
-        const parts = base64Str.split(',');
-        const mime = (parts[0].match(/:(.*?);/) || [])[1] || 'image/jpeg';
-        const bstr = atob(parts[1]);
+        let mime = 'image/jpeg';
+        let base64 = photoData;
+
+        if (photoData.startsWith('data:')) {
+            const parts = photoData.split(',');
+            mime = (parts[0].match(/:(.*?);/) || [])[1] || 'image/jpeg';
+            base64 = parts[1] || '';
+        }
+
+        const bstr = atob(base64);
         let n = bstr.length;
         const u8arr = new Uint8Array(n);
         while (n--) {
             u8arr[n] = bstr.charCodeAt(n);
         }
         const blob = new Blob([u8arr], { type: mime });
-        const cleanName = `${Date.now()}_${(fileName || 'foto').replace(/[^a-zA-Z0-9_-]/g, '_')}.jpg`;
+        const ext = mime.includes('png') ? 'png' : 'jpg';
+        const cleanName = `${Date.now()}_${(fileName || 'foto').replace(/[^a-zA-Z0-9_-]/g, '_')}.${ext}`;
         
         const { data, error } = await sbClient.storage
             .from('attendance-photos')
             .upload(cleanName, blob, { contentType: mime, upsert: true });
 
         if (error) {
-            console.warn('Storage upload warning:', error);
+            console.warn('Supabase storage upload error:', error);
             return '';
         }
         const { data: pubUrl } = sbClient.storage
             .from('attendance-photos')
             .getPublicUrl(cleanName);
-        return pubUrl.publicUrl || '';
+        return pubUrl?.publicUrl || '';
     } catch(err) {
         console.warn('sbUploadPhoto error:', err);
         return '';
@@ -71,7 +101,7 @@ async function sbFetchData() {
         id: l.id,
         row: l.id,
         date: l.date,
-        time: l.time,
+        time: String(l.time || '').replace(/\./g, ':'),
         empId: l.emp_id,
         name: l.name,
         type: l.type,
@@ -120,14 +150,15 @@ async function sbPostData(action, payload) {
     if (action === 'attendance') {
         const rawImg = payload.photo || payload.image || '';
         let photoUrl = '';
-        if (rawImg && rawImg.startsWith('data:image')) {
-            photoUrl = await sbUploadPhoto(rawImg, `${payload.name}_${payload.date}_${payload.type}`);
-        } else if (rawImg) {
-            photoUrl = rawImg;
+        if (rawImg) {
+            photoUrl = await sbUploadPhoto(rawImg, `${payload.name}_${payload.date || 'today'}_${payload.type}`);
         }
 
         const dateStr = payload.date || getLocalDateStr(new Date());
-        let timeStr = payload.forcedTime ? payload.forcedTime + ':00' : (payload.time || new Date().toLocaleTimeString('id-ID', { hour12: false }));
+        let timeStr = payload.forcedTime 
+            ? (payload.forcedTime.length === 5 ? payload.forcedTime + ':00' : payload.forcedTime)
+            : (payload.time || getCleanTimeStr());
+        timeStr = String(timeStr).replace(/\./g, ':');
         if (timeStr.length === 5) timeStr += ':00';
 
         if (payload.absentBy === 'Admin') {
@@ -4654,23 +4685,21 @@ async function autoClockOutForgotten() {
     try {
         const now = new Date();
         const stuckWorkers = employees.map(emp => {
-            // Semua divisi termasuk security berlaku auto-out
-            // (tidak ada skip berdasarkan role)
-
+            // Urutkan log dari yang terbaru menggunakan parser tanggal & waktu yang valid
             const empLogs = logs
                 .filter(l => String(l.empId) === String(emp.id))
-                .sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+                .sort((a, b) => parseLogDateTime(b.date, b.time) - parseLogDateTime(a.date, a.time));
             if (empLogs.length === 0 || empLogs[0].type !== 'IN') return null;
 
             const lastIN = empLogs[0];
-            const inTime = new Date(lastIN.date + 'T' + lastIN.time);
+            const inTime = parseLogDateTime(lastIN.date, lastIN.time);
             const inTimeMs = inTime.getTime();
+            if (isNaN(inTimeMs)) return null;
 
             // Cek jika sudah ada log OUT apapun SETELAH lastIN
-            // Mencegah double-OUT di semua skenario
             const hasAnyOUTAfterIN = empLogs.some(l =>
                 l.type === 'OUT' &&
-                new Date(l.date + 'T' + l.time).getTime() > inTimeMs
+                parseLogDateTime(l.date, l.time).getTime() > inTimeMs
             );
             if (hasAnyOUTAfterIN) return null;
 
@@ -4685,23 +4714,40 @@ async function autoClockOutForgotten() {
                 } catch(e) { divConfig = {}; }
                 const conf = divConfig[emp.division];
                 if (!conf) {
-                    // Divisi belum dikonfigurasi — fallback ke global
                     autoOutMs = (parseInt(appConfig.autoOutGlobalMinutes) || 240) * 60 * 1000;
                 } else if (conf.enabled === false || conf.enabled === 'false') {
-                    // Auto-out dinonaktifkan untuk divisi ini
-                    return null;
+                    return null; // Auto-out dinonaktifkan untuk divisi ini
                 } else {
                     autoOutMs = (parseInt(conf.minutes) || 240) * 60 * 1000;
                 }
             }
 
-            // Guard minimum: jangan auto-out jika belum lewat minimal 30 menit dari IN
-            if (now - inTime < 30 * 60 * 1000) return null;
+            // Dapatkan jadwal shift divisi untuk menghitung Jam Pulang
+            const divShift = appConfig.shifts ? appConfig.shifts[emp.division] : null;
+            let expectedShiftEnd = null;
 
-            // Hitung waktu auto-out: jam masuk + autoOutMs
-            const autoOutAt = new Date(inTimeMs + autoOutMs);
+            if (divShift && divShift.end) {
+                const [endH, endM] = divShift.end.split(':').map(Number);
+                const [startH, startM] = (divShift.start || '08:00').split(':').map(Number);
+                
+                expectedShiftEnd = new Date(inTime);
+                expectedShiftEnd.setHours(endH, endM, 0, 0);
+                
+                // Shift lewat tengah malam (contoh: 17:00 - 01:00)
+                if (endH < startH || (endH === startH && endM < startM)) {
+                    expectedShiftEnd.setDate(expectedShiftEnd.getDate() + 1);
+                } else if (expectedShiftEnd.getTime() < inTimeMs) {
+                    expectedShiftEnd.setDate(expectedShiftEnd.getDate() + 1);
+                }
+            } else {
+                // Default shift standar 8 jam jika jadwal divisi belum diisi
+                expectedShiftEnd = new Date(inTimeMs + 8 * 60 * 60 * 1000);
+            }
 
-            // Belum waktunya auto-out
+            // Waktu auto-out adalah: Jam Pulang Shift + autoOutMs toleransi (menit setelah jam pulang)
+            const autoOutAt = new Date(expectedShiftEnd.getTime() + autoOutMs);
+
+            // Belum waktunya auto-out (jam kerja masih berjalan atau belum lewat batas toleransi)
             if (now.getTime() < autoOutAt.getTime()) return null;
 
             // Jika waktu auto-out sudah lewat lebih dari 7 hari, abaikan (data stale)
@@ -4709,7 +4755,7 @@ async function autoClockOutForgotten() {
 
             // Tentukan outDate dan outTime dari autoOutAt
             const outDate = getLocalDateStr(autoOutAt);
-            const outTime = `${String(autoOutAt.getHours()).padStart(2, '0')}:${String(autoOutAt.getMinutes()).padStart(2, '0')}`;
+            const outTime = `${String(autoOutAt.getHours()).padStart(2, '0')}:${String(autoOutAt.getMinutes()).padStart(2, '0')}:00`;
 
             return { emp, lastIN, outDate, outTime, diffHours: (now - inTime) / 3600000 };
         }).filter(Boolean);
@@ -4722,7 +4768,6 @@ async function autoClockOutForgotten() {
         for (const { emp, lastIN, outDate, outTime } of stuckWorkers) {
             const location = lastIN.location || '';
 
-            // BUG FIX #3: Double-check di sisi client sebelum kirim ke server
             const alreadyOut = logs.some(l =>
                 String(l.empId) === String(emp.id) &&
                 l.date === outDate &&
@@ -4734,39 +4779,41 @@ async function autoClockOutForgotten() {
             }
 
             try {
-                // BUG FIX #2: Pakai callApi langsung (bukan postData) agar tidak
-                // memicu fetchData() → autoClockOutForgotten() loop rekursif
-                const form = new URLSearchParams();
                 const payload = {
                     action: 'attendance',
                     empId: emp.id,
                     name: emp.name,
                     type: 'OUT',
                     date: outDate,
-                    forcedTime: outTime,
+                    forcedTime: outTime.substring(0, 5),
                     overtime: 0,
                     location,
                     note: '[Auto OUT - Lupa Absen]',
                     absentBy: 'Admin'
                 };
-                Object.keys(payload).forEach(k => form.append(k, String(payload[k])));
-                const res = await fetch(SCRIPT_URL, { method: 'POST', body: form });
-                const json = await res.json().catch(() => null);
 
-                if (json && json.status === 'success') {
-                    // Tambahkan ke logs lokal agar cek duplikat berikutnya akurat
+                let ok = false;
+                if (sbClient) {
+                    const sbRes = await sbPostData('attendance', payload);
+                    if (sbRes && sbRes.status === 'success') ok = true;
+                    else if (sbRes && sbRes.duplicate) console.log(`[AutoClockOut] ${emp.name} sudah OUT di Supabase.`);
+                } else {
+                    const form = new URLSearchParams();
+                    Object.keys(payload).forEach(k => form.append(k, String(payload[k])));
+                    const res = await fetch(SCRIPT_URL, { method: 'POST', body: form });
+                    const json = await res.json().catch(() => null);
+                    if (json && json.status === 'success') ok = true;
+                }
+
+                if (ok) {
                     logs.push({
                         empId: emp.id, name: emp.name, type: 'OUT',
-                        date: outDate, time: outTime + ':00',
+                        date: outDate, time: outTime,
                         overtime: 0, lateMinutes: 0,
                         location, note: '[Auto OUT - Lupa Absen]', absentBy: 'Admin'
                     });
                     successCount++;
                     console.log(`[AutoClockOut] ${emp.name} auto OUT at ${outTime} on ${outDate}`);
-                } else if (json && json.duplicate) {
-                    console.log(`[AutoClockOut] ${emp.name} sudah OUT di server, skip.`);
-                } else {
-                    console.warn(`[AutoClockOut] Server tolak untuk ${emp.name}:`, json);
                 }
             } catch (err) {
                 console.error(`[AutoClockOut] Failed for ${emp.name}:`, err);
@@ -4778,7 +4825,6 @@ async function autoClockOutForgotten() {
             showToast(`${successCount} relawan di-auto OUT (lupa absen)`, 'info');
         }
     } finally {
-        // Selalu reset flag meski terjadi error
         isAutoClockOutRunning = false;
     }
 }
@@ -8537,7 +8583,7 @@ function volStartClockAndGPS() {
 function volDetectAbsenType(empId) {
     if (!empId) return 'IN';
     const empLogs = logs.filter(l => String(l.empId) === String(empId))
-        .sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+        .sort((a, b) => parseLogDateTime(b.date, b.time) - parseLogDateTime(a.date, a.time));
     const lastLog = empLogs.length > 0 ? empLogs[0] : null;
     if (!lastLog || lastLog.type === 'OUT' || lastLog.type === 'REJECTED') return 'IN';
     return 'OUT'; // Sudah Clock In, berarti selanjutnya Clock Out
@@ -8597,7 +8643,7 @@ function volUpdateTodayStatus() {
     if (!empId) { infoEl.innerHTML = 'Belum absen hari ini.'; volUpdateAbsenButton(null); return; }
     const today = getLocalDateStr();
     const myLogs = logs.filter(l => String(l.empId) === String(empId) && l.date === today)
-        .sort((a, b) => new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time));
+        .sort((a, b) => parseLogDateTime(a.date, a.time) - parseLogDateTime(b.date, b.time));
 
     if (myLogs.length === 0) {
         infoEl.innerHTML = 'Belum absen hari ini.';
@@ -9864,7 +9910,7 @@ async function volSubmitSelfie() {
 
     // Validate attendance logic
     const empLogs = logs.filter(l => String(l.empId) === String(volScannedEmployee.id))
-        .sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+        .sort((a, b) => parseLogDateTime(b.date, b.time) - parseLogDateTime(a.date, a.time));
     const lastLog = empLogs.length > 0 ? empLogs[0] : null;
 
     const volBothDisabled = appConfig.disableBoth || (appConfig.disableLate && appConfig.disableEarly);
