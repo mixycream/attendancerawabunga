@@ -1417,12 +1417,16 @@ function refreshUI() {
         }
 
         let photoHtml = '<div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-300 mx-auto"><i class="fas fa-user"></i></div>';
-        if(l.photo && (l.photo.startsWith('http') || l.photo.startsWith('data:image'))) {
-             const photoUrl = convertDriveUrl(l.photo);
+        if (l.photo && typeof l.photo === 'string' && l.photo.trim().length > 10) {
+             let photoUrl = l.photo.trim();
+             if (!photoUrl.startsWith('http') && !photoUrl.startsWith('data:')) {
+                 photoUrl = 'data:image/jpeg;base64,' + photoUrl;
+             } else {
+                 photoUrl = convertDriveUrl(photoUrl);
+             }
              const safeUrl = photoUrl.replace(/'/g, "\\'");
-             // Add crossOrigin and better error handling; fallback to user icon SVG
              const fallbackSvg = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%22 y=%2260%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2240%22%3E%26%238287;%3C/text%3E%3C/svg%3E';
-             photoHtml = `<img src="${photoUrl}" onclick="previewImage('${safeUrl}'); event.stopPropagation();" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md cursor-pointer hover:scale-110 transition mx-auto" crossorigin="anonymous" onerror="console.warn('Photo failed to load:', this.src); this.onerror=null; this.src='${fallbackSvg}';">`;
+             photoHtml = `<img src="${photoUrl}" onclick="previewImage('${safeUrl}'); event.stopPropagation();" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md cursor-pointer hover:scale-110 transition mx-auto" onerror="console.warn('Photo failed to load:', this.src); this.onerror=null; this.src='${fallbackSvg}';">`;
         }
         
         // Pemisahan Kolom & Format
