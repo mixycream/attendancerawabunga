@@ -196,6 +196,22 @@ async function sbPostData(action, payload) {
     }
 
     if (action === 'addEmployee') {
+        // Jika oldId ada dan berbeda dengan id baru (ganti divisi), migrasikan log absensi & hapus record lama agar tidak duplikat
+        if (payload.oldId && String(payload.oldId) !== String(payload.id)) {
+            try {
+                await sbClient.from('attendance_logs')
+                    .update({ emp_id: String(payload.id), name: payload.name })
+                    .eq('emp_id', String(payload.oldId));
+            } catch(logErr) {
+                console.warn('Error updating attendance_logs emp_id on division change:', logErr);
+            }
+            try {
+                await sbClient.from('employees').delete().eq('id', String(payload.oldId));
+            } catch(delErr) {
+                console.warn('Error deleting old employee record on division change:', delErr);
+            }
+        }
+
         const { error } = await sbClient.from('employees').upsert([{
             id: payload.id,
             name: payload.name,
@@ -213,6 +229,24 @@ async function sbPostData(action, payload) {
     if (action === 'deleteEmployee') {
         const { error } = await sbClient.from('employees').delete().eq('id', payload.id);
         if (error) throw error;
+        return { status: 'success' };
+    }
+
+    if (action === 'deleteDivision') {
+        const { error: shiftErr } = await sbClient.from('shifts').delete().eq('division', payload.division);
+        if (shiftErr) console.warn('Error deleting shift from Supabase:', shiftErr);
+        if (payload.divisionRolePresets) {
+            await sbClient.from('app_config').upsert([{
+                key: 'divisionRolePresets',
+                value: JSON.stringify(payload.divisionRolePresets)
+            }], { onConflict: 'key' });
+        }
+        if (payload.autoOutDivisionsConfig) {
+            await sbClient.from('app_config').upsert([{
+                key: 'autoOutDivisionsConfig',
+                value: typeof payload.autoOutDivisionsConfig === 'object' ? JSON.stringify(payload.autoOutDivisionsConfig) : String(payload.autoOutDivisionsConfig)
+            }], { onConflict: 'key' });
+        }
         return { status: 'success' };
     }
 
@@ -1443,16 +1477,26 @@ function refreshUI() {
         // Pemisahan Kolom & Format
         let overtimeInfo = (l.overtime > 0 && !appConfig.hideOvertime) ? `<span class="text-amber-600 font-bold">${l.overtime} Jam</span>` : '-';
         
+        const isManualBadge = (l.note && l.note.includes('[Absen Manual]')) || l.isManual;
+        const cleanNote = (l.note || '').replace(/\[Absen Manual\]/g, '').trim();
+
         let lateInfo = '-';
-        if (l.note && l.note.includes('[Bebas')) {
-            lateInfo = `<div class="text-[9px] text-blue-500 font-semibold mt-1 italic max-w-[120px] truncate" title="${l.note}"><i class="fas fa-shield-alt mr-0.5"></i>${l.note.includes('[Bebas Masuk]') ? 'Bebas Masuk' : 'Bebas Pulang'}</div>`;
+        if (cleanNote && cleanNote.includes('[Bebas')) {
+            lateInfo = `<div class="text-[9px] text-blue-500 font-semibold mt-1 italic max-w-[120px] truncate" title="${cleanNote}"><i class="fas fa-shield-alt mr-0.5"></i>${cleanNote.includes('[Bebas Masuk]') ? 'Bebas Masuk' : 'Bebas Pulang'}</div>`;
         } else if (l.lateMinutes > 0) {
             lateInfo = `<span class="text-red-500 font-bold text-[10px]">${formatDuration(l.lateMinutes)}</span>`;
-            if (l.note) {
-                lateInfo += `<div class="text-[9px] text-slate-400 mt-1 italic max-w-[100px] truncate" title="${l.note}">"${l.note}"</div>`;
+            if (cleanNote) {
+                lateInfo += `<div class="text-[9px] text-slate-400 mt-1 italic max-w-[100px] truncate" title="${cleanNote}">"${cleanNote}"</div>`;
             }
-        } else if (l.type === 'OUT' && l.note && l.note.includes('[Pulang')) {
-            lateInfo = `<div class="text-[9px] text-amber-500 mt-1 italic max-w-[100px] truncate" title="${l.note}">"${l.note}"</div>`;
+        } else if (l.type === 'OUT' && cleanNote && cleanNote.includes('[Pulang')) {
+            lateInfo = `<div class="text-[9px] text-amber-500 mt-1 italic max-w-[100px] truncate" title="${cleanNote}">"${cleanNote}"</div>`;
+        } else if (cleanNote) {
+            lateInfo = `<div class="text-[9px] text-slate-400 mt-1 italic max-w-[110px] truncate" title="${cleanNote}">"${cleanNote}"</div>`;
+        }
+
+        let absentByHtml = `<span class="text-xs font-semibold text-slate-600 dark:text-slate-300">${l.absentBy || '-'}</span>`;
+        if (isManualBadge) {
+            absentByHtml += `<div class="mt-1"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 shadow-xs"><i class="fas fa-user-edit text-[8px]"></i> Absen Manual</span></div>`;
         }
             
         return `
@@ -1469,7 +1513,7 @@ function refreshUI() {
             <td class="px-6 py-4 text-center">${lateInfo}</td>
             <td class="px-6 py-4 text-center">${overtimeInfo}</td>
             <td class="px-6 py-4 text-center">${actionArea}</td>
-            <td class="px-6 py-4 text-center text-xs font-semibold text-slate-600">${l.absentBy || '-'}</td>
+            <td class="px-6 py-4 text-center">${absentByHtml}</td>
         </tr>`;
     }).join('');
     }
@@ -2267,6 +2311,227 @@ function updateQuickAbsenUI() {
     }
 }
 
+// --- WATERMARK GENERATOR FOR MANUAL ATTENDANCE ---
+function generateWatermarkedPhoto(imageSource, options = {}) {
+    return new Promise((resolve) => {
+        if (!imageSource) return resolve('');
+
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = 280;
+                canvas.height = 373;
+                const ctx = canvas.getContext('2d');
+
+                // Draw image with cover behavior
+                const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+                const sw = canvas.width / scale;
+                const sh = canvas.height / scale;
+                const sx = (img.width - sw) / 2;
+                const sy = (img.height - sh) / 2;
+
+                ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+
+                // Watermark bar at bottom
+                const barH = 50;
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+                ctx.fillRect(0, canvas.height - barH, canvas.width, barH);
+
+                // Time and date
+                let timeStr = options.time || '08:00:00';
+                if (timeStr.length === 5) timeStr += ':00';
+                let dateStr = options.date || '';
+                if (dateStr && dateStr.includes('-')) {
+                    const parts = dateStr.split('-');
+                    if (parts.length === 3) dateStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                } else if (!dateStr) {
+                    const now = new Date();
+                    dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                }
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 11px monospace';
+                ctx.fillText(`${timeStr}  ${dateStr}`, 10, canvas.height - barH + 18);
+
+                // Location
+                const lat = typeof options.lat === 'number' ? options.lat : parseFloat(options.lat || (appConfig?.geofenceLat || GEOFENCE_CONFIG.lat));
+                const lng = typeof options.lng === 'number' ? options.lng : parseFloat(options.lng || (appConfig?.geofenceLng || GEOFENCE_CONFIG.lng));
+                const alt = options.alt || 15;
+                ctx.font = '10px monospace';
+                ctx.fillText(`Lat: ${lat.toFixed(5)}  Lon: ${lng.toFixed(5)}  Alt: ${alt}m`, 10, canvas.height - barH + 34);
+
+                // Status text (IN / OUT)
+                const isOut = options.type === 'OUT';
+                ctx.font = 'bold 10px monospace';
+                ctx.fillStyle = isOut ? '#60a5fa' : '#34d399';
+                ctx.fillText(isOut ? 'ABSEN PULANG' : 'ABSEN MASUK', canvas.width - 110, canvas.height - barH + 18);
+
+                // Optional badge Absen Manual in watermark
+                if (options.includeManualBadge) {
+                    ctx.font = 'bold 9px monospace';
+                    ctx.fillStyle = '#fbbf24';
+                    ctx.fillText('ABSEN MANUAL', canvas.width - 110, canvas.height - barH + 34);
+                }
+
+                const base64 = canvas.toDataURL('image/jpeg', 0.55).split(',')[1];
+                resolve(base64);
+            } catch (err) {
+                console.error("Watermark generation error:", err);
+                resolve('');
+            }
+        };
+
+        img.onerror = (err) => {
+            console.error("Failed to load source image for watermark:", err);
+            resolve('');
+        };
+
+        if (typeof imageSource === 'string') {
+            if (imageSource.startsWith('data:') || imageSource.startsWith('http')) {
+                img.src = imageSource;
+            } else {
+                img.src = 'data:image/jpeg;base64,' + imageSource;
+            }
+        } else {
+            resolve('');
+        }
+    });
+}
+
+// Map of volunteer photos for Manual Attendance: { [empId]: { in: 'data:...', out: 'data:...' } }
+let maVolunteerPhotos = {};
+
+function maRenderPhotoList() {
+    const container = document.getElementById('maPhotoVolList');
+    if (!container) return;
+
+    if (maSelectedEmployees.size === 0) {
+        container.innerHTML = `
+            <div class="py-6 text-center text-slate-400 dark:text-slate-500 text-xs">
+                <i class="fas fa-users text-2xl mb-2 text-slate-300 dark:text-slate-600 block"></i>
+                Belum ada relawan yang dipilih. Pilih relawan di Step 1 untuk mengunggah foto.
+            </div>`;
+        return;
+    }
+
+    const type = document.getElementById('maType')?.value || 'BOTH';
+    const empIds = [...maSelectedEmployees];
+    const selectedEmps = employees.filter(e => empIds.includes(e.id));
+
+    let html = '';
+    selectedEmps.forEach(emp => {
+        const photos = maVolunteerPhotos[emp.id] || {};
+        const safeId = String(emp.id).replace(/'/g, "\\'");
+
+        // Avatar
+        let avatarHtml = `<div class="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold flex items-center justify-center text-xs shrink-0">${emp.name.charAt(0)}</div>`;
+        if (emp.photo && emp.photo.length > 20) {
+            const photoSrc = convertDriveUrl(emp.photo);
+            avatarHtml = `<img src="${photoSrc}" class="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-700 shrink-0" onerror="this.outerHTML='<div class=\\'w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 text-xs\\'>${emp.name.charAt(0)}</div>'">`;
+        }
+
+        // Slot IN
+        const showIn = (type === 'IN' || type === 'BOTH');
+        const inPhoto = photos.in || null;
+        let inSlotHtml = '';
+        if (showIn) {
+            inSlotHtml = `
+            <div class="flex items-center gap-2 p-2 rounded-xl bg-slate-50/80 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800">
+                <span class="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-extrabold text-[10px] tracking-wide shrink-0">MASUK (IN)</span>
+                ${inPhoto ? `
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <img src="${inPhoto}" onclick="previewImage('${inPhoto.replace(/'/g, "\\'")}')" class="w-9 h-9 rounded-lg object-cover border border-emerald-300 shadow-xs cursor-pointer hover:scale-105 transition shrink-0" alt="Foto Masuk">
+                        <span class="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 truncate flex-1">Foto Terpasang</span>
+                        <button type="button" onclick="maClearVolunteerPhoto('${safeId}', 'in')" class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center transition shrink-0" title="Hapus Foto Masuk">
+                            <i class="fas fa-trash-alt text-[10px]"></i>
+                        </button>
+                    </div>
+                ` : `
+                    <div class="flex-1 flex items-center justify-end">
+                        <label class="cursor-pointer px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 shadow-xs active:scale-95">
+                            <i class="fas fa-camera text-emerald-500 text-xs"></i>
+                            <span>Upload Foto</span>
+                            <input type="file" accept="image/*" class="hidden" onchange="maHandleVolunteerPhotoUpload('${safeId}', 'in', this)">
+                        </label>
+                    </div>
+                `}
+            </div>`;
+        }
+
+        // Slot OUT
+        const showOut = (type === 'OUT' || type === 'BOTH');
+        const outPhoto = photos.out || null;
+        let outSlotHtml = '';
+        if (showOut) {
+            outSlotHtml = `
+            <div class="flex items-center gap-2 p-2 rounded-xl bg-slate-50/80 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800">
+                <span class="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 font-extrabold text-[10px] tracking-wide shrink-0">PULANG (OUT)</span>
+                ${outPhoto ? `
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <img src="${outPhoto}" onclick="previewImage('${outPhoto.replace(/'/g, "\\'")}')" class="w-9 h-9 rounded-lg object-cover border border-blue-300 shadow-xs cursor-pointer hover:scale-105 transition shrink-0" alt="Foto Pulang">
+                        <span class="text-[11px] font-semibold text-blue-600 dark:text-blue-400 truncate flex-1">Foto Terpasang</span>
+                        <button type="button" onclick="maClearVolunteerPhoto('${safeId}', 'out')" class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center transition shrink-0" title="Hapus Foto Pulang">
+                            <i class="fas fa-trash-alt text-[10px]"></i>
+                        </button>
+                    </div>
+                ` : `
+                    <div class="flex-1 flex items-center justify-end">
+                        <label class="cursor-pointer px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 shadow-xs active:scale-95">
+                            <i class="fas fa-camera text-blue-500 text-xs"></i>
+                            <span>Upload Foto</span>
+                            <input type="file" accept="image/*" class="hidden" onchange="maHandleVolunteerPhotoUpload('${safeId}', 'out', this)">
+                        </label>
+                    </div>
+                `}
+            </div>`;
+        }
+
+        html += `
+        <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+                ${avatarHtml}
+                <div class="min-w-0">
+                    <div class="font-bold text-xs text-slate-800 dark:text-slate-100 truncate">${emp.name}</div>
+                    <div class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">${emp.division || '-'} • <span class="font-mono">${emp.id}</span></div>
+                </div>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2 shrink-0 md:min-w-[320px] justify-end">
+                ${inSlotHtml}
+                ${outSlotHtml}
+            </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+function maHandleVolunteerPhotoUpload(empId, slotType, input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    if (!file.type.startsWith('image/')) {
+        showToast('Pilih file gambar valid (JPG, PNG).', 'error');
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        if (!maVolunteerPhotos[empId]) maVolunteerPhotos[empId] = {};
+        maVolunteerPhotos[empId][slotType] = e.target.result;
+        maRenderPhotoList();
+        showToast(`Foto ${slotType.toUpperCase()} berhasil dipilih.`, 'success');
+    };
+    reader.readAsDataURL(file);
+}
+
+function maClearVolunteerPhoto(empId, slotType) {
+    if (maVolunteerPhotos[empId] && maVolunteerPhotos[empId][slotType]) {
+        delete maVolunteerPhotos[empId][slotType];
+        maRenderPhotoList();
+    }
+}
+
 async function quickAbsenSubmitSelected() {
     if (quickAbsenSelected.size === 0) {
         showToast('Pilih minimal 1 kotak kosong untuk diabsenkan.', 'error');
@@ -2313,9 +2578,18 @@ async function quickAbsenSubmitSelected() {
     });
 
     const totalKotak = quickAbsenSelected.size;
-    const confirmMsg = `Kirim absensi MASUK + KELUAR untuk ${totalKotak} kotak tanggal terpilih (${entries.length} entri total)?\nJam masuk & pulang akan otomatis menggunakan shift divisi masing-masing.`;
+    const includeBadge = document.getElementById('quickAbsenBadgeCheck')?.checked ?? true;
 
-    if (!confirm(confirmMsg)) return;
+    const ok = await showCustomConfirm({
+        title: 'Kirim Absensi Cepat Matrix?',
+        message: `Kirim absensi MASUK + KELUAR untuk <b>${totalKotak}</b> kotak tanggal terpilih (<b>${entries.length}</b> entri total)?<br><span class="text-xs text-slate-500 dark:text-slate-400 mt-2 block">Jam masuk & pulang otomatis menggunakan shift divisi masing-masing.${includeBadge ? '<br><span class="text-amber-500 font-semibold"><i class="fas fa-certificate mr-1"></i> Sertakan badge "Absen Manual"</span>' : ''}</span>`,
+        icon: 'fa-calendar-check',
+        iconClass: 'bg-emerald-500/10 text-emerald-500 dark:bg-emerald-500/20 dark:text-emerald-400',
+        confirmText: 'Ya, Kirim Absen',
+        confirmClass: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30'
+    });
+
+    if (!ok) return;
 
     // Visual progress indicator
     const btnSubmit = document.getElementById('btnQuickAbsenSubmit');
@@ -2332,6 +2606,13 @@ async function quickAbsenSubmitSelected() {
 
     if (inlineProgress) inlineProgress.classList.remove('hidden');
 
+    if (includeBadge) {
+        for (let i = 0; i < entries.length; i++) {
+            entries[i].note = entries[i].note ? `${entries[i].note} [Absen Manual]` : '[Absen Manual]';
+            entries[i].isManual = true;
+        }
+    }
+
     let successCount = 0;
     let failCount = 0;
 
@@ -2344,8 +2625,8 @@ async function quickAbsenSubmitSelected() {
         if (progressCount) progressCount.textContent = `${currentIdx}/${entries.length}`;
         if (progressDetail) progressDetail.textContent = `Mengirim ${entry.name} (${entry.type}) - ${entry.date}...`;
 
-        const ok = await maSendOneEntry(entry);
-        if (ok) {
+        const okSend = await maSendOneEntry(entry);
+        if (okSend) {
             successCount++;
         } else {
             failCount++;
@@ -2364,7 +2645,8 @@ async function quickAbsenSubmitSelected() {
         showToast(`${successCount} entri berhasil, ${failCount} gagal.`, 'warning');
     }
 
-    // Matikan mode pilih dan bersihkan seleksi
+    // Bersihkan foto & reset mode pilih
+    clearQuickAbsenPhoto();
     toggleQuickAbsenMode(false);
 
     // Refresh data dan tabel
@@ -4058,15 +4340,83 @@ function openConfigModal() {
         const shiftData = appConfig.shifts[key] || { start: "00:00", end: "08:00" };
         const startVal = typeof shiftData === 'string' ? shiftData : shiftData.start; 
         const endVal = typeof shiftData === 'string' ? "00:00" : shiftData.end;
+        const safeKey = key.replace(/'/g, "\\'");
         list.innerHTML += `
-        <div class="grid grid-cols-12 gap-2 items-center bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-            <div class="col-span-4 text-xs font-bold text-slate-700 dark:text-slate-350">${key}</div>
-            <div class="col-span-4"><input type="text" inputmode="numeric" placeholder="HH:mm" maxlength="5" class="shift-start-input w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-bold text-emerald-600 focus:border-mbg-500 outline-none text-center" data-division="${key}" value="${startVal}" onchange="validateTimeInput(this); autoCalculateEndTime(this)"></div>
-            <div class="col-span-4"><input type="text" inputmode="numeric" placeholder="HH:mm" maxlength="5" class="shift-end-input w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-bold text-amber-600 focus:border-mbg-500 outline-none text-center" data-division="${key}" id="end-${key.replace(/\s/g, '-')}" value="${endVal}" onchange="validateTimeInput(this)"></div>
+        <div class="grid grid-cols-12 gap-2 items-center bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition">
+            <div class="col-span-4 text-xs font-bold text-slate-700 dark:text-slate-350 truncate" title="${key}">${key}</div>
+            <div class="col-span-3"><input type="text" inputmode="numeric" placeholder="HH:mm" maxlength="5" class="shift-start-input w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-bold text-emerald-600 focus:border-mbg-500 outline-none text-center" data-division="${key}" value="${startVal}" onchange="validateTimeInput(this); autoCalculateEndTime(this)"></div>
+            <div class="col-span-3"><input type="text" inputmode="numeric" placeholder="HH:mm" maxlength="5" class="shift-end-input w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-bold text-amber-600 focus:border-mbg-500 outline-none text-center" data-division="${key}" id="end-${key.replace(/\s/g, '-')}" value="${endVal}" onchange="validateTimeInput(this)"></div>
+            <div class="col-span-2 flex items-center justify-center">
+                <button type="button" onclick="deleteDivision('${safeKey}')" class="w-8 h-8 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 transition flex items-center justify-center shadow-sm active:scale-95" title="Hapus Divisi ${key}">
+                    <i class="fas fa-trash-alt text-xs"></i>
+                </button>
+            </div>
         </div>`;
     });
     document.getElementById('configModal').classList.remove('hidden');
     setTimeout(() => document.getElementById('configModal').classList.remove('opacity-0'), 10);
+}
+
+async function deleteDivision(divName) {
+    if (!divName) return;
+    
+    // Hitung relawan yang terdaftar di divisi ini
+    const assignedEmps = (employees || []).filter(e => e.division === divName);
+    const empCount = assignedEmps.length;
+    
+    const warnEmpMsg = empCount > 0
+        ? `<div class="mt-3 p-3 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-medium text-left leading-relaxed"><i class="fas fa-exclamation-triangle mr-1 text-amber-500"></i> Perhatian: Terdapat <strong>${empCount} relawan</strong> yang saat ini terdaftar di divisi "${divName}". Anda perlu memindahkan divisi relawan tersebut ke divisi lain setelah ini.</div>`
+        : '';
+
+    const ok = await showCustomConfirm({
+        title: 'Hapus Divisi?',
+        message: `Apakah Anda yakin ingin menghapus divisi <strong>"${divName}"</strong>? Jam kerja dan konfigurasi divisi ini akan dihapus dari sistem.${warnEmpMsg}`,
+        icon: 'fa-trash-alt',
+        iconClass: 'bg-rose-500/10 text-rose-500 dark:bg-rose-500/20 dark:text-rose-400',
+        confirmText: 'Ya, Hapus Divisi',
+        confirmClass: 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/30'
+    });
+    
+    if (!ok) return;
+
+    toggleLoader(true, `Menghapus Divisi ${divName}...`);
+
+    // Hapus dari shifts lokal
+    if (appConfig.shifts) delete appConfig.shifts[divName];
+    if (appConfig.divisionRolePresets) delete appConfig.divisionRolePresets[divName];
+    delete DIVISION_ROLE_PRESETS[divName];
+
+    // Hapus dari autoOutDivisionsConfig
+    let divConfig = {};
+    try {
+        divConfig = typeof appConfig.autoOutDivisionsConfig === 'string'
+            ? JSON.parse(appConfig.autoOutDivisionsConfig)
+            : (appConfig.autoOutDivisionsConfig || {});
+    } catch(e) {
+        divConfig = {};
+    }
+    delete divConfig[divName];
+    appConfig.autoOutDivisionsConfig = JSON.stringify(divConfig);
+
+    const payload = {
+        action: 'deleteDivision',
+        division: divName,
+        divisionRolePresets: appConfig.divisionRolePresets,
+        autoOutDivisionsConfig: appConfig.autoOutDivisionsConfig
+    };
+
+    const success = await postData('deleteDivision', payload);
+    toggleLoader(false);
+
+    if (success) {
+        showToast(`Divisi "${divName}" berhasil dihapus!`, "success");
+        updateDivisionSelects();
+        openConfigModal();
+        loadSettingsUI();
+        refreshUI();
+    } else {
+        showToast(`Gagal menghapus divisi "${divName}".`, "error");
+    }
 }
 
 function toggleDivisionForm(show) {
@@ -6151,15 +6501,19 @@ function maSelectAll() {
     const filter = document.getElementById('maSearchEmployee').value.toLowerCase();
     employees.filter(e => e.name.toLowerCase().includes(filter)).forEach(e => maSelectedEmployees.add(e.id));
     maRenderEmployeeList(filter);
+    maUpdateCount();
 }
 
 function maDeselectAll() {
     maSelectedEmployees.clear();
     maRenderEmployeeList(document.getElementById('maSearchEmployee').value);
+    maUpdateCount();
 }
 
 function maUpdateCount() {
-    document.getElementById('maSelectedCount').textContent = maSelectedEmployees.size + ' dipilih';
+    const countEl = document.getElementById('maSelectedCount');
+    if (countEl) countEl.textContent = maSelectedEmployees.size + ' dipilih';
+    maRenderPhotoList();
 }
 
 function maChangeMonthIn(delta) {
@@ -6290,6 +6644,7 @@ function maTypeChanged() {
         if (calIn) calIn.classList.add('hidden');
         if (calOut) calOut.classList.remove('hidden');
     }
+    maRenderPhotoList();
 }
 
 function maRenderHistory() {
@@ -6489,6 +6844,8 @@ async function maSendEntries(entries, startIndex = 0, successCount = 0, failCoun
     document.getElementById('maTimeIn').value = '';
     document.getElementById('maTimeOut').value = '';
     document.getElementById('maType').value = 'BOTH';
+    maVolunteerPhotos = {};
+    maRenderPhotoList();
     await fetchData(false);
     maInit();
     btn.disabled = false;
@@ -6543,6 +6900,11 @@ async function maSubmit() {
     const timeIn = document.getElementById('maTimeIn').value || '';
     const timeOut = document.getElementById('maTimeOut').value || '';
     const note = document.getElementById('maNote').value.trim();
+    const isBadgeChecked = document.getElementById('maBadgeCheck')?.checked ?? true;
+    const finalNote = isBadgeChecked
+        ? (note ? `${note} [Absen Manual]` : '[Absen Manual]')
+        : note;
+
     const empIds = [...maSelectedEmployees];
     const inDates = (type === 'IN' || type === 'BOTH') ? [...maSelectedDatesIn].sort() : [];
     const outDates = (type === 'OUT' || type === 'BOTH') ? [...maSelectedDatesOut].sort() : [];
@@ -6573,7 +6935,8 @@ async function maSubmit() {
                     empId: emp.id, name: emp.name, type: 'IN',
                     date: dateStr, forcedTime: timeIn || defaultIn,
                     location: defaultLoc, image: '', overtime: 0,
-                    lateMinutes: 0, note: note, absentBy: 'Admin'
+                    lateMinutes: 0, note: finalNote, isManual: isBadgeChecked,
+                    absentBy: 'Admin'
                 });
             }
         }
@@ -6592,7 +6955,8 @@ async function maSubmit() {
                     empId: emp.id, name: emp.name, type: 'OUT',
                     date: dateStr, forcedTime: timeOut || defaultOut,
                     location: defaultLoc, image: '', overtime: 0,
-                    lateMinutes: 0, note: note, absentBy: 'Admin'
+                    lateMinutes: 0, note: finalNote, isManual: isBadgeChecked,
+                    absentBy: 'Admin'
                 });
             }
         }
@@ -6603,8 +6967,37 @@ async function maSubmit() {
         return;
     }
 
+    // Process photo watermark per volunteer & per slot (IN / OUT)
+    const hasAnyPhoto = Object.keys(maVolunteerPhotos).some(id => 
+        (maVolunteerPhotos[id] && (maVolunteerPhotos[id].in || maVolunteerPhotos[id].out))
+    );
+
+    if (hasAnyPhoto) {
+        toggleLoader(true, 'Menyiapkan watermark foto relawan...');
+        for (let i = 0; i < entries.length; i++) {
+            const entry = entries[i];
+            const slot = entry.type.toLowerCase(); // 'in' or 'out'
+            const rawPhoto = maVolunteerPhotos[entry.empId]?.[slot];
+
+            if (rawPhoto) {
+                const watermarked = await generateWatermarkedPhoto(rawPhoto, {
+                    time: entry.forcedTime,
+                    date: entry.date,
+                    type: entry.type,
+                    lat: GEOFENCE_CONFIG.lat,
+                    lng: GEOFENCE_CONFIG.lng,
+                    includeManualBadge: isBadgeChecked
+                });
+                if (watermarked) entry.image = watermarked;
+            }
+        }
+        toggleLoader(false);
+    }
+
     const typeLabel = type === 'BOTH' ? 'IN + OUT' : type;
     let msg = `Kirim ${entries.length} entri absen ${typeLabel} untuk ${empIds.length} relawan?`;
+    if (hasAnyPhoto) msg += ' (Foto per relawan terlampir)';
+    if (isBadgeChecked) msg += ' [Badge Manual aktif]';
     
     // Update skipped container in modal
     const skippedList = document.getElementById('confirmMaSkippedList');
@@ -8601,21 +8994,25 @@ function submitEditEmployee(e) {
         });
     }
 
-    const empIndex = employees.findIndex(e => e.id === editingEmployeeId);
-    if (empIndex !== -1) {
-        // Replace with new employee details including the new ID
-        employees[empIndex] = { ...employees[empIndex], ...payload };
-        // Clean up temporary oldId from the local object
-        delete employees[empIndex].oldId;
-        
-        // Optimistically set the local image if a new one was uploaded
-        if (editEmpPhotoBase64) {
-            employees[empIndex].photo = "data:image/jpeg;base64," + editEmpPhotoBase64;
+    let updatedEmpObj = { ...(oldEmp || {}), ...payload };
+    delete updatedEmpObj.oldId;
+    if (editEmpPhotoBase64) {
+        updatedEmpObj.photo = "data:image/jpeg;base64," + editEmpPhotoBase64;
+    }
+
+    if (oldId && oldId !== finalId) {
+        employees = employees.filter(e => String(e.id) !== String(oldId) && String(e.id) !== String(finalId));
+        employees.push(updatedEmpObj);
+    } else {
+        const empIndex = employees.findIndex(e => e.id === editingEmployeeId);
+        if (empIndex !== -1) {
+            employees[empIndex] = updatedEmpObj;
+        } else {
+            employees.push(updatedEmpObj);
         }
-        
-        refreshUI();
     }
     
+    refreshUI();
     closeEditEmployee();
     postData('addEmployee', payload);
 }

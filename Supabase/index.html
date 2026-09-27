@@ -513,8 +513,9 @@
             </div>
             <div class="px-6 py-3 clay-inset grid grid-cols-12 gap-2 text-[10px] font-bold uppercase text-slate-500 mx-6 rounded-xl">
                 <div class="col-span-4">Divisi</div>
-                <div class="col-span-4 text-center">Jam Masuk (24H)</div>
-                <div class="col-span-4 text-center">Jam Pulang (24H)</div>
+                <div class="col-span-3 text-center">Jam Masuk (24H)</div>
+                <div class="col-span-3 text-center">Jam Pulang (24H)</div>
+                <div class="col-span-2 text-center">Aksi</div>
             </div>
             <div class="p-6 overflow-y-auto space-y-3 flex-1" id="configList">
                 <!-- Diisi oleh JS -->
@@ -1803,6 +1804,9 @@
                                     </div>
                                     <div class="flex items-center justify-between mt-6">
                                         <span class="text-xs font-bold text-blue-100/90 flex items-center gap-1.5">Mulai Buat <i class="fas fa-arrow-right text-[10px] transition-transform group-hover:translate-x-1"></i></span>
+                                        <button type="button" onclick="event.stopPropagation(); openConfigModal();" class="px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold backdrop-blur-sm transition flex items-center gap-1.5 shadow-sm active:scale-95" title="Kelola dan Hapus Divisi">
+                                            <i class="fas fa-cog"></i> Kelola / Hapus Divisi
+                                        </button>
                                     </div>
                                 </div>
                                 
@@ -2085,6 +2089,37 @@
                                 <textarea id="maNote" rows="2" class="input-field resize-none" placeholder="Contoh: Relawan lupa scan QR, izin terlambat input..."></textarea>
                             </div>
 
+                            <!-- Step 5: Foto & Badge Manual (Opsional) -->
+                            <div class="mb-6 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">5. Upload Foto Absen per Relawan &amp; Badge (Opsional)</label>
+                                        <p class="text-[11px] text-slate-400 mt-0.5">Upload foto absen untuk masing-masing relawan yang dipilih. Watermark jam divisi &amp; lokasi kantor otomatis disematkan.</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Container List Relawan Terpilih untuk Upload Foto -->
+                                <div class="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20">
+                                    <div id="maPhotoVolList" class="space-y-2.5 max-h-96 overflow-y-auto pr-1">
+                                        <div class="py-6 text-center text-slate-400 dark:text-slate-500 text-xs">
+                                            <i class="fas fa-users text-2xl mb-2 text-slate-300 dark:text-slate-600 block"></i>
+                                            Belum ada relawan yang dipilih. Pilih relawan di Step 1 untuk mengunggah foto.
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/60 transition select-none">
+                                    <input type="checkbox" id="maBadgeCheck" class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:border-slate-700 cursor-pointer" checked>
+                                    <div class="flex-1">
+                                        <span class="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                                            <i class="fas fa-certificate text-amber-500 text-xs"></i>
+                                            Tampilkan Badge "Absen Manual"
+                                        </span>
+                                        <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Cantumkan tanda Absen Manual pada watermark foto dan badge di tabel log absensi</p>
+                                    </div>
+                                </label>
+                            </div>
+
                             <!-- Checkpoint Resume Banner -->
                             <div id="maResumeBanner" class="hidden mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200 shadow-sm">
                                 <div class="flex items-start gap-3">
@@ -2328,7 +2363,13 @@
                                         <span class="text-slate-500 dark:text-slate-400 hidden sm:inline">Klik kotak kosong pada tanggal yang ingin diabsenkan.</span>
                                         <span id="quickAbsenCountBadge" class="ml-1 px-2.5 py-0.5 rounded-full bg-blue-600 text-white text-[11px] font-extrabold shadow-sm">0 dipilih</span>
                                     </div>
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <label class="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-200 font-semibold cursor-pointer bg-white/70 dark:bg-slate-800/70 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 select-none hover:bg-white dark:hover:bg-slate-800 transition">
+                                            <input type="checkbox" id="quickAbsenBadgeCheck" class="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer" checked>
+                                            <i class="fas fa-certificate text-amber-500 text-xs"></i>
+                                            <span>Badge Manual</span>
+                                        </label>
+
                                         <button onclick="quickAbsenSelectAllVisibleEmpty()" type="button" class="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-lg transition-all active:scale-95">
                                             <i class="fas fa-tasks mr-1"></i> Pilih Semua Kosong
                                         </button>
@@ -4475,6 +4516,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <!-- MAIN SCRIPT -->
-    <script src="script.js?v=3.0.8"></script>
+    <script src="script.js?v=3.1.0"></script>
 </body>
 </html>

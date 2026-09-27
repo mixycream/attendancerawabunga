@@ -219,6 +219,7 @@ function doPost(e) {
     else if (data.action === "loadNutritionistPlan") return loadNutritionistPlan(data);
     else if (data.action === "deleteNutritionistPlan") return deleteNutritionistPlan(data);
     else if (data.action === "saveFeatureSettings") return saveFeatureSettings(data);
+    else if (data.action === "deleteDivision") return deleteDivisionGAS(data);
     else if (data.action === "cleanDuplicateLogs") return cleanDuplicateLogs();
     return response({ status: "success" });
   } catch (err) {
@@ -873,6 +874,52 @@ function saveConfig(data) {
     scriptProps.setProperty('autoOutDivisionsConfig', config);
   }
   return response({ status: "success" });
+}
+
+function deleteDivisionGAS(data) {
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var divName = String(data.division || '').trim();
+    if (!divName) return response({ status: "error", message: "Division name required" });
+
+    // Delete division from Shifts sheet or Config
+    var shiftSheet = ss.getSheetByName("Shifts");
+    if (shiftSheet && shiftSheet.getLastRow() > 1) {
+      var rows = shiftSheet.getRange(2, 1, shiftSheet.getLastRow() - 1, 1).getValues();
+      for (var i = rows.length - 1; i >= 0; i--) {
+        if (String(rows[i][0] || '').trim().toLowerCase() === divName.toLowerCase()) {
+          shiftSheet.deleteRow(i + 2);
+        }
+      }
+    }
+
+    var configSheet = ss.getSheetByName("Config");
+    if (configSheet && configSheet.getLastRow() > 1) {
+      var cRows = configSheet.getRange(2, 1, configSheet.getLastRow() - 1, 1).getValues();
+      for (var j = cRows.length - 1; j >= 0; j--) {
+        var k = String(cRows[j][0] || '').trim().toLowerCase();
+        if (k === divName.toLowerCase() || k === ('shift_' + divName).toLowerCase()) {
+          configSheet.deleteRow(j + 2);
+        }
+      }
+    }
+
+    var scriptProps = PropertiesService.getScriptProperties();
+    if (data.divisionRolePresets) {
+      var presets = data.divisionRolePresets;
+      if (typeof presets !== 'string') presets = JSON.stringify(presets);
+      scriptProps.setProperty('divisionRolePresets', presets);
+    }
+    if (data.autoOutDivisionsConfig) {
+      var autoCfg = data.autoOutDivisionsConfig;
+      if (typeof autoCfg !== 'string') autoCfg = JSON.stringify(autoCfg);
+      scriptProps.setProperty('autoOutDivisionsConfig', autoCfg);
+    }
+
+    return response({ status: "success" });
+  } catch (err) {
+    return response({ status: "error", message: err.toString() });
+  }
 }
 
 function saveFeatureSettings(data) {
