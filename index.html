@@ -503,25 +503,20 @@
 
     <!-- CONFIG MODAL -->
     <div id="configModal" class="fixed inset-0 z-[280] bg-slate-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
-        <div class="clay-modal w-full max-w-2xl overflow-hidden animate-zoom-in flex flex-col max-h-[90vh]">
-            <div class="p-6 border-b border-slate-100/50 clay-bg flex justify-between items-center sticky top-0">
+        <div class="clay-modal w-full max-w-3xl overflow-hidden animate-zoom-in flex flex-col max-h-[90vh]">
+            <div class="p-6 border-b border-slate-100/50 clay-bg flex justify-between items-center sticky top-0 z-10">
                 <div>
-                    <h3 class="font-bold text-lg text-slate-800">Pengaturan Jam Kerja</h3>
-                    <p class="text-xs text-slate-500">Setel jam masuk & pulang (Format 24 Jam)</p>
+                    <h3 class="font-bold text-lg text-slate-800">Pengaturan Jam & Jadwal Hari Kerja</h3>
+                    <p class="text-xs text-slate-500">Atur jam shift dan hari kerja per divisi (Format 24 Jam)</p>
                 </div>
                 <button onclick="closeConfigModal()" class="w-8 h-8 rounded-full bg-white text-slate-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition shadow-sm"><i class="fas fa-times"></i></button>
             </div>
-            <div class="px-6 py-3 clay-inset grid grid-cols-12 gap-2 text-[10px] font-bold uppercase text-slate-500 mx-6 rounded-xl">
-                <div class="col-span-4">Divisi</div>
-                <div class="col-span-3 text-center">Jam Masuk (24H)</div>
-                <div class="col-span-3 text-center">Jam Pulang (24H)</div>
-                <div class="col-span-2 text-center">Aksi</div>
-            </div>
-            <div class="p-6 overflow-y-auto space-y-3 flex-1" id="configList">
+            <div class="p-6 overflow-y-auto space-y-3.5 flex-1" id="configList">
                 <!-- Diisi oleh JS -->
             </div>
-            <div class="p-6 border-t border-slate-100/50 clay-bg">
-                <button onclick="saveShiftConfig()" class="w-full py-4 rounded-2xl clay-btn-primary text-white font-bold text-sm">Simpan Perubahan</button>
+            <div class="p-4 sm:p-5 border-t border-slate-100/50 clay-bg flex items-center justify-between gap-3">
+                <span class="text-xs text-slate-400 italic hidden sm:inline"><i class="fas fa-info-circle mr-1 text-blue-500"></i> Hari libur tidak dihitung tidak hadir/alpa.</span>
+                <button onclick="saveShiftConfig()" class="w-full sm:w-auto px-8 py-3.5 rounded-2xl clay-btn-primary text-white font-bold text-sm shadow-md active:scale-95 transition">Simpan Perubahan</button>
             </div>
         </div>
     </div>
@@ -1583,9 +1578,10 @@
                                             Belum Hadir <i class="fas fa-chevron-right text-[8px] opacity-50"></i>
                                         </div>
                                         <div class="text-3xl font-extrabold" id="statBelumHadir">0</div>
+                                        <div class="text-[9px] text-slate-300 font-medium mt-0.5" id="statBelumHadirSub">Masih ditunggu</div>
                                     </div>
-                                    <div class="mt-4 flex items-center justify-between">
-                                        <div class="text-[10px] opacity-80">Masih ditunggu</div>
+                                    <div class="mt-3 flex items-center justify-between">
+                                        <div class="text-[10px] opacity-80" id="statBelumHadirNote">Jadwal Aktif</div>
                                         <button onclick="showBelumHadirVolunteers(); event.stopPropagation();" class="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg backdrop-blur-sm transition active:scale-95 border border-white/10 flex items-center gap-2">
                                             <i class="fas fa-list-ul text-xs"></i> <span class="text-[10px] font-bold">Detail</span>
                                         </button>
@@ -1602,9 +1598,10 @@
                                             Tidak Hadir Hari Ini <i class="fas fa-chevron-right text-[8px] opacity-50"></i>
                                         </div>
                                         <div class="text-3xl font-extrabold" id="statAbsent">0</div>
+                                        <div class="text-[9px] text-rose-200 font-medium mt-0.5" id="statAbsentSub">Lewat batas toleransi</div>
                                     </div>
-                                    <div class="mt-4 flex items-center justify-between">
-                                        <div class="text-[10px] opacity-80">Lewat batas toleransi</div>
+                                    <div class="mt-3 flex items-center justify-between">
+                                        <div class="text-[10px] opacity-80" id="statAbsentNote">Alpa / Bolos</div>
                                         <button onclick="showAbsentVolunteers(); event.stopPropagation();" class="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg backdrop-blur-sm transition active:scale-95 border border-white/10 flex items-center gap-2">
                                             <i class="fas fa-list-ul text-xs"></i> <span class="text-[10px] font-bold">Detail</span>
                                         </button>
@@ -1834,6 +1831,24 @@
                                                         <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Jam Pulang (24H)</label>
                                                         <input type="text" id="divFormEnd" inputmode="numeric" placeholder="16:00" maxlength="5" class="input-field text-center font-bold text-amber-600" required onchange="validateTimeInput(this)">
                                                     </div>
+                                                </div>
+
+                                                <!-- Setting Hari / Jadwal Kerja Divisi -->
+                                                <div class="space-y-1.5">
+                                                    <div class="flex items-center justify-between">
+                                                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1 flex items-center gap-1">
+                                                            <i class="fas fa-calendar-week text-blue-500"></i> Hari Kerja Aktif
+                                                        </label>
+                                                        <div class="flex items-center gap-1">
+                                                            <button type="button" onclick="setDivFormSchedulePreset('sen-sab')" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition" title="Senin sampai Sabtu">Sen-Sab</button>
+                                                            <button type="button" onclick="setDivFormSchedulePreset('min-kam')" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition" title="Minggu sampai Kamis">Min-Kam</button>
+                                                            <button type="button" onclick="setDivFormSchedulePreset('all')" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition" title="Setiap Hari">Semua</button>
+                                                        </div>
+                                                    </div>
+                                                    <div class="grid grid-cols-7 gap-1" id="divFormDayChips">
+                                                        <!-- Generated by JS: Sen, Sel, Rab, Kam, Jum, Sab, Min -->
+                                                    </div>
+                                                    <p class="text-[9px] text-slate-400 dark:text-slate-500 italic leading-snug">Hari di luar pilihan ini otomatis libur (tidak dihitung alpa/tidak hadir).</p>
                                                 </div>
                                                 
                                                 <div class="space-y-1">

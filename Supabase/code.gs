@@ -405,6 +405,7 @@ function getData() {
     autoOutGlobalMinutes: scriptProps.getProperty('autoOutGlobalMinutes') || "240",
     autoOutDivisionsConfig: scriptProps.getProperty('autoOutDivisionsConfig') || "{}",
     divisionRolePresets: scriptProps.getProperty('divisionRolePresets') || "{}",
+    divisionSchedules: scriptProps.getProperty('divisionSchedules') || "{}",
     customRoles: scriptProps.getProperty('customRoles') || "{}"
   };
 
@@ -873,6 +874,11 @@ function saveConfig(data) {
     if (typeof config !== 'string') config = JSON.stringify(config);
     scriptProps.setProperty('autoOutDivisionsConfig', config);
   }
+  if (data.divisionSchedules) {
+    var sched = data.divisionSchedules;
+    if (typeof sched !== 'string') sched = JSON.stringify(sched);
+    scriptProps.setProperty('divisionSchedules', sched);
+  }
   return response({ status: "success" });
 }
 
@@ -914,6 +920,11 @@ function deleteDivisionGAS(data) {
       var autoCfg = data.autoOutDivisionsConfig;
       if (typeof autoCfg !== 'string') autoCfg = JSON.stringify(autoCfg);
       scriptProps.setProperty('autoOutDivisionsConfig', autoCfg);
+    }
+    if (data.divisionSchedules) {
+      var sched = data.divisionSchedules;
+      if (typeof sched !== 'string') sched = JSON.stringify(sched);
+      scriptProps.setProperty('divisionSchedules', sched);
     }
 
     return response({ status: "success" });
