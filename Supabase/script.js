@@ -5162,61 +5162,109 @@ async function executeCleanDuplicateLogs() {
     }, 80);
 
     try {
-        const form = new URLSearchParams();
-        form.append('action', 'cleanDuplicateLogs');
-        const res = await fetch(SCRIPT_URL, { method: 'POST', body: form });
-        const json = await res.json().catch(() => null);
+        let deleted = 0;
+
+        if (sbClient) {
+            // --- SUPABASE DUPLICATE CLEANING ---
+            // 1. Ambil data attendance_logs terurut ID ascending (entri paling awal tercatat dipertahankan)
+            const { data: sbLogs, error: fetchErr } = await sbClient
+                .from('attendance_logs')
+                .select('id, emp_id, date, type')
+                .order('id', { ascending: true });
+
+            if (fetchErr) throw fetchErr;
+
+            const seen = {};
+            const toDeleteIds = [];
+
+            (sbLogs || []).forEach(l => {
+                const empId = String(l.emp_id || '').trim();
+                const d = String(l.date || '').trim();
+                const t = String(l.type || '').trim();
+                if (!empId || !d || !t) return;
+
+                const key = `${empId}|${d}|${t}`;
+                if (seen[key]) {
+                    toDeleteIds.push(l.id);
+                } else {
+                    seen[key] = true;
+                }
+            });
+
+            if (toDeleteIds.length > 0) {
+                // Hapus duplikat secara batch (maks 50 per batch)
+                for (let i = 0; i < toDeleteIds.length; i += 50) {
+                    const chunk = toDeleteIds.slice(i, i + 50);
+                    const { error: delErr } = await sbClient
+                        .from('attendance_logs')
+                        .delete()
+                        .in('id', chunk);
+                    if (delErr) console.warn("Supabase batch delete error:", delErr);
+                }
+                deleted = toDeleteIds.length;
+            }
+
+            // Sync Spreadsheet di background bila URL tersedia
+            try {
+                const form = new URLSearchParams();
+                form.append('action', 'cleanDuplicateLogs');
+                fetch(SCRIPT_URL, { method: 'POST', body: form }).catch(() => {});
+            } catch(e) {}
+
+        } else {
+            // --- GAS SPREADSHEET DUPLICATE CLEANING ---
+            const form = new URLSearchParams();
+            form.append('action', 'cleanDuplicateLogs');
+            const res = await fetch(SCRIPT_URL, { method: 'POST', body: form });
+            const json = await res.json().catch(() => null);
+            if (json && json.status === 'success') {
+                deleted = json.deleted || 0;
+            } else {
+                throw new Error(json?.message || 'Respons server tidak valid');
+            }
+        }
 
         clearInterval(scanAnim);
 
-        if (json && json.status === 'success') {
-            const deleted = json.deleted || 0;
+        // Step 1 done
+        _cleanDupMarkStepDone('stepScan');
+        _cleanDupSetProgress(total, total, `Pemindaian selesai. Ditemukan ${deleted} duplikat.`);
+        await new Promise(r => setTimeout(r, 400));
 
-            // Step 1 done
-            _cleanDupMarkStepDone('stepScan');
-            _cleanDupSetProgress(total, total, `Pemindaian selesai. Ditemukan ${deleted} duplikat.`);
-            await new Promise(r => setTimeout(r, 400));
+        // Step 2: delete
+        _cleanDupActivateStep('stepDelete');
+        document.getElementById('cleanDupSubtitle').textContent = deleted > 0 ? `Menghapus ${deleted} baris duplikat...` : 'Tidak ada yang perlu dihapus.';
+        await new Promise(r => setTimeout(r, deleted > 0 ? 600 : 300));
+        _cleanDupMarkStepDone('stepDelete');
+        await new Promise(r => setTimeout(r, 300));
 
-            // Step 2: delete
-            _cleanDupActivateStep('stepDelete');
-            document.getElementById('cleanDupSubtitle').textContent = deleted > 0 ? `Menghapus ${deleted} baris duplikat...` : 'Tidak ada yang perlu dihapus.';
-            await new Promise(r => setTimeout(r, deleted > 0 ? 600 : 300));
-            _cleanDupMarkStepDone('stepDelete');
-            await new Promise(r => setTimeout(r, 300));
+        // Step 3: sync
+        _cleanDupActivateStep('stepSync');
+        document.getElementById('cleanDupSubtitle').textContent = 'Menyinkronkan data dari server...';
+        await new Promise(r => setTimeout(r, 300));
 
-            // Step 3: sync
-            _cleanDupActivateStep('stepSync');
-            document.getElementById('cleanDupSubtitle').textContent = 'Menyinkronkan data dari server...';
-            await new Promise(r => setTimeout(r, 300));
+        // Fetch baru di background
+        await fetchData(false);
+        _cleanDupMarkStepDone('stepSync');
+        await new Promise(r => setTimeout(r, 300));
 
-            // Fetch baru di background — jangan tunggu lama
-            fetchData(false).catch(() => {});
-            await new Promise(r => setTimeout(r, 700));
-            _cleanDupMarkStepDone('stepSync');
-            await new Promise(r => setTimeout(r, 300));
+        // Tampilkan state sukses
+        document.getElementById('cleanDupScanning').classList.add('hidden');
+        document.getElementById('cleanDupSuccess').classList.remove('hidden');
+        document.getElementById('cleanDupTitle').textContent = 'Selesai!';
+        document.getElementById('cleanDupSubtitle').textContent = deleted > 0 ? `${deleted} duplikat berhasil dihapus` : 'Logs sudah bersih';
+        document.getElementById('cleanDupSuccessMsg').textContent = deleted > 0
+            ? `${deleted} baris duplikat dihapus dari database. Data asli (entri pertama) dipertahankan.`
+            : 'Tidak ada data duplikat — semua log absensi sudah bersih!';
 
-            // Tampilkan state sukses
-            document.getElementById('cleanDupScanning').classList.add('hidden');
-            document.getElementById('cleanDupSuccess').classList.remove('hidden');
-            document.getElementById('cleanDupTitle').textContent = 'Selesai!';
-            document.getElementById('cleanDupSubtitle').textContent = deleted > 0 ? `${deleted} duplikat berhasil dihapus` : 'Logs sudah bersih';
-            document.getElementById('cleanDupSuccessMsg').textContent = deleted > 0
-                ? `${deleted} baris duplikat dihapus dari Spreadsheet. Data dipertahankan dari entri pertama.`
-                : 'Tidak ada data duplikat — semua log absensi sudah bersih!';
-
-            if (deleted > 0) {
-                document.getElementById('cleanDupResultBadge').classList.remove('hidden');
-                document.getElementById('cleanDupResultCount').textContent = `${deleted} baris dihapus`;
-            }
-
-            // Update icon header ke centang hijau
-            document.getElementById('cleanDupIconWrap').className = 'w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 flex-shrink-0 transition-all duration-500';
-            document.getElementById('cleanDupIcon').className = 'fas fa-check text-sm';
-
-        } else {
-            clearInterval(scanAnim);
-            throw new Error(json?.message || 'Respons server tidak valid');
+        if (deleted > 0) {
+            document.getElementById('cleanDupResultBadge').classList.remove('hidden');
+            document.getElementById('cleanDupResultCount').textContent = `${deleted} baris dihapus`;
         }
+
+        // Update icon header ke centang hijau
+        document.getElementById('cleanDupIconWrap').className = 'w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 flex-shrink-0 transition-all duration-500';
+        document.getElementById('cleanDupIcon').className = 'fas fa-check text-sm';
 
     } catch (err) {
         clearInterval(scanAnim);
