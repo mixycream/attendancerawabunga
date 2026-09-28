@@ -1373,28 +1373,124 @@ html.dark table thead tr { background-color: rgba(9, 13, 22, 0.5) !important; }
 html.dark table tbody tr { background-color: rgba(255, 255, 255, 0.01) !important; }
 html.dark table tbody tr:hover { background-color: rgba(255, 255, 255, 0.02) !important; }
 
-/* Print Styles */
+/* ============================================= */
+/* PRINT STYLES — FORMAL, FIXED WHITE PAPER      */
+/* Dark/Light mode TIDAK mempengaruhi hasil cetak */
+/* ============================================= */
 @media print {
+    /* ---- Visibility Control ---- */
     .no-print { display: none !important; }
     .print-only { display: block !important; }
-    /* Class ini untuk hide section yang di-uncheck user — harus lebih kuat dari .print-only */
     .print-excluded { display: none !important; }
-    body { background-color: white; color: black; font-family: 'Segoe UI', Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    /* ---- Force White Paper & Black Text (dark mode proof) ---- */
+    *, *::before, *::after {
+        background-color: transparent !important;
+        color: #000 !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+    }
+    body {
+        background: #fff !important;
+        color: #000 !important;
+        font-family: 'Times New Roman', Times, Georgia, serif !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* ---- Layout: hide nav, show content ---- */
     #adminLayout { display: block !important; }
-    #sidebar, header { display: none !important; }
-    #mainContent { margin: 0 !important; padding: 0 !important; overflow: visible !important; }
-    #printAreaSalary { border: none !important; box-shadow: none !important; border-radius: 0 !important; padding: 0 !important; }
-    #printAreaSalary table { font-size: 8px; border-collapse: collapse; }
-    #printAreaSalary th, #printAreaSalary td { padding: 4px 3px !important; border: 1px solid #ccc !important; }
-    #kopSuratGaji img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    #printAreaPengumuman { border: none !important; box-shadow: none !important; border-radius: 0 !important; padding: 0 !important; }
-    #printAreaPengumuman table { font-size: 10px; }
-    #kopSuratPengumuman img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    #sidebar, header, .no-print,
+    #globalLoader, #toastContainer,
+    #cetakModal, #configModal, #editEmployeeModal,
+    #kopSettingModal, #activeWorkersModal {
+        display: none !important;
+    }
+    #mainContent {
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+    }
+
+    /* ---- Salary Print Area ---- */
+    #printAreaSalary {
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        color: #000 !important;
+    }
+    #printAreaSalary table {
+        font-size: 8px;
+        border-collapse: collapse;
+        width: 100% !important;
+        background: #fff !important;
+    }
+    #printAreaSalary th, #printAreaSalary td {
+        padding: 4px 3px !important;
+        border: 1px solid #555 !important;
+        background: #fff !important;
+        color: #000 !important;
+    }
+    #printAreaSalary thead th {
+        background: #e8e8e8 !important;
+        color: #000 !important;
+        font-weight: 700 !important;
+    }
+
+    /* ---- Kop Surat Logo: print images correctly ---- */
+    #kopSuratGaji img,
+    #kopSuratPengumuman img {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        max-height: 70px !important;
+        width: auto !important;
+        object-fit: contain !important;
+    }
+
+    /* ---- Pengumuman Print Area ---- */
+    #printAreaPengumuman {
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        color: #000 !important;
+    }
+    #printAreaPengumuman table {
+        font-size: 10px;
+        background: #fff !important;
+    }
     #pengumumanContent { display: block !important; }
     #pengumumanEmpty { display: none !important; }
+
+    /* ---- Kop Surat block ---- */
+    #kopSuratGaji, #kopSuratPengumuman {
+        background: #fff !important;
+        color: #000 !important;
+    }
+    #kopSuratGaji *, #kopSuratPengumuman * {
+        color: #000 !important;
+        background: transparent !important;
+    }
+
+    /* ---- Slip Gaji ---- */
+    #slipGajiIndividual > div {
+        break-inside: avoid;
+        page-break-before: auto;
+    }
+    #slipGajiIndividual table { background: #fff !important; }
+    #slipGajiIndividual thead tr,
+    #slipGajiIndividual tfoot tr { background: #e8e8e8 !important; }
+
+    /* ---- Page setup (overrideable by JS via kopConfig) ---- */
     @page { size: A4 portrait; margin: 15mm 12mm 15mm 12mm; }
+
+    /* ---- Table row page break ---- */
     tr { break-inside: avoid; }
-    #slipGajiIndividual > div { break-inside: avoid; page-break-before: auto; }
 }
 
 /* Cosmic Login Container */

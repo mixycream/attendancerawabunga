@@ -126,6 +126,16 @@ async function sbFetchData() {
         cfgObj[c.key] = val;
     });
 
+    if (cfgObj.divisionSchedules && typeof cfgObj.divisionSchedules === 'string') {
+        try { cfgObj.divisionSchedules = JSON.parse(cfgObj.divisionSchedules); } catch(e) {}
+    }
+
+    // Parse kopConfig from app_config
+    if (cfgObj.kopConfig && typeof cfgObj.kopConfig === 'string') {
+        try { cfgObj.kopConfig = JSON.parse(cfgObj.kopConfig); } catch(e) { cfgObj.kopConfig = null; }
+    }
+
+
     return {
         status: 'success',
         employees: emps,
@@ -245,6 +255,12 @@ async function sbPostData(action, payload) {
             await sbClient.from('app_config').upsert([{
                 key: 'autoOutDivisionsConfig',
                 value: typeof payload.autoOutDivisionsConfig === 'object' ? JSON.stringify(payload.autoOutDivisionsConfig) : String(payload.autoOutDivisionsConfig)
+            }], { onConflict: 'key' });
+        }
+        if (payload.divisionSchedules) {
+            await sbClient.from('app_config').upsert([{
+                key: 'divisionSchedules',
+                value: typeof payload.divisionSchedules === 'object' ? JSON.stringify(payload.divisionSchedules) : String(payload.divisionSchedules)
             }], { onConflict: 'key' });
         }
         return { status: 'success' };
@@ -552,8 +568,352 @@ let appConfig = {
     autoOutGlobalMinutes: 240,
     autoOutDivisionsConfig: "{}",
     enableLivenessCheck: false,
-    enableSelfieOnly: false
-}; 
+    enableSelfieOnly: false,
+    divisionSchedules: {},
+    kopConfig: null  // Kop surat config (saved separately)
+};
+
+// =============================================
+// KOP SURAT CONFIG — Setting Kop Surat Resmi
+// =============================================
+
+let kopConfig = {
+    logoKiri: '',       // base64 atau URL
+    logoKanan: '',      // base64 atau URL
+    namaOrg: 'SATUAN PELAYANAN PENYEDIAAN GIZI NASIONAL',
+    subNama: 'SPPG RAWA BUNGA 1',
+    alamat: 'Jl. Masjid Jatinegara No.25, RT.10/RW.7, Rw. Bunga, Kec. Jatinegara, DKI Jakarta 13350',
+    telp: '0814-1414-2726',
+    email: 'enjoycreamid@gmail.com',
+    paperSize: 'A4 portrait'
+};
+
+// Load kopConfig from appConfig/Supabase on init
+function loadKopConfig(cfgObj) {
+    if (!cfgObj) return;
+    let kc = cfgObj.kopConfig;
+    if (typeof kc === 'string') {
+        try { kc = JSON.parse(kc); } catch(e) { kc = null; }
+    }
+    if (kc && typeof kc === 'object') {
+        kopConfig = { ...kopConfig, ...kc };
+    }
+}
+
+// Generate kop surat HTML from kopConfig
+function buildKopHtml(type) {
+    const kc = kopConfig;
+    const logoKiriHtml = kc.logoKiri
+        ? `<img src="${kc.logoKiri}" alt="Logo Kiri" style="width:65px;height:65px;object-fit:contain;display:block;">`
+        : `<div style="width:65px;height:65px;"></div>`;
+    const logoKananHtml = kc.logoKanan
+        ? `<img src="${kc.logoKanan}" alt="Logo Kanan" style="width:65px;height:65px;object-fit:contain;display:block;">`
+        : `<div style="width:65px;height:65px;"></div>`;
+
+    const contactParts = [];
+    if (kc.telp) contactParts.push(`Telp: ${kc.telp}`);
+    if (kc.email) contactParts.push(`Email: ${kc.email}`);
+    const contactLine = contactParts.join(' | ');
+
+    const headerHtml = `
+    <table style="width:100%;border-collapse:collapse;margin-bottom:0;background:#fff;color:#000;">
+        <tr>
+            <td style="width:75px;vertical-align:middle;padding:0;text-align:left;">${logoKiriHtml}</td>
+            <td style="text-align:center;vertical-align:middle;padding:0 8px;">
+                ${kc.namaOrg ? `<h2 style="font-size:17px;font-weight:900;margin:0 0 2px;letter-spacing:1.5px;color:#111;line-height:1.2;text-transform:uppercase;">${kc.namaOrg}</h2>` : ''}
+                ${kc.subNama ? `<p style="font-size:13px;font-weight:700;margin:1px 0 0;color:#222;letter-spacing:0.5px;">${kc.subNama}</p>` : ''}
+                ${kc.alamat ? `<p style="font-size:9.5px;margin:4px 0 0;color:#555;">${kc.alamat}</p>` : ''}
+                ${contactLine ? `<p style="font-size:9.5px;margin:2px 0 0;color:#555;">${contactLine}</p>` : ''}
+            </td>
+            <td style="width:75px;vertical-align:middle;padding:0;text-align:right;">${logoKananHtml}</td>
+        </tr>
+    </table>
+    <hr style="border:none;border-top:3px double #222;margin:7px 0 3px;">
+    <hr style="border:none;border-top:1px solid #222;margin:0 0 ${type === 'gaji' ? '4px' : '14px'};">
+    `;
+
+    if (type === 'gaji') {
+        return headerHtml + `<h3 style="text-align:center;font-size:14px;font-weight:800;text-decoration:underline;margin:4px 0 2px;letter-spacing:1px;color:#000;">REKAP SLIP GAJI RELAWAN</h3>`;
+    }
+    return headerHtml;
+}
+
+// Render kop surat into DOM elements (called before print)
+function renderKopSurat(type) {
+    const elId = type === 'gaji' ? 'kopSuratGaji' : 'kopSuratPengumuman';
+    const el = document.getElementById(elId);
+    if (!el) return;
+
+    const periodeEl = document.getElementById('printPeriodeGaji');
+    const savedPeriodeText = periodeEl ? periodeEl.textContent : '';
+
+    el.innerHTML = buildKopHtml(type);
+
+    // Restore periode text if needed
+    if (type === 'gaji') {
+        const newPeriodeEl = document.createElement('p');
+        newPeriodeEl.id = 'printPeriodeGaji';
+        newPeriodeEl.style.cssText = 'text-align:center;font-size:11px;color:#555;margin:2px 0 14px;';
+        newPeriodeEl.textContent = savedPeriodeText || 'Periode: -';
+        el.appendChild(newPeriodeEl);
+    }
+}
+
+// Apply dynamic @page CSS based on paper size
+function applyPaperSizeCSS() {
+    const size = kopConfig.paperSize || 'A4 portrait';
+    let styleEl = document.getElementById('dynamicPageStyle');
+    if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'dynamicPageStyle';
+        document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = `@media print { @page { size: ${size}; margin: 15mm 12mm 15mm 12mm; } }`;
+}
+
+// Open Kop Setting Modal
+function openKopSettingModal() {
+    const modal = document.getElementById('kopSettingModal');
+    if (!modal) return;
+
+    // Fill form from kopConfig
+    document.getElementById('kopNamaOrg').value = kopConfig.namaOrg || '';
+    document.getElementById('kopSubNama').value = kopConfig.subNama || '';
+    document.getElementById('kopAlamat').value = kopConfig.alamat || '';
+    document.getElementById('kopTelp').value = kopConfig.telp || '';
+    document.getElementById('kopEmail').value = kopConfig.email || '';
+
+    // Logo previews
+    ['kiri', 'kanan'].forEach(side => {
+        const logoData = side === 'kiri' ? kopConfig.logoKiri : kopConfig.logoKanan;
+        const preview = document.getElementById(`kopLogo${side === 'kiri' ? 'Kiri' : 'Kanan'}Preview`);
+        const placeholder = document.getElementById(`kopLogo${side === 'kiri' ? 'Kiri' : 'Kanan'}Placeholder`);
+        const clearBtn = document.getElementById(`btnClearLogo${side === 'kiri' ? 'Kiri' : 'Kanan'}`);
+        if (logoData) {
+            preview.src = logoData;
+            preview.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+            clearBtn.classList.remove('hidden');
+        } else {
+            preview.src = '';
+            preview.classList.add('hidden');
+            placeholder.classList.remove('hidden');
+            clearBtn.classList.add('hidden');
+        }
+    });
+
+    // Paper size chips
+    selectPaperSizeInit(kopConfig.paperSize || 'A4 portrait');
+
+    // Live preview
+    updateKopPreview();
+
+    // Attach live update listeners
+    ['kopNamaOrg','kopSubNama','kopAlamat','kopTelp','kopEmail'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.oninput = updateKopPreview;
+    });
+
+    modal.classList.remove('hidden');
+    setTimeout(() => modal.classList.remove('opacity-0'), 10);
+}
+
+function closeKopSettingModal() {
+    const modal = document.getElementById('kopSettingModal');
+    if (!modal) return;
+    modal.classList.add('opacity-0');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+}
+
+// Handle logo file upload
+function handleKopLogoUpload(input, side) {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+        showToast('Ukuran logo maksimal 2MB!', 'warning');
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const base64 = e.target.result;
+        const capSide = side === 'kiri' ? 'Kiri' : 'Kanan';
+        const preview = document.getElementById(`kopLogo${capSide}Preview`);
+        const placeholder = document.getElementById(`kopLogo${capSide}Placeholder`);
+        const clearBtn = document.getElementById(`btnClearLogo${capSide}`);
+
+        // Store temporarily
+        if (side === 'kiri') kopConfig.logoKiri = base64;
+        else kopConfig.logoKanan = base64;
+
+        preview.src = base64;
+        preview.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+        clearBtn.classList.remove('hidden');
+        updateKopPreview();
+    };
+    reader.readAsDataURL(file);
+}
+
+function clearKopLogo(side) {
+    const capSide = side === 'kiri' ? 'Kiri' : 'Kanan';
+    if (side === 'kiri') kopConfig.logoKiri = '';
+    else kopConfig.logoKanan = '';
+
+    document.getElementById(`kopLogo${capSide}Preview`).src = '';
+    document.getElementById(`kopLogo${capSide}Preview`).classList.add('hidden');
+    document.getElementById(`kopLogo${capSide}Placeholder`).classList.remove('hidden');
+    document.getElementById(`btnClearLogo${capSide}`).classList.add('hidden');
+    document.getElementById(`kopLogo${capSide === 'Kiri' ? 'Kiri' : 'Kanan'}Input`).value = '';
+    updateKopPreview();
+}
+
+// Paper size chip selection
+function selectPaperSize(btn) {
+    document.querySelectorAll('.paper-chip').forEach(b => {
+        b.className = b.className
+            .replace(/border-indigo-500/g, 'border-slate-200 dark:border-slate-700')
+            .replace(/bg-indigo-50/g, '')
+            .replace(/text-indigo-700/g, 'text-slate-600')
+            .replace(/dark:bg-indigo-500\/10/g, '')
+            .replace(/dark:text-indigo-300/g, 'dark:text-slate-300');
+        b.classList.add('border-slate-200', 'dark:border-slate-700', 'text-slate-600', 'dark:text-slate-300');
+        b.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'dark:bg-indigo-500/10', 'dark:text-indigo-300');
+    });
+    btn.classList.add('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'dark:bg-indigo-500/10', 'dark:text-indigo-300');
+    btn.classList.remove('border-slate-200', 'dark:border-slate-700', 'text-slate-600', 'dark:text-slate-300');
+    document.getElementById('kopPaperSize').value = btn.dataset.size;
+}
+
+function selectPaperSizeInit(sizeValue) {
+    const chips = document.querySelectorAll('.paper-chip');
+    chips.forEach(b => {
+        b.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'dark:bg-indigo-500/10', 'dark:text-indigo-300');
+        b.classList.add('border-slate-200', 'dark:border-slate-700', 'text-slate-600', 'dark:text-slate-300');
+        if (b.dataset.size === sizeValue) {
+            b.classList.add('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'dark:bg-indigo-500/10', 'dark:text-indigo-300');
+            b.classList.remove('border-slate-200', 'dark:border-slate-700', 'text-slate-600', 'dark:text-slate-300');
+        }
+    });
+    document.getElementById('kopPaperSize').value = sizeValue;
+}
+
+// Live preview of kop surat in modal
+function updateKopPreview() {
+    const previewBox = document.getElementById('kopPreviewBox');
+    if (!previewBox) return;
+
+    // Read current form values for preview (without saving yet)
+    const tempKop = {
+        ...kopConfig,
+        namaOrg: document.getElementById('kopNamaOrg')?.value || kopConfig.namaOrg,
+        subNama: document.getElementById('kopSubNama')?.value || kopConfig.subNama,
+        alamat: document.getElementById('kopAlamat')?.value || kopConfig.alamat,
+        telp: document.getElementById('kopTelp')?.value || kopConfig.telp,
+        email: document.getElementById('kopEmail')?.value || kopConfig.email,
+    };
+    const origKop = kopConfig;
+    kopConfig = tempKop;
+    previewBox.innerHTML = buildKopHtml('preview');
+    kopConfig = origKop;
+    // Scale preview
+    previewBox.style.cssText = 'border:1px solid #e2e8f0;border-radius:8px;padding:12px;background:#fff;color:#000;font-size:10px;transform-origin:top left;';
+}
+
+// Save kopConfig to Supabase
+async function saveKopSetting() {
+    if (!document.getElementById('kopNamaOrg').value.trim()) {
+        showToast('Nama organisasi wajib diisi!', 'error');
+        return;
+    }
+
+    // Read from form
+    kopConfig.namaOrg = document.getElementById('kopNamaOrg').value.trim();
+    kopConfig.subNama = document.getElementById('kopSubNama').value.trim();
+    kopConfig.alamat = document.getElementById('kopAlamat').value.trim();
+    kopConfig.telp = document.getElementById('kopTelp').value.trim();
+    kopConfig.email = document.getElementById('kopEmail').value.trim();
+    kopConfig.paperSize = document.getElementById('kopPaperSize').value || 'A4 portrait';
+    // Logo sudah tersimpan di kopConfig.logoKiri/Kanan saat upload
+
+    toggleLoader(true, 'Menyimpan Setting Kop Surat...');
+    try {
+        const success = await postData('saveConfig', {
+            kopConfig: JSON.stringify(kopConfig)
+        });
+
+        if (success) {
+            applyPaperSizeCSS();
+            closeKopSettingModal();
+            showToast('Setting kop surat berhasil disimpan!', 'success');
+        } else {
+            showToast('Gagal menyimpan setting kop surat.', 'error');
+        }
+    } finally {
+        toggleLoader(false);
+    }
+}
+
+// =============================================
+// JADWAL KERJA DIVISI (Division Working Schedule)
+// =============================================
+const SCHEDULE_DAY_NAMES = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+const SCHEDULE_DAY_FULL_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+function getDivisionSchedule(division) {
+    if (!division) return { days: [1, 2, 3, 4, 5, 6], dates: [] };
+    
+    let divSched = appConfig.divisionSchedules?.[division];
+    if (typeof divSched === 'string') {
+        try { divSched = JSON.parse(divSched); } catch(e) { divSched = null; }
+    }
+    
+    if (!divSched && appConfig.shifts?.[division]?.days) {
+        divSched = { days: appConfig.shifts[division].days, dates: appConfig.shifts[division].dates || [] };
+    }
+    
+    if (!divSched || !Array.isArray(divSched.days) || divSched.days.length === 0) {
+        const norm = division.toLowerCase();
+        if (norm.includes('helper cook') || norm === 'cook' || norm.includes('head chef')) {
+            return { days: [0, 1, 2, 3, 4], dates: [] }; // Minggu - Kamis
+        }
+        return { days: [1, 2, 3, 4, 5, 6], dates: [] }; // Senin - Sabtu
+    }
+    
+    return {
+        days: divSched.days.map(Number),
+        dates: Array.isArray(divSched.dates) ? divSched.dates : []
+    };
+}
+
+function isDivisionWorkingOnDate(division, dateStr) {
+    if (!division) return true;
+    if (!dateStr) dateStr = getLocalDateStr(new Date());
+    
+    if (typeof isDateExcludedForDiv === 'function' && isDateExcludedForDiv(dateStr, division)) {
+        return false;
+    }
+    
+    const sched = getDivisionSchedule(division);
+    if (sched.dates && sched.dates.length > 0 && sched.dates.includes(dateStr)) {
+        return true;
+    }
+    
+    const d = new Date(dateStr + 'T00:00:00');
+    const dayOfWeek = isNaN(d.getDay()) ? 0 : d.getDay();
+    return sched.days.includes(dayOfWeek);
+}
+
+function formatDivisionScheduleSummary(division) {
+    const sched = getDivisionSchedule(division);
+    if (sched.days.length === 7) return "Setiap Hari";
+    const sorted = [...sched.days].sort((a,b) => a-b);
+    const sStr = sorted.join(',');
+    if (sStr === '1,2,3,4,5,6') return "Sen - Sab";
+    if (sStr === '0,1,2,3,4') return "Min - Kam";
+    if (sStr === '1,2,3,4,5') return "Sen - Jum";
+    const displayOrder = [1, 2, 3, 4, 5, 6, 0];
+    return displayOrder.filter(d => sched.days.includes(d)).map(d => SCHEDULE_DAY_NAMES[d]).join(', ');
+}
 let sortState = {
     logs: 'time_desc',
     employees: 'name_asc',
@@ -1181,7 +1541,14 @@ function _applyConfigData(cfg) {
     GEOFENCE_CONFIG.lat = appConfig.geofenceLat;
     GEOFENCE_CONFIG.lng = appConfig.geofenceLng;
     GEOFENCE_CONFIG.radius = appConfig.geofenceRadius;
+
+    // Load & apply kop surat config
+    if (cfg.kopConfig) {
+        loadKopConfig({ kopConfig: cfg.kopConfig });
+        applyPaperSizeCSS();
+    }
 }
+
 
 // Fetch di background tanpa loader — untuk refresh setelah cache load
 async function _fetchDataBackground() {
@@ -1334,13 +1701,14 @@ function refreshUI() {
         return myLogs.length > 0 && myLogs[0].type === 'IN';
     }).length;
 
-    // Hitung Tidak Hadir & Belum Hadir (Hanya relawan aktif yang tergolong ALLOWED_ROLES)
+    // Hitung Tidak Hadir & Belum Hadir (Hanya relawan aktif yang terjadwal kerja hari ini)
     const activeEmployees = employees.filter(e => ALLOWED_ROLES.includes(e.role || 'employee'));
     const presentEmpIds = new Set(todayLogs.filter(l => l.type === 'IN').map(l => String(l.empId)));
+    
+    // Relawan yang divisinya terjadwal hari ini
     const expectedEmployees = activeEmployees.filter(e => {
-        if (typeof isDateExcludedForDiv === 'function' && isDateExcludedForDiv(today, e.division)) {
-            return false;
-        }
+        if (!isDivisionWorkingOnDate(e.division, today)) return false;
+        if (typeof isDateExcludedForDiv === 'function' && isDateExcludedForDiv(today, e.division)) return false;
         return true;
     });
 
@@ -1349,7 +1717,7 @@ function refreshUI() {
     const now = new Date();
 
     expectedEmployees.forEach(e => {
-        if (presentEmpIds.has(String(e.id))) return; // Already present
+        if (presentEmpIds.has(String(e.id))) return; // Sudah hadir
 
         const shift = appConfig.shifts?.[e.division];
         if (!shift || typeof shift === 'string' || !shift.start) {
@@ -1368,6 +1736,11 @@ function refreshUI() {
         }
     });
 
+    // Relawan aktif yang hari ini divisinya LIBUR JADWAL
+    const offScheduledEmployees = activeEmployees.filter(e => !isDivisionWorkingOnDate(e.division, today) && !presentEmpIds.has(String(e.id)));
+    const allDivs = Object.keys(appConfig.shifts || {});
+    const offDivisionsToday = allDivs.filter(d => !isDivisionWorkingOnDate(d, today));
+
     // Update Stats Cards
     document.getElementById('statEmp').innerText = employees.length;
     document.getElementById('statPresent').innerText = present;
@@ -1377,6 +1750,20 @@ function refreshUI() {
     if (statBelum) statBelum.innerText = belumHadirCount;
     document.getElementById('statOvertime').innerText = overtimeCount;
     document.getElementById('statLate').innerText = lateCount; 
+
+    // Update subtitles with scheduled off info
+    const belumSub = document.getElementById('statBelumHadirSub');
+    if (belumSub) {
+        belumSub.innerText = offScheduledEmployees.length > 0 ? `${expectedEmployees.length - presentEmpIds.size} dari ${expectedEmployees.length} aktif` : 'Masih ditunggu';
+    }
+    const absentSub = document.getElementById('statAbsentSub');
+    if (absentSub) {
+        absentSub.innerText = offScheduledEmployees.length > 0 ? `(${offScheduledEmployees.length} libur jadwal)` : 'Lewat batas toleransi';
+    }
+    const shiftSchedSub = document.getElementById('statShiftScheduleSub');
+    if (shiftSchedSub) {
+        shiftSchedSub.innerText = offDivisionsToday.length > 0 ? `${offDivisionsToday.length} Divisi Libur Hari Ini` : 'Semua Divisi Masuk Hari Ini';
+    }
 
     const shiftCount = Object.keys(appConfig.shifts || {}).length;
     const shiftEl = document.getElementById('statShiftCount');
@@ -2128,6 +2515,27 @@ function renderSalary(filteredLogsOverride) {
 
                     if (val > 0) {
                         cellContent = `<span class="text-emerald-600 dark:text-emerald-400 font-extrabold">${val.toLocaleString()}</span>`;
+                    } else if (!isDivisionWorkingOnDate(item.division, cellDate)) {
+                        if (quickAbsenMode) {
+                            const isSelected = quickAbsenSelected.has(cellKey);
+                            if (isSelected) {
+                                cellContent = `
+                                    <div class="w-full py-1 px-1 rounded-md bg-emerald-500 text-white font-extrabold text-[9px] flex items-center justify-center gap-0.5 shadow-sm">
+                                        <i class="fas fa-check text-[8px]"></i>
+                                        <span>Pilih</span>
+                                    </div>`;
+                                tdClass += ' bg-emerald-50/90 dark:bg-emerald-500/15 cursor-pointer select-none ring-2 ring-inset ring-emerald-500/40';
+                            } else {
+                                cellContent = `
+                                    <div class="w-full py-0.5 px-1 rounded-md border border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-400 text-slate-400 dark:text-slate-500 font-bold text-[8px] flex items-center justify-center gap-0.5 transition-all">
+                                        <span>Libur +</span>
+                                    </div>`;
+                                tdClass += ' cursor-pointer hover:bg-slate-100/50 dark:hover:bg-white/[0.02] select-none';
+                            }
+                            tdAttributes = `onclick="toggleQuickAbsenCell('${item.id}', '${item.name.replace(/'/g, "\\'")}', '${item.division}', '${cellDate}')" title="Jadwal Libur - Klik jika ada absen lembur/pengganti (${item.name} - ${cellDate})"`;
+                        } else {
+                            cellContent = `<span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-500 uppercase tracking-wider select-none border border-slate-200/40 dark:border-white/5" title="Libur Jadwal Divisi ${item.division}">Libur</span>`;
+                        }
                     } else {
                         if (quickAbsenMode) {
                             const isSelected = quickAbsenSelected.has(cellKey);
@@ -2148,7 +2556,7 @@ function renderSalary(filteredLogsOverride) {
                             }
                             tdAttributes = `onclick="toggleQuickAbsenCell('${item.id}', '${item.name.replace(/'/g, "\\'")}', '${item.division}', '${cellDate}')" title="Klik untuk pilih absen masuk+keluar (${item.name} - ${cellDate})"`;
                         } else {
-                            cellContent = `<span class="text-slate-300 dark:text-slate-600">-</span>`;
+                            cellContent = `<span class="text-rose-300 dark:text-rose-500/50 font-semibold" title="Tidak Hadir / Belum Absen">-</span>`;
                         }
                     }
                     dailyCellsHtml += `<td class="${tdClass}" ${tdAttributes}>${cellContent}</td>`;
@@ -3112,10 +3520,16 @@ function cetakRekapGaji() {
         periodeText = `${bulan[now.getMonth()]} ${now.getFullYear()}`;
     }
 
+    // Render dynamic kop surat (from saved kopConfig) sebelum cetak
+    renderKopSurat('gaji');
+    applyPaperSizeCSS();
+
     const periodeEl = document.getElementById('printPeriodeGaji');
     const tanggalEl = document.getElementById('printTanggalGaji');
     if (periodeEl) periodeEl.textContent = `Periode: ${periodeText}`;
-    if (tanggalEl) tanggalEl.textContent = `Jakarta, ${now.getDate()} ${bulan[now.getMonth()]} ${now.getFullYear()}`;
+    if (tanggalEl) tanggalEl.textContent = `${kopConfig.subNama || 'Jakarta'}, ${now.getDate()} ${bulan[now.getMonth()]} ${now.getFullYear()}`;
+
+
 
     // Filter logs by date range
     const filteredLogs = (tglMulai && tglSelesai) ? logs.filter(l => l.date >= tglMulai && l.date <= tglSelesai) : logs;
@@ -4336,25 +4750,111 @@ function openConfigModal() {
     list.innerHTML = '';
     const orderedKeys = ["Helper Cook", "Cook", "Head Chef", "Packing", "Distribusi", "Kenek Distribusi", "Kebersihan", "Asisten Lapangan", "Admin Gudang", "Gudang", "Keamanan Shift 1", "Keamanan Shift 2", "Cuci Ompreng", "Leader Ompreng", "Leader Packing", "Leader Helper Cook", "Admin Yayasan", "Koordinasi Lapangan"];
     const allDivs = Array.from(new Set([...orderedKeys, ...Object.keys(appConfig.shifts || {})]));
+    
+    const dayOrder = [1, 2, 3, 4, 5, 6, 0];
+    const dayLabels = { 1: 'Sen', 2: 'Sel', 3: 'Rab', 4: 'Kam', 5: 'Jum', 6: 'Sab', 0: 'Min' };
+
     allDivs.forEach(key => {
         const shiftData = appConfig.shifts[key] || { start: "00:00", end: "08:00" };
-        const startVal = typeof shiftData === 'string' ? shiftData : shiftData.start; 
-        const endVal = typeof shiftData === 'string' ? "00:00" : shiftData.end;
+        const startVal = typeof shiftData === 'string' ? shiftData : (shiftData.start || "08:00"); 
+        const endVal = typeof shiftData === 'string' ? "16:00" : (shiftData.end || "16:00");
         const safeKey = key.replace(/'/g, "\\'");
+        const safeId = key.replace(/[^a-zA-Z0-9_-]/g, '-');
+        
+        const curSched = getDivisionSchedule(key);
+        const chipsHtml = dayOrder.map(d => {
+            const isAct = curSched.days.includes(d);
+            const cls = isAct 
+                ? 'bg-blue-600 text-white font-extrabold shadow-sm shadow-blue-500/25 ring-1 ring-blue-600'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700';
+            return `<button type="button" data-div="${safeKey}" data-day="${d}" onclick="toggleConfigDivisionDay('${safeKey}', ${d}, this)" class="px-2.5 py-1 rounded-lg text-[10px] transition-all active:scale-95 ${cls}">${dayLabels[d]}</button>`;
+        }).join('');
+
         list.innerHTML += `
-        <div class="grid grid-cols-12 gap-2 items-center bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition">
-            <div class="col-span-4 text-xs font-bold text-slate-700 dark:text-slate-350 truncate" title="${key}">${key}</div>
-            <div class="col-span-3"><input type="text" inputmode="numeric" placeholder="HH:mm" maxlength="5" class="shift-start-input w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-bold text-emerald-600 focus:border-mbg-500 outline-none text-center" data-division="${key}" value="${startVal}" onchange="validateTimeInput(this); autoCalculateEndTime(this)"></div>
-            <div class="col-span-3"><input type="text" inputmode="numeric" placeholder="HH:mm" maxlength="5" class="shift-end-input w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-bold text-amber-600 focus:border-mbg-500 outline-none text-center" data-division="${key}" id="end-${key.replace(/\s/g, '-')}" value="${endVal}" onchange="validateTimeInput(this)"></div>
-            <div class="col-span-2 flex items-center justify-center">
-                <button type="button" onclick="deleteDivision('${safeKey}')" class="w-8 h-8 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 transition flex items-center justify-center shadow-sm active:scale-95" title="Hapus Divisi ${key}">
-                    <i class="fas fa-trash-alt text-xs"></i>
-                </button>
+        <div class="bg-white dark:bg-slate-800/80 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm hover:shadow-md transition space-y-3">
+            <div class="flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+                <div class="font-extrabold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2 min-w-[140px]">
+                    <span class="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs">
+                        <i class="fas fa-layer-group"></i>
+                    </span>
+                    <span class="truncate" title="${key}">${key}</span>
+                </div>
+                
+                <div class="flex items-center gap-2 flex-1 justify-end">
+                    <div class="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900/50 px-2 py-1 rounded-xl border border-slate-100 dark:border-slate-800">
+                        <span class="text-[9px] font-bold text-slate-400 uppercase">Masuk:</span>
+                        <input type="text" inputmode="numeric" placeholder="HH:mm" maxlength="5"
+                            class="shift-start-input w-16 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-1.5 py-1 text-xs font-bold text-emerald-600 focus:border-mbg-500 outline-none text-center"
+                            data-division="${key}" value="${startVal}" onchange="validateTimeInput(this); autoCalculateEndTime(this)">
+                    </div>
+                    
+                    <div class="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900/50 px-2 py-1 rounded-xl border border-slate-100 dark:border-slate-800">
+                        <span class="text-[9px] font-bold text-slate-400 uppercase">Pulang:</span>
+                        <input type="text" inputmode="numeric" placeholder="HH:mm" maxlength="5"
+                            class="shift-end-input w-16 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-1.5 py-1 text-xs font-bold text-amber-600 focus:border-mbg-500 outline-none text-center"
+                            data-division="${key}" id="end-${safeId}" value="${endVal}" onchange="validateTimeInput(this)">
+                    </div>
+
+                    <button type="button" onclick="deleteDivision('${safeKey}')"
+                        class="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 transition flex items-center justify-center shadow-sm active:scale-95 ml-1"
+                        title="Hapus Divisi ${key}">
+                        <i class="fas fa-trash-alt text-xs"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                    <i class="fas fa-calendar-alt text-blue-500"></i>
+                    <span>Hari Masuk Kerja:</span>
+                </div>
+                <div class="flex items-center gap-1 flex-wrap">
+                    ${chipsHtml}
+                </div>
+                <div class="flex items-center gap-1 text-[9px]">
+                    <button type="button" onclick="setConfigDivPreset('${safeKey}', 'sen-sab')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 font-bold transition">Sen-Sab</button>
+                    <button type="button" onclick="setConfigDivPreset('${safeKey}', 'min-kam')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 font-bold transition">Min-Kam</button>
+                    <button type="button" onclick="setConfigDivPreset('${safeKey}', 'all')" class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 font-bold transition">Semua</button>
+                </div>
             </div>
         </div>`;
     });
     document.getElementById('configModal').classList.remove('hidden');
     setTimeout(() => document.getElementById('configModal').classList.remove('opacity-0'), 10);
+}
+
+function toggleConfigDivisionDay(div, dayNum, btn) {
+    if (!appConfig.divisionSchedules) appConfig.divisionSchedules = {};
+    const curSched = getDivisionSchedule(div);
+    let days = [...curSched.days];
+    if (days.includes(dayNum)) {
+        if (days.length === 1) {
+            showToast("Minimal satu hari kerja harus aktif!", "warning");
+            return;
+        }
+        days = days.filter(d => d !== dayNum);
+    } else {
+        days.push(dayNum);
+    }
+    appConfig.divisionSchedules[div] = { days, dates: curSched.dates || [] };
+    if (appConfig.shifts[div]) appConfig.shifts[div].days = days;
+    
+    const isAct = days.includes(dayNum);
+    btn.className = `px-2.5 py-1 rounded-lg text-[10px] transition-all active:scale-95 ${isAct ? 'bg-blue-600 text-white font-extrabold shadow-sm shadow-blue-500/25 ring-1 ring-blue-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'}`;
+}
+
+function setConfigDivPreset(div, preset) {
+    if (!appConfig.divisionSchedules) appConfig.divisionSchedules = {};
+    let days = [1, 2, 3, 4, 5, 6];
+    if (preset === 'min-kam') days = [0, 1, 2, 3, 4];
+    else if (preset === 'all') days = [0, 1, 2, 3, 4, 5, 6];
+    else if (preset === 'sen-jum') days = [1, 2, 3, 4, 5];
+    
+    const curSched = getDivisionSchedule(div);
+    appConfig.divisionSchedules[div] = { days, dates: curSched.dates || [] };
+    if (appConfig.shifts[div]) appConfig.shifts[div].days = days;
+    
+    openConfigModal();
 }
 
 async function deleteDivision(divName) {
@@ -4384,6 +4884,7 @@ async function deleteDivision(divName) {
     // Hapus dari shifts lokal
     if (appConfig.shifts) delete appConfig.shifts[divName];
     if (appConfig.divisionRolePresets) delete appConfig.divisionRolePresets[divName];
+    if (appConfig.divisionSchedules) delete appConfig.divisionSchedules[divName];
     delete DIVISION_ROLE_PRESETS[divName];
 
     // Hapus dari autoOutDivisionsConfig
@@ -4402,6 +4903,7 @@ async function deleteDivision(divName) {
         action: 'deleteDivision',
         division: divName,
         divisionRolePresets: appConfig.divisionRolePresets,
+        divisionSchedules: appConfig.divisionSchedules,
         autoOutDivisionsConfig: appConfig.autoOutDivisionsConfig
     };
 
@@ -4458,6 +4960,7 @@ function toggleDivisionForm(show) {
             document.getElementById('divFormCustomRoleLabel').value = '';
             document.getElementById('divFormCustomRoleKey').removeAttribute('required');
             document.getElementById('divFormCustomRoleLabel').removeAttribute('required');
+            setDivFormSchedulePreset('sen-sab');
         }, 200);
     } else {
         expanded.style.transition = 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)';
@@ -4504,6 +5007,47 @@ function handleDivFormRoleChange(val) {
     }
 }
 
+// Schedule State for Divisi Baru
+let divFormSelectedDays = [1, 2, 3, 4, 5, 6];
+
+function renderDivFormDays() {
+    const container = document.getElementById('divFormDayChips');
+    if (!container) return;
+    const dayOrder = [1, 2, 3, 4, 5, 6, 0];
+    const dayLabels = { 1: 'Sen', 2: 'Sel', 3: 'Rab', 4: 'Kam', 5: 'Jum', 6: 'Sab', 0: 'Min' };
+    
+    container.innerHTML = dayOrder.map(d => {
+        const isSelected = divFormSelectedDays.includes(d);
+        const activeClass = isSelected
+            ? 'bg-blue-600 text-white font-extrabold shadow-sm shadow-blue-500/25 ring-1 ring-blue-600'
+            : 'bg-white dark:bg-slate-700/60 text-slate-400 dark:text-slate-400 font-medium hover:bg-slate-100 border border-slate-200 dark:border-slate-600';
+        return `<button type="button" onclick="toggleDivFormDay(${d})" class="py-1.5 rounded-lg text-[10px] transition-all active:scale-95 text-center ${activeClass}">
+            ${dayLabels[d]}
+        </button>`;
+    }).join('');
+}
+
+function toggleDivFormDay(d) {
+    if (divFormSelectedDays.includes(d)) {
+        if (divFormSelectedDays.length === 1) {
+            showToast("Minimal satu hari kerja harus dipilih!", "warning");
+            return;
+        }
+        divFormSelectedDays = divFormSelectedDays.filter(day => day !== d);
+    } else {
+        divFormSelectedDays.push(d);
+    }
+    renderDivFormDays();
+}
+
+function setDivFormSchedulePreset(preset) {
+    if (preset === 'sen-sab') divFormSelectedDays = [1, 2, 3, 4, 5, 6];
+    else if (preset === 'min-kam') divFormSelectedDays = [0, 1, 2, 3, 4];
+    else if (preset === 'all') divFormSelectedDays = [0, 1, 2, 3, 4, 5, 6];
+    else if (preset === 'sen-jum') divFormSelectedDays = [1, 2, 3, 4, 5];
+    renderDivFormDays();
+}
+
 async function submitNewDivision(e) {
     e.preventDefault();
     const divName = document.getElementById('divFormName').value.trim();
@@ -4546,7 +5090,11 @@ async function submitNewDivision(e) {
     
     DIVISION_ROLE_PRESETS[divName] = selectedRole;
     
-    appConfig.shifts[divName] = { start: startTime, end: endTime };
+    const selectedDays = [...divFormSelectedDays];
+    if (!appConfig.divisionSchedules) appConfig.divisionSchedules = {};
+    appConfig.divisionSchedules[divName] = { days: selectedDays, dates: [] };
+    
+    appConfig.shifts[divName] = { start: startTime, end: endTime, days: selectedDays };
     
     // Also initialize auto-out config for this new division
     let originalAutoOutConfig = appConfig.autoOutDivisionsConfig;
@@ -4566,6 +5114,7 @@ async function submitNewDivision(e) {
     
     const payload = {
         shifts: appConfig.shifts,
+        divisionSchedules: appConfig.divisionSchedules,
         divisionRolePresets: appConfig.divisionRolePresets,
         customRoles: appConfig.customRoles,
         autoOutDivisionsConfig: appConfig.autoOutDivisionsConfig
@@ -4576,8 +5125,10 @@ async function submitNewDivision(e) {
     if (success) {
         showToast(`Divisi ${divName} berhasil ditambahkan!`, "success");
         toggleDivisionForm(false);
+        refreshUI();
     } else {
         delete appConfig.shifts[divName];
+        if (appConfig.divisionSchedules) delete appConfig.divisionSchedules[divName];
         delete DIVISION_ROLE_PRESETS[divName];
         if (appConfig.divisionRolePresets) delete appConfig.divisionRolePresets[divName];
         appConfig.autoOutDivisionsConfig = originalAutoOutConfig;
@@ -4664,17 +5215,44 @@ function autoCalculateEndTime(input) {
     if(endInput) { endInput.value = endStr; endInput.classList.add('bg-amber-50'); setTimeout(() => endInput.classList.remove('bg-amber-50'), 300); }
 }
 function closeConfigModal() { document.getElementById('configModal').classList.add('opacity-0'); setTimeout(() => document.getElementById('configModal').classList.add('hidden'), 300); }
-function saveShiftConfig() {
+async function saveShiftConfig() {
     const startInputs = document.querySelectorAll('.shift-start-input');
     let newShifts = {};
+    if (!appConfig.divisionSchedules) appConfig.divisionSchedules = {};
+
     startInputs.forEach(input => {
         const div = input.dataset.division;
-        const endInput = document.getElementById(`end-${div.replace(/\s/g, '-')}`);
-        newShifts[div] = { start: input.value, end: endInput.value };
+        const safeId = div.replace(/[^a-zA-Z0-9_-]/g, '-');
+        const endInput = document.getElementById(`end-${safeId}`) || document.getElementById(`end-${div.replace(/\s/g, '-')}`);
+        const divSched = getDivisionSchedule(div);
+        newShifts[div] = {
+            start: input.value,
+            end: endInput ? endInput.value : "16:00",
+            days: divSched.days
+        };
+        appConfig.divisionSchedules[div] = {
+            days: divSched.days,
+            dates: divSched.dates || []
+        };
     });
+    
     appConfig.shifts = newShifts;
-    postData('saveConfig', { shifts: newShifts });
-    closeConfigModal();
+    
+    toggleLoader(true, "Menyimpan Jam & Hari Kerja...");
+    const success = await postData('saveConfig', {
+        shifts: newShifts,
+        divisionSchedules: appConfig.divisionSchedules
+    });
+    toggleLoader(false);
+
+    if (success) {
+        showToast("Pengaturan jam & jadwal kerja divisi berhasil disimpan!", "success");
+        closeConfigModal();
+        refreshUI();
+        renderSalary();
+    } else {
+        showToast("Gagal menyimpan perubahan jam kerja.", "error");
+    }
 }
 function getShiftTime(division) {
     if (division === 'Keamanan') return "Shift (Rotasi)";
@@ -4749,6 +5327,7 @@ function showActiveVolunteers() { openModalList('Relawan Sedang Bekerja', 'activ
 function showPresentVolunteers() { openModalList('Relawan Hadir Hari Ini', 'present'); }
 function showAbsentVolunteers() { openModalList('Relawan Tidak Hadir Hari Ini', 'absent'); }
 function showBelumHadirVolunteers() { openModalList('Relawan Belum Hadir', 'belum_hadir'); }
+function showScheduleOffVolunteers() { openModalList('Relawan Libur Jadwal Hari Ini', 'libur_jadwal'); }
 function showOvertimeToday() { openModalList('Lembur Hari Ini', 'overtime'); }
 function showLateToday() { openModalList('Terlambat Hari Ini', 'late'); }
 function showDivisionDetails(division) { openModalList(`Divisi: ${division}`, 'division', division); }
@@ -4760,6 +5339,11 @@ function openModalList(title, mode, filterParam = null) {
         const now = new Date();
         const today = getLocalDateStr();
         let filtered = [];
+        let offScheduleBanner = '';
+
+        const activeEmployees = employees.filter(e => ALLOWED_ROLES.includes(e.role || 'employee'));
+        const presentEmpIds = new Set(logs.filter(l => l.date === today && l.type === 'IN').map(l => String(l.empId)));
+
         if (mode === 'all') {
             document.getElementById('activeModalSubtitle').innerText = "Seluruh database relawan";
             filtered = employees;
@@ -4778,13 +5362,12 @@ function openModalList(title, mode, filterParam = null) {
                 return emp ? { ...emp, inTime: log.time, status: 'present' } : null;
             }).filter(e => e);
         } else if (mode === 'absent') {
-            document.getElementById('activeModalSubtitle').innerText = `Tidak Hadir ${today}`;
-            const activeEmployees = employees.filter(e => ALLOWED_ROLES.includes(e.role || 'employee'));
-            const presentEmpIds = new Set(logs.filter(l => l.date === today && l.type === 'IN').map(l => String(l.empId)));
+            document.getElementById('activeModalSubtitle').innerText = `Tidak Hadir ${today} (Hari Kerja Aktif)`;
+            
+            // Relawan yang divisinya terjadwal hari ini
             const expectedEmployees = activeEmployees.filter(e => {
-                if (typeof isDateExcludedForDiv === 'function' && isDateExcludedForDiv(today, e.division)) {
-                    return false;
-                }
+                if (!isDivisionWorkingOnDate(e.division, today)) return false;
+                if (typeof isDateExcludedForDiv === 'function' && isDateExcludedForDiv(today, e.division)) return false;
                 return true;
             });
             filtered = expectedEmployees.filter(e => {
@@ -4797,14 +5380,33 @@ function openModalList(title, mode, filterParam = null) {
                 const limitDate = new Date(shiftDate.getTime() + 60 * 60 * 1000);
                 return now > limitDate;
             });
+
+            // Banner info libur jadwal
+            const offToday = activeEmployees.filter(e => !isDivisionWorkingOnDate(e.division, today) && !presentEmpIds.has(String(e.id)));
+            if (offToday.length > 0) {
+                offScheduleBanner = `
+                <div class="mb-3 p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2.5 text-xs text-indigo-900 dark:text-indigo-200">
+                        <span class="w-7 h-7 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                            <i class="fas fa-calendar-check text-xs"></i>
+                        </span>
+                        <div>
+                            <div class="font-bold">${offToday.length} Relawan Libur Jadwal</div>
+                            <div class="text-[10px] text-indigo-600/80 dark:text-indigo-300/80">Divisi tidak dijadwalkan masuk hari ini</div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="showScheduleOffVolunteers()" class="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] shadow-sm transition active:scale-95 shrink-0">
+                        Lihat Daftar
+                    </button>
+                </div>`;
+            }
         } else if (mode === 'belum_hadir') {
-            document.getElementById('activeModalSubtitle').innerText = `Belum Hadir ${today}`;
-            const activeEmployees = employees.filter(e => ALLOWED_ROLES.includes(e.role || 'employee'));
-            const presentEmpIds = new Set(logs.filter(l => l.date === today && l.type === 'IN').map(l => String(l.empId)));
+            document.getElementById('activeModalSubtitle').innerText = `Belum Hadir ${today} (Hari Kerja Aktif)`;
+            
+            // Relawan yang divisinya terjadwal hari ini
             const expectedEmployees = activeEmployees.filter(e => {
-                if (typeof isDateExcludedForDiv === 'function' && isDateExcludedForDiv(today, e.division)) {
-                    return false;
-                }
+                if (!isDivisionWorkingOnDate(e.division, today)) return false;
+                if (typeof isDateExcludedForDiv === 'function' && isDateExcludedForDiv(today, e.division)) return false;
                 return true;
             });
             filtered = expectedEmployees.filter(e => {
@@ -4816,6 +5418,32 @@ function openModalList(title, mode, filterParam = null) {
                 const shiftDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm);
                 const limitDate = new Date(shiftDate.getTime() + 60 * 60 * 1000);
                 return now <= limitDate;
+            });
+
+            // Banner info libur jadwal
+            const offToday = activeEmployees.filter(e => !isDivisionWorkingOnDate(e.division, today) && !presentEmpIds.has(String(e.id)));
+            if (offToday.length > 0) {
+                offScheduleBanner = `
+                <div class="mb-3 p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2.5 text-xs text-indigo-900 dark:text-indigo-200">
+                        <span class="w-7 h-7 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                            <i class="fas fa-calendar-check text-xs"></i>
+                        </span>
+                        <div>
+                            <div class="font-bold">${offToday.length} Relawan Libur Jadwal</div>
+                            <div class="text-[10px] text-indigo-600/80 dark:text-indigo-300/80">Divisi tidak dijadwalkan masuk hari ini</div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="showScheduleOffVolunteers()" class="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] shadow-sm transition active:scale-95 shrink-0">
+                        Lihat Daftar
+                    </button>
+                </div>`;
+            }
+        } else if (mode === 'libur_jadwal') {
+            document.getElementById('activeModalSubtitle').innerText = `Libur Jadwal ${today} (Tidak Ada Jadwal)`;
+            filtered = activeEmployees.filter(e => {
+                if (presentEmpIds.has(String(e.id))) return false;
+                return !isDivisionWorkingOnDate(e.division, today) || (typeof isDateExcludedForDiv === 'function' && isDateExcludedForDiv(today, e.division));
             });
         } else if (mode === 'overtime') {
             document.getElementById('activeModalSubtitle').innerText = `Lembur ${today}`;
@@ -4837,7 +5465,7 @@ function openModalList(title, mode, filterParam = null) {
             filtered = employees.filter(e => e.division === filterParam);
         }
 
-        list.innerHTML = filtered.length ? filtered.map(w => {
+        const itemsHtml = filtered.length ? filtered.map(w => {
             let statusBadge = '', timeInfo = '';
             if (mode === 'active') {
                 const start = new Date(`${w.inDate}T${w.inTime}`);
@@ -4856,6 +5484,9 @@ function openModalList(title, mode, filterParam = null) {
             } else if (mode === 'belum_hadir') {
                 statusBadge = '<span class="bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 border border-slate-100/50 dark:border-white/5 text-[10px] px-2 py-0.5 rounded-full font-bold">Belum Hadir</span>';
                 timeInfo = `<div class="text-[10px] text-slate-400">Shift: <span class="font-bold text-slate-700 dark:text-slate-300">${getShiftTime(w.division)}</span></div>`;
+            } else if (mode === 'libur_jadwal') {
+                statusBadge = '<span class="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100/50 dark:border-indigo-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Libur Jadwal</span>';
+                timeInfo = `<div class="text-[10px] text-slate-400">Jadwal: <span class="font-bold text-slate-700 dark:text-slate-300">${formatDivisionScheduleSummary(w.division)}</span></div>`;
             } else if (mode === 'overtime') {
                 statusBadge = '<span class="bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-100/50 dark:border-amber-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Lembur</span>';
                 timeInfo = `<div class="text-sm font-bold text-amber-600 dark:text-amber-400">${w.extraInfo}</div>`;
@@ -4876,12 +5507,14 @@ function openModalList(title, mode, filterParam = null) {
             <div class="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-100 dark:border-white/5 shadow-sm">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500"><i class="fas fa-user"></i></div>
-                    <div class="flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-200">${w.name}</div><div class="flex items-center gap-2 mt-0.5">${statusBadge}</div></div>
+                    <div class="flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-200">${w.name}</div><div class="flex items-center gap-2 mt-0.5">${statusBadge} <span class="text-[10px] text-slate-400">• ${w.division}</span></div></div>
                     <div class="text-right">${timeInfo}</div>
                 </div>
                 ${actionBtns}
             </div>`;
         }).join('') : '<div class="text-center text-slate-400 py-10">Tidak ada data.</div>';
+
+        list.innerHTML = offScheduleBanner + itemsHtml;
     };
     render();
     document.getElementById('activeWorkersModal').classList.remove('hidden');
@@ -6016,14 +6649,10 @@ function renderPengumumanPreview() {
     // Filter logs by period
     const filteredLogs = logs.filter(l => l.date >= tglMulai && l.date <= tglSelesai);
 
-    // Hari kerja per divisi
+    // Hari & tanggal kerja per divisi diambil dari konfigurasi divisionSchedules
     const dayNames = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
     function getWorkDaysForDiv(division) {
-        const d = (division || '').toLowerCase();
-        if (d.includes('helper cook') || d === 'cook' || d.includes('head chef')) {
-            return [0, 1, 2, 3, 4]; // Minggu-Kamis
-        }
-        return [1, 2, 3, 4, 5, 6]; // Senin-Sabtu
+        return getDivisionSchedule(division).days;
     }
 
     // Build all dates in period
@@ -6034,9 +6663,8 @@ function renderPengumumanPreview() {
     }
 
     function getWorkDatesForDiv(division) {
-        const days = getWorkDaysForDiv(division);
         return allDatesInPeriod
-            .filter(d => days.includes(d.day) && !getHoliday(d.date) && !isDateExcludedForDiv(d.date, division))
+            .filter(d => isDivisionWorkingOnDate(division, d.date) && !getHoliday(d.date) && !isDateExcludedForDiv(d.date, division))
             .map(d => d.date);
     }
 
@@ -6294,6 +6922,10 @@ function cetakPengumuman() {
         if (content.classList.contains('hidden')) return;
     }
 
+    // Render dynamic kop surat dari kopConfig
+    renderKopSurat('pengumuman');
+    applyPaperSizeCSS();
+
     // Show kop & content for print
     const kopEl = document.getElementById('kopSuratPengumuman');
     kopEl.classList.remove('hidden');
@@ -6310,6 +6942,7 @@ function cetakPengumuman() {
     document.title = `Surat_${perihal.replace(/\s+/g, '_')}.pdf`;
 
     window.print();
+
 
     // Restore
     setTimeout(() => {

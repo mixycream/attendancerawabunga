@@ -130,6 +130,12 @@ async function sbFetchData() {
         try { cfgObj.divisionSchedules = JSON.parse(cfgObj.divisionSchedules); } catch(e) {}
     }
 
+    // Parse kopConfig from app_config
+    if (cfgObj.kopConfig && typeof cfgObj.kopConfig === 'string') {
+        try { cfgObj.kopConfig = JSON.parse(cfgObj.kopConfig); } catch(e) { cfgObj.kopConfig = null; }
+    }
+
+
     return {
         status: 'success',
         employees: emps,
@@ -563,8 +569,289 @@ let appConfig = {
     autoOutDivisionsConfig: "{}",
     enableLivenessCheck: false,
     enableSelfieOnly: false,
-    divisionSchedules: {}
+    divisionSchedules: {},
+    kopConfig: null  // Kop surat config (saved separately)
 };
+
+// =============================================
+// KOP SURAT CONFIG — Setting Kop Surat Resmi
+// =============================================
+
+let kopConfig = {
+    logoKiri: '',       // base64 atau URL
+    logoKanan: '',      // base64 atau URL
+    namaOrg: 'SATUAN PELAYANAN PENYEDIAAN GIZI NASIONAL',
+    subNama: 'SPPG RAWA BUNGA 1',
+    alamat: 'Jl. Masjid Jatinegara No.25, RT.10/RW.7, Rw. Bunga, Kec. Jatinegara, DKI Jakarta 13350',
+    telp: '0814-1414-2726',
+    email: 'enjoycreamid@gmail.com',
+    paperSize: 'A4 portrait'
+};
+
+// Load kopConfig from appConfig/Supabase on init
+function loadKopConfig(cfgObj) {
+    if (!cfgObj) return;
+    let kc = cfgObj.kopConfig;
+    if (typeof kc === 'string') {
+        try { kc = JSON.parse(kc); } catch(e) { kc = null; }
+    }
+    if (kc && typeof kc === 'object') {
+        kopConfig = { ...kopConfig, ...kc };
+    }
+}
+
+// Generate kop surat HTML from kopConfig
+function buildKopHtml(type) {
+    const kc = kopConfig;
+    const logoKiriHtml = kc.logoKiri
+        ? `<img src="${kc.logoKiri}" alt="Logo Kiri" style="width:65px;height:65px;object-fit:contain;display:block;">`
+        : `<div style="width:65px;height:65px;"></div>`;
+    const logoKananHtml = kc.logoKanan
+        ? `<img src="${kc.logoKanan}" alt="Logo Kanan" style="width:65px;height:65px;object-fit:contain;display:block;">`
+        : `<div style="width:65px;height:65px;"></div>`;
+
+    const contactParts = [];
+    if (kc.telp) contactParts.push(`Telp: ${kc.telp}`);
+    if (kc.email) contactParts.push(`Email: ${kc.email}`);
+    const contactLine = contactParts.join(' | ');
+
+    const headerHtml = `
+    <table style="width:100%;border-collapse:collapse;margin-bottom:0;background:#fff;color:#000;">
+        <tr>
+            <td style="width:75px;vertical-align:middle;padding:0;text-align:left;">${logoKiriHtml}</td>
+            <td style="text-align:center;vertical-align:middle;padding:0 8px;">
+                ${kc.namaOrg ? `<h2 style="font-size:17px;font-weight:900;margin:0 0 2px;letter-spacing:1.5px;color:#111;line-height:1.2;text-transform:uppercase;">${kc.namaOrg}</h2>` : ''}
+                ${kc.subNama ? `<p style="font-size:13px;font-weight:700;margin:1px 0 0;color:#222;letter-spacing:0.5px;">${kc.subNama}</p>` : ''}
+                ${kc.alamat ? `<p style="font-size:9.5px;margin:4px 0 0;color:#555;">${kc.alamat}</p>` : ''}
+                ${contactLine ? `<p style="font-size:9.5px;margin:2px 0 0;color:#555;">${contactLine}</p>` : ''}
+            </td>
+            <td style="width:75px;vertical-align:middle;padding:0;text-align:right;">${logoKananHtml}</td>
+        </tr>
+    </table>
+    <hr style="border:none;border-top:3px double #222;margin:7px 0 3px;">
+    <hr style="border:none;border-top:1px solid #222;margin:0 0 ${type === 'gaji' ? '4px' : '14px'};">
+    `;
+
+    if (type === 'gaji') {
+        return headerHtml + `<h3 style="text-align:center;font-size:14px;font-weight:800;text-decoration:underline;margin:4px 0 2px;letter-spacing:1px;color:#000;">REKAP SLIP GAJI RELAWAN</h3>`;
+    }
+    return headerHtml;
+}
+
+// Render kop surat into DOM elements (called before print)
+function renderKopSurat(type) {
+    const elId = type === 'gaji' ? 'kopSuratGaji' : 'kopSuratPengumuman';
+    const el = document.getElementById(elId);
+    if (!el) return;
+
+    const periodeEl = document.getElementById('printPeriodeGaji');
+    const savedPeriodeText = periodeEl ? periodeEl.textContent : '';
+
+    el.innerHTML = buildKopHtml(type);
+
+    // Restore periode text if needed
+    if (type === 'gaji') {
+        const newPeriodeEl = document.createElement('p');
+        newPeriodeEl.id = 'printPeriodeGaji';
+        newPeriodeEl.style.cssText = 'text-align:center;font-size:11px;color:#555;margin:2px 0 14px;';
+        newPeriodeEl.textContent = savedPeriodeText || 'Periode: -';
+        el.appendChild(newPeriodeEl);
+    }
+}
+
+// Apply dynamic @page CSS based on paper size
+function applyPaperSizeCSS() {
+    const size = kopConfig.paperSize || 'A4 portrait';
+    let styleEl = document.getElementById('dynamicPageStyle');
+    if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'dynamicPageStyle';
+        document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = `@media print { @page { size: ${size}; margin: 15mm 12mm 15mm 12mm; } }`;
+}
+
+// Open Kop Setting Modal
+function openKopSettingModal() {
+    const modal = document.getElementById('kopSettingModal');
+    if (!modal) return;
+
+    // Fill form from kopConfig
+    document.getElementById('kopNamaOrg').value = kopConfig.namaOrg || '';
+    document.getElementById('kopSubNama').value = kopConfig.subNama || '';
+    document.getElementById('kopAlamat').value = kopConfig.alamat || '';
+    document.getElementById('kopTelp').value = kopConfig.telp || '';
+    document.getElementById('kopEmail').value = kopConfig.email || '';
+
+    // Logo previews
+    ['kiri', 'kanan'].forEach(side => {
+        const logoData = side === 'kiri' ? kopConfig.logoKiri : kopConfig.logoKanan;
+        const preview = document.getElementById(`kopLogo${side === 'kiri' ? 'Kiri' : 'Kanan'}Preview`);
+        const placeholder = document.getElementById(`kopLogo${side === 'kiri' ? 'Kiri' : 'Kanan'}Placeholder`);
+        const clearBtn = document.getElementById(`btnClearLogo${side === 'kiri' ? 'Kiri' : 'Kanan'}`);
+        if (logoData) {
+            preview.src = logoData;
+            preview.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+            clearBtn.classList.remove('hidden');
+        } else {
+            preview.src = '';
+            preview.classList.add('hidden');
+            placeholder.classList.remove('hidden');
+            clearBtn.classList.add('hidden');
+        }
+    });
+
+    // Paper size chips
+    selectPaperSizeInit(kopConfig.paperSize || 'A4 portrait');
+
+    // Live preview
+    updateKopPreview();
+
+    // Attach live update listeners
+    ['kopNamaOrg','kopSubNama','kopAlamat','kopTelp','kopEmail'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.oninput = updateKopPreview;
+    });
+
+    modal.classList.remove('hidden');
+    setTimeout(() => modal.classList.remove('opacity-0'), 10);
+}
+
+function closeKopSettingModal() {
+    const modal = document.getElementById('kopSettingModal');
+    if (!modal) return;
+    modal.classList.add('opacity-0');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+}
+
+// Handle logo file upload
+function handleKopLogoUpload(input, side) {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+        showToast('Ukuran logo maksimal 2MB!', 'warning');
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const base64 = e.target.result;
+        const capSide = side === 'kiri' ? 'Kiri' : 'Kanan';
+        const preview = document.getElementById(`kopLogo${capSide}Preview`);
+        const placeholder = document.getElementById(`kopLogo${capSide}Placeholder`);
+        const clearBtn = document.getElementById(`btnClearLogo${capSide}`);
+
+        // Store temporarily
+        if (side === 'kiri') kopConfig.logoKiri = base64;
+        else kopConfig.logoKanan = base64;
+
+        preview.src = base64;
+        preview.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+        clearBtn.classList.remove('hidden');
+        updateKopPreview();
+    };
+    reader.readAsDataURL(file);
+}
+
+function clearKopLogo(side) {
+    const capSide = side === 'kiri' ? 'Kiri' : 'Kanan';
+    if (side === 'kiri') kopConfig.logoKiri = '';
+    else kopConfig.logoKanan = '';
+
+    document.getElementById(`kopLogo${capSide}Preview`).src = '';
+    document.getElementById(`kopLogo${capSide}Preview`).classList.add('hidden');
+    document.getElementById(`kopLogo${capSide}Placeholder`).classList.remove('hidden');
+    document.getElementById(`btnClearLogo${capSide}`).classList.add('hidden');
+    document.getElementById(`kopLogo${capSide === 'Kiri' ? 'Kiri' : 'Kanan'}Input`).value = '';
+    updateKopPreview();
+}
+
+// Paper size chip selection
+function selectPaperSize(btn) {
+    document.querySelectorAll('.paper-chip').forEach(b => {
+        b.className = b.className
+            .replace(/border-indigo-500/g, 'border-slate-200 dark:border-slate-700')
+            .replace(/bg-indigo-50/g, '')
+            .replace(/text-indigo-700/g, 'text-slate-600')
+            .replace(/dark:bg-indigo-500\/10/g, '')
+            .replace(/dark:text-indigo-300/g, 'dark:text-slate-300');
+        b.classList.add('border-slate-200', 'dark:border-slate-700', 'text-slate-600', 'dark:text-slate-300');
+        b.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'dark:bg-indigo-500/10', 'dark:text-indigo-300');
+    });
+    btn.classList.add('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'dark:bg-indigo-500/10', 'dark:text-indigo-300');
+    btn.classList.remove('border-slate-200', 'dark:border-slate-700', 'text-slate-600', 'dark:text-slate-300');
+    document.getElementById('kopPaperSize').value = btn.dataset.size;
+}
+
+function selectPaperSizeInit(sizeValue) {
+    const chips = document.querySelectorAll('.paper-chip');
+    chips.forEach(b => {
+        b.classList.remove('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'dark:bg-indigo-500/10', 'dark:text-indigo-300');
+        b.classList.add('border-slate-200', 'dark:border-slate-700', 'text-slate-600', 'dark:text-slate-300');
+        if (b.dataset.size === sizeValue) {
+            b.classList.add('border-indigo-500', 'bg-indigo-50', 'text-indigo-700', 'dark:bg-indigo-500/10', 'dark:text-indigo-300');
+            b.classList.remove('border-slate-200', 'dark:border-slate-700', 'text-slate-600', 'dark:text-slate-300');
+        }
+    });
+    document.getElementById('kopPaperSize').value = sizeValue;
+}
+
+// Live preview of kop surat in modal
+function updateKopPreview() {
+    const previewBox = document.getElementById('kopPreviewBox');
+    if (!previewBox) return;
+
+    // Read current form values for preview (without saving yet)
+    const tempKop = {
+        ...kopConfig,
+        namaOrg: document.getElementById('kopNamaOrg')?.value || kopConfig.namaOrg,
+        subNama: document.getElementById('kopSubNama')?.value || kopConfig.subNama,
+        alamat: document.getElementById('kopAlamat')?.value || kopConfig.alamat,
+        telp: document.getElementById('kopTelp')?.value || kopConfig.telp,
+        email: document.getElementById('kopEmail')?.value || kopConfig.email,
+    };
+    const origKop = kopConfig;
+    kopConfig = tempKop;
+    previewBox.innerHTML = buildKopHtml('preview');
+    kopConfig = origKop;
+    // Scale preview
+    previewBox.style.cssText = 'border:1px solid #e2e8f0;border-radius:8px;padding:12px;background:#fff;color:#000;font-size:10px;transform-origin:top left;';
+}
+
+// Save kopConfig to Supabase
+async function saveKopSetting() {
+    if (!document.getElementById('kopNamaOrg').value.trim()) {
+        showToast('Nama organisasi wajib diisi!', 'error');
+        return;
+    }
+
+    // Read from form
+    kopConfig.namaOrg = document.getElementById('kopNamaOrg').value.trim();
+    kopConfig.subNama = document.getElementById('kopSubNama').value.trim();
+    kopConfig.alamat = document.getElementById('kopAlamat').value.trim();
+    kopConfig.telp = document.getElementById('kopTelp').value.trim();
+    kopConfig.email = document.getElementById('kopEmail').value.trim();
+    kopConfig.paperSize = document.getElementById('kopPaperSize').value || 'A4 portrait';
+    // Logo sudah tersimpan di kopConfig.logoKiri/Kanan saat upload
+
+    toggleLoader(true, 'Menyimpan Setting Kop Surat...');
+    try {
+        const success = await postData('saveConfig', {
+            kopConfig: JSON.stringify(kopConfig)
+        });
+
+        if (success) {
+            applyPaperSizeCSS();
+            closeKopSettingModal();
+            showToast('Setting kop surat berhasil disimpan!', 'success');
+        } else {
+            showToast('Gagal menyimpan setting kop surat.', 'error');
+        }
+    } finally {
+        toggleLoader(false);
+    }
+}
 
 // =============================================
 // JADWAL KERJA DIVISI (Division Working Schedule)
@@ -1254,7 +1541,14 @@ function _applyConfigData(cfg) {
     GEOFENCE_CONFIG.lat = appConfig.geofenceLat;
     GEOFENCE_CONFIG.lng = appConfig.geofenceLng;
     GEOFENCE_CONFIG.radius = appConfig.geofenceRadius;
+
+    // Load & apply kop surat config
+    if (cfg.kopConfig) {
+        loadKopConfig({ kopConfig: cfg.kopConfig });
+        applyPaperSizeCSS();
+    }
 }
+
 
 // Fetch di background tanpa loader — untuk refresh setelah cache load
 async function _fetchDataBackground() {
@@ -3226,10 +3520,16 @@ function cetakRekapGaji() {
         periodeText = `${bulan[now.getMonth()]} ${now.getFullYear()}`;
     }
 
+    // Render dynamic kop surat (from saved kopConfig) sebelum cetak
+    renderKopSurat('gaji');
+    applyPaperSizeCSS();
+
     const periodeEl = document.getElementById('printPeriodeGaji');
     const tanggalEl = document.getElementById('printTanggalGaji');
     if (periodeEl) periodeEl.textContent = `Periode: ${periodeText}`;
-    if (tanggalEl) tanggalEl.textContent = `Jakarta, ${now.getDate()} ${bulan[now.getMonth()]} ${now.getFullYear()}`;
+    if (tanggalEl) tanggalEl.textContent = `${kopConfig.subNama || 'Jakarta'}, ${now.getDate()} ${bulan[now.getMonth()]} ${now.getFullYear()}`;
+
+
 
     // Filter logs by date range
     const filteredLogs = (tglMulai && tglSelesai) ? logs.filter(l => l.date >= tglMulai && l.date <= tglSelesai) : logs;
@@ -6622,6 +6922,10 @@ function cetakPengumuman() {
         if (content.classList.contains('hidden')) return;
     }
 
+    // Render dynamic kop surat dari kopConfig
+    renderKopSurat('pengumuman');
+    applyPaperSizeCSS();
+
     // Show kop & content for print
     const kopEl = document.getElementById('kopSuratPengumuman');
     kopEl.classList.remove('hidden');
@@ -6638,6 +6942,7 @@ function cetakPengumuman() {
     document.title = `Surat_${perihal.replace(/\s+/g, '_')}.pdf`;
 
     window.print();
+
 
     // Restore
     setTimeout(() => {
