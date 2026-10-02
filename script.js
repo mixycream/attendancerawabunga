@@ -130,6 +130,24 @@ async function sbFetchData() {
         try { cfgObj.divisionSchedules = JSON.parse(cfgObj.divisionSchedules); } catch(e) {}
     }
 
+    if (cfgObj.divisionRolePresets && typeof cfgObj.divisionRolePresets === 'string') {
+        try { cfgObj.divisionRolePresets = JSON.parse(cfgObj.divisionRolePresets); } catch(e) {}
+    }
+
+    if (cfgObj.customRoles && typeof cfgObj.customRoles === 'string') {
+        try { cfgObj.customRoles = JSON.parse(cfgObj.customRoles); } catch(e) {}
+    }
+
+    // Sinkronkan hari & tanggal libur ke shiftsObj jika ada di divisionSchedules
+    if (cfgObj.divisionSchedules && typeof cfgObj.divisionSchedules === 'object') {
+        Object.entries(cfgObj.divisionSchedules).forEach(([div, sched]) => {
+            if (shiftsObj[div]) {
+                shiftsObj[div].days = sched?.days || [1, 2, 3, 4, 5, 6];
+                shiftsObj[div].dates = sched?.dates || [];
+            }
+        });
+    }
+
     // Parse kopConfig from app_config
     if (cfgObj.kopConfig && typeof cfgObj.kopConfig === 'string') {
         try { cfgObj.kopConfig = JSON.parse(cfgObj.kopConfig); } catch(e) { cfgObj.kopConfig = null; }
@@ -1542,6 +1560,50 @@ function _applyConfigData(cfg) {
     GEOFENCE_CONFIG.lng = appConfig.geofenceLng;
     GEOFENCE_CONFIG.radius = appConfig.geofenceRadius;
 
+    // Load & apply Jadwal Hari Kerja Divisi (divisionSchedules)
+    if (cfg.divisionSchedules) {
+        let sched = cfg.divisionSchedules;
+        if (typeof sched === 'string') {
+            try { sched = JSON.parse(sched); } catch(e) { sched = null; }
+        }
+        if (sched && typeof sched === 'object') {
+            appConfig.divisionSchedules = sched;
+            // Sinkronkan ke appConfig.shifts agar shifts[div].days konsisten
+            if (appConfig.shifts) {
+                Object.keys(sched).forEach(div => {
+                    if (appConfig.shifts[div]) {
+                        appConfig.shifts[div].days = sched[div]?.days || appConfig.shifts[div].days;
+                        appConfig.shifts[div].dates = sched[div]?.dates || appConfig.shifts[div].dates;
+                    }
+                });
+            }
+        }
+    }
+
+    // Load & apply divisionRolePresets & customRoles
+    if (cfg.divisionRolePresets) {
+        let presets = cfg.divisionRolePresets;
+        if (typeof presets === 'string') {
+            try { presets = JSON.parse(presets); } catch(e) { presets = null; }
+        }
+        if (presets && typeof presets === 'object') {
+            appConfig.divisionRolePresets = presets;
+            if (typeof DIVISION_ROLE_PRESETS !== 'undefined') {
+                Object.assign(DIVISION_ROLE_PRESETS, presets);
+            }
+        }
+    }
+
+    if (cfg.customRoles) {
+        let croles = cfg.customRoles;
+        if (typeof croles === 'string') {
+            try { croles = JSON.parse(croles); } catch(e) { croles = null; }
+        }
+        if (croles && typeof croles === 'object') {
+            appConfig.customRoles = croles;
+        }
+    }
+
     // Load & apply kop surat config
     if (cfg.kopConfig) {
         loadKopConfig({ kopConfig: cfg.kopConfig });
@@ -1631,7 +1693,7 @@ async function postData(action, payload) {
 
         if (json && json.status && json.status === 'success') {
             showToast("Data Tersimpan!", "success");
-            fetchData();
+            fetchData(true);
             return true;
         } else {
             const msg = (json && json.message) ? json.message : 'Respons server tidak valid';
@@ -2335,8 +2397,8 @@ function renderSalary(filteredLogsOverride) {
     let salaryData = employees
         .filter(e => ALLOWED_ROLES.includes(e.role || 'employee'))
         .map(e => {
-        const empLogs = periodLogs.filter(l => l.empId === e.id);
-        const allLogsOfEmp = useLogs.filter(l => l.empId === e.id); // For details which might extend
+        const empLogs = periodLogs.filter(l => String(l.empId) === String(e.id));
+        const allLogsOfEmp = useLogs.filter(l => String(l.empId) === String(e.id)); // For details which might extend
         
         // Count days where employee has IN (each unique IN date = 1 work day)
         const inDates = new Set(empLogs.filter(l => l.type === 'IN').map(l => l.date));
@@ -3036,6 +3098,24 @@ async function quickAbsenSubmitSelected() {
         const okSend = await maSendOneEntry(entry);
         if (okSend) {
             successCount++;
+            // Optimistic update ke logs lokal agar tabel gaji langsung terupdate secara REALTIME
+            const exists = (logs || []).some(l => String(l.empId) === String(entry.empId) && l.date === entry.date && l.type === entry.type);
+            if (!exists) {
+                logs.unshift({
+                    id: 'quick_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                    empId: String(entry.empId),
+                    name: entry.name,
+                    type: entry.type,
+                    date: entry.date,
+                    time: entry.forcedTime ? (entry.forcedTime.length === 5 ? entry.forcedTime + ':00' : entry.forcedTime) : '08:00:00',
+                    photo: '',
+                    overtime: 0,
+                    lateMinutes: 0,
+                    location: entry.location || '',
+                    note: entry.note || '[Absen Manual]',
+                    absentBy: entry.absentBy || 'Admin'
+                });
+            }
         } else {
             failCount++;
         }
@@ -3053,13 +3133,23 @@ async function quickAbsenSubmitSelected() {
         showToast(`${successCount} entri berhasil, ${failCount} gagal.`, 'warning');
     }
 
-    // Bersihkan foto & reset mode pilih
-    clearQuickAbsenPhoto();
+    // Reset seleksi & nonaktifkan mode pilih (kembali ke tabel gaji normal)
+    quickAbsenSelected.clear();
     toggleQuickAbsenMode(false);
 
-    // Refresh data dan tabel
-    await fetchData(false);
+    // Simpan ke cache lokal agar data terbaru tetap ada
+    _saveToCache(employees, logs, appConfig);
+
+    // Render ulang tabel gaji secara REALTIME — nominal gaji harian langsung muncul instan!
     renderSalary();
+
+    // Sinkronisasi data asli dari Supabase di background
+    try {
+        await fetchData(true);
+        renderSalary();
+    } catch (e) {
+        console.warn('Sync fresh logs after quick absen:', e);
+    }
 }
 
 // --- CETAK REKAP GAJI (Print with Kop Surat) ---
@@ -4854,6 +4944,17 @@ function setConfigDivPreset(div, preset) {
     appConfig.divisionSchedules[div] = { days, dates: curSched.dates || [] };
     if (appConfig.shifts[div]) appConfig.shifts[div].days = days;
     
+    // Simpan nilai input yang sedang diketik sebelum re-render
+    document.querySelectorAll('.shift-start-input').forEach(input => {
+        const d = input.dataset.division;
+        const safeId = d.replace(/[^a-zA-Z0-9_-]/g, '-');
+        const endInput = document.getElementById(`end-${safeId}`) || document.getElementById(`end-${d.replace(/\s/g, '-')}`);
+        if (appConfig.shifts && appConfig.shifts[d]) {
+            appConfig.shifts[d].start = input.value;
+            if (endInput) appConfig.shifts[d].end = endInput.value;
+        }
+    });
+
     openConfigModal();
 }
 
@@ -5246,6 +5347,7 @@ async function saveShiftConfig() {
     toggleLoader(false);
 
     if (success) {
+        _saveToCache(employees, logs, appConfig);
         showToast("Pengaturan jam & jadwal kerja divisi berhasil disimpan!", "success");
         closeConfigModal();
         refreshUI();
