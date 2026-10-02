@@ -3051,8 +3051,8 @@ async function quickAbsenSubmitSelected() {
     const includeBadge = document.getElementById('quickAbsenBadgeCheck')?.checked ?? true;
 
     const ok = await showCustomConfirm({
-        title: 'Kirim Absensi Cepat Matrix?',
-        message: `Kirim absensi MASUK + KELUAR untuk <b>${totalKotak}</b> kotak tanggal terpilih (<b>${entries.length}</b> entri total)?<br><span class="text-xs text-slate-500 dark:text-slate-400 mt-2 block">Jam masuk & pulang otomatis menggunakan shift divisi masing-masing.${includeBadge ? '<br><span class="text-amber-500 font-semibold"><i class="fas fa-certificate mr-1"></i> Sertakan badge "Absen Manual"</span>' : ''}</span>`,
+        title: 'Kirim Absen Manual via Tabel?',
+        message: `Kirim absensi <b>MASUK + PULANG</b> untuk <b>${totalKotak}</b> tanggal terpilih (<b>${entries.length}</b> entri total)?<br><span class="text-xs text-slate-500 dark:text-slate-400 mt-2 block">Jam masuk & pulang otomatis menggunakan shift divisi masing-masing.${includeBadge ? '<br><span class="inline-flex items-center gap-1 mt-1.5 text-amber-600 dark:text-amber-400 font-semibold"><i class="fas fa-certificate text-xs"></i> Disertai badge "Absen Manual" (tanpa foto)</span>' : ''}</span>`,
         icon: 'fa-calendar-check',
         iconClass: 'bg-emerald-500/10 text-emerald-500 dark:bg-emerald-500/20 dark:text-emerald-400',
         confirmText: 'Ya, Kirim Absen',
@@ -5758,8 +5758,8 @@ function showCustomConfirm({ title, message, icon = 'fa-question', iconClass = '
         const yesBtn = document.getElementById('customConfirmYesBtn');
         const modal = document.getElementById('customConfirmModal');
 
-        if (titleEl) titleEl.textContent = title;
-        if (msgEl) msgEl.textContent = message;
+        if (titleEl) titleEl.innerHTML = title;
+        if (msgEl) msgEl.innerHTML = message;
         if (iconEl) iconEl.className = `fas ${icon} text-2xl`;
         if (iconWrap) iconWrap.className = `w-16 h-16 rounded-full flex items-center justify-center mb-4 animate-pulse ${iconClass}`;
         if (yesBtn) {
