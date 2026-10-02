@@ -5434,195 +5434,515 @@ function showOvertimeToday() { openModalList('Lembur Hari Ini', 'overtime'); }
 function showLateToday() { openModalList('Terlambat Hari Ini', 'late'); }
 function showDivisionDetails(division) { openModalList(`Divisi: ${division}`, 'division', division); }
 
+let currentActiveModalTitle = '';
+let currentActiveModalMode = '';
+let currentActiveModalFilterParam = null;
+let activeModalSearchQuery = '';
+
+function filterActiveWorkersList() {
+    const input = document.getElementById('activeWorkersSearch');
+    const clearBtn = document.getElementById('activeWorkersClearSearch');
+    activeModalSearchQuery = (input ? input.value : '').toLowerCase().trim();
+    if (clearBtn) {
+        if (activeModalSearchQuery) clearBtn.classList.remove('hidden');
+        else clearBtn.classList.add('hidden');
+    }
+    renderActiveWorkersList();
+}
+
+function clearActiveWorkersSearch() {
+    const input = document.getElementById('activeWorkersSearch');
+    if (input) input.value = '';
+    filterActiveWorkersList();
+}
+
 function openModalList(title, mode, filterParam = null) {
-    const list = document.getElementById('activeWorkersList');
-    document.getElementById('activeModalTitle').innerText = title;
-    const render = () => {
-        const now = new Date();
-        const today = getLocalDateStr();
-        let filtered = [];
-        let offScheduleBanner = '';
+    currentActiveModalTitle = title;
+    currentActiveModalMode = mode;
+    currentActiveModalFilterParam = filterParam;
+    activeModalSearchQuery = '';
 
-        const activeEmployees = employees.filter(e => ALLOWED_ROLES.includes(e.role || 'employee'));
-        const presentEmpIds = new Set(logs.filter(l => l.date === today && l.type === 'IN').map(l => String(l.empId)));
+    const input = document.getElementById('activeWorkersSearch');
+    if (input) input.value = '';
+    const clearBtn = document.getElementById('activeWorkersClearSearch');
+    if (clearBtn) clearBtn.classList.add('hidden');
 
-        if (mode === 'all') {
-            document.getElementById('activeModalSubtitle').innerText = "Seluruh database relawan";
-            filtered = employees;
-        } else if (mode === 'active') {
-            document.getElementById('activeModalSubtitle').innerText = "Realtime tracking";
-            filtered = employees.map(e => {
-                const myLogs = logs.filter(l => l.empId === e.id).sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
-                if (myLogs.length > 0 && myLogs[0].type === 'IN') { return { ...e, inTime: myLogs[0].time, inDate: myLogs[0].date, status: 'working' }; }
-                return null;
-            }).filter(e => e !== null);
-        } else if (mode === 'present') {
-            document.getElementById('activeModalSubtitle').innerText = `Kehadiran ${today}`;
-            const todayInLogs = logs.filter(l => l.date === today && l.type === 'IN');
-            filtered = todayInLogs.map(log => {
-                const emp = employees.find(e => e.id === log.empId);
-                return emp ? { ...emp, inTime: log.time, status: 'present' } : null;
-            }).filter(e => e);
-        } else if (mode === 'absent') {
-            document.getElementById('activeModalSubtitle').innerText = `Tidak Hadir ${today} (Hari Kerja Aktif)`;
-            
-            // Relawan yang divisinya terjadwal hari ini
-            const expectedEmployees = activeEmployees.filter(e => {
-                if (!isDivisionWorkingOnDate(e.division, today)) return false;
-                if (typeof isDateExcludedForDiv === 'function' && isDateExcludedForDiv(today, e.division)) return false;
-                return true;
-            });
-            filtered = expectedEmployees.filter(e => {
-                if (presentEmpIds.has(String(e.id))) return false;
-                const shift = appConfig.shifts?.[e.division];
-                if (!shift || typeof shift === 'string' || !shift.start) return false;
-                
-                const [sh, sm] = shift.start.split(':').map(Number);
-                const shiftDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm);
-                const limitDate = new Date(shiftDate.getTime() + 60 * 60 * 1000);
-                return now > limitDate;
-            });
+    renderActiveWorkersList();
 
-            // Banner info libur jadwal
-            const offToday = activeEmployees.filter(e => !isDivisionWorkingOnDate(e.division, today) && !presentEmpIds.has(String(e.id)));
-            if (offToday.length > 0) {
-                offScheduleBanner = `
-                <div class="mb-3 p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-2.5 text-xs text-indigo-900 dark:text-indigo-200">
-                        <span class="w-7 h-7 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                            <i class="fas fa-calendar-check text-xs"></i>
-                        </span>
-                        <div>
-                            <div class="font-bold">${offToday.length} Relawan Libur Jadwal</div>
-                            <div class="text-[10px] text-indigo-600/80 dark:text-indigo-300/80">Divisi tidak dijadwalkan masuk hari ini</div>
-                        </div>
-                    </div>
-                    <button type="button" onclick="showScheduleOffVolunteers()" class="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] shadow-sm transition active:scale-95 shrink-0">
-                        Lihat Daftar
-                    </button>
-                </div>`;
-            }
-        } else if (mode === 'belum_hadir') {
-            document.getElementById('activeModalSubtitle').innerText = `Belum Hadir ${today} (Hari Kerja Aktif)`;
-            
-            // Relawan yang divisinya terjadwal hari ini
-            const expectedEmployees = activeEmployees.filter(e => {
-                if (!isDivisionWorkingOnDate(e.division, today)) return false;
-                if (typeof isDateExcludedForDiv === 'function' && isDateExcludedForDiv(today, e.division)) return false;
-                return true;
-            });
-            filtered = expectedEmployees.filter(e => {
-                if (presentEmpIds.has(String(e.id))) return false;
-                const shift = appConfig.shifts?.[e.division];
-                if (!shift || typeof shift === 'string' || !shift.start) return true; // Default to Belum Hadir
-                
-                const [sh, sm] = shift.start.split(':').map(Number);
-                const shiftDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm);
-                const limitDate = new Date(shiftDate.getTime() + 60 * 60 * 1000);
-                return now <= limitDate;
-            });
-
-            // Banner info libur jadwal
-            const offToday = activeEmployees.filter(e => !isDivisionWorkingOnDate(e.division, today) && !presentEmpIds.has(String(e.id)));
-            if (offToday.length > 0) {
-                offScheduleBanner = `
-                <div class="mb-3 p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-2.5 text-xs text-indigo-900 dark:text-indigo-200">
-                        <span class="w-7 h-7 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                            <i class="fas fa-calendar-check text-xs"></i>
-                        </span>
-                        <div>
-                            <div class="font-bold">${offToday.length} Relawan Libur Jadwal</div>
-                            <div class="text-[10px] text-indigo-600/80 dark:text-indigo-300/80">Divisi tidak dijadwalkan masuk hari ini</div>
-                        </div>
-                    </div>
-                    <button type="button" onclick="showScheduleOffVolunteers()" class="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] shadow-sm transition active:scale-95 shrink-0">
-                        Lihat Daftar
-                    </button>
-                </div>`;
-            }
-        } else if (mode === 'libur_jadwal') {
-            document.getElementById('activeModalSubtitle').innerText = `Libur Jadwal ${today} (Tidak Ada Jadwal)`;
-            filtered = activeEmployees.filter(e => {
-                if (presentEmpIds.has(String(e.id))) return false;
-                return !isDivisionWorkingOnDate(e.division, today) || (typeof isDateExcludedForDiv === 'function' && isDateExcludedForDiv(today, e.division));
-            });
-        } else if (mode === 'overtime') {
-            document.getElementById('activeModalSubtitle').innerText = `Lembur ${today}`;
-            const todayOvertimeLogs = logs.filter(l => l.date === today && l.type === 'OUT' && l.overtime > 0);
-            filtered = todayOvertimeLogs.map(log => {
-                const emp = employees.find(e => e.id === log.empId);
-                return emp ? { ...emp, extraInfo: `+${log.overtime} Jam`, status: 'overtime' } : null;
-            }).filter(e => e);
-        } else if (mode === 'late') {
-            document.getElementById('activeModalSubtitle').innerText = `Terlambat ${today}`;
-            const todayLateLogs = logs.filter(l => l.date === today && l.lateMinutes > 0);
-            filtered = todayLateLogs.map(log => {
-                const emp = employees.find(e => e.id === log.empId);
-                const info = `${formatDuration(log.lateMinutes)}`;
-                return emp ? { ...emp, extraInfo: info, status: 'late' } : null;
-            }).filter(e => e);
-        } else if (mode === 'division') {
-            document.getElementById('activeModalSubtitle').innerText = "Filter Divisi";
-            filtered = employees.filter(e => e.division === filterParam);
-        }
-
-        const itemsHtml = filtered.length ? filtered.map(w => {
-            let statusBadge = '', timeInfo = '';
-            if (mode === 'active') {
-                const start = new Date(`${w.inDate}T${w.inTime}`);
-                const diffMs = Math.max(now - start, 0);
-                const hrs = Math.floor(diffMs / 3600000);
-                const mins = Math.floor((diffMs % 3600000) / 60000);
-                const secs = Math.floor((diffMs % 60000) / 1000); 
-                statusBadge = '<span class="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse">Sedang Bekerja</span>';
-                timeInfo = `<div class="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">${hrs}j ${mins}m ${secs}d</div>`; 
-            } else if (mode === 'present') {
-                statusBadge = '<span class="bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100/50 dark:border-blue-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Hadir</span>';
-                timeInfo = `<div class="text-[10px] text-slate-400">Masuk: <span class="font-bold text-slate-700 dark:text-slate-300">${w.inTime}</span></div>`;
-            } else if (mode === 'absent') {
-                statusBadge = '<span class="bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100/50 dark:border-rose-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Tidak Hadir</span>';
-                timeInfo = `<div class="text-[10px] text-slate-400">Shift: <span class="font-bold text-slate-700 dark:text-slate-300">${getShiftTime(w.division)}</span></div>`;
-            } else if (mode === 'belum_hadir') {
-                statusBadge = '<span class="bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 border border-slate-100/50 dark:border-white/5 text-[10px] px-2 py-0.5 rounded-full font-bold">Belum Hadir</span>';
-                timeInfo = `<div class="text-[10px] text-slate-400">Shift: <span class="font-bold text-slate-700 dark:text-slate-300">${getShiftTime(w.division)}</span></div>`;
-            } else if (mode === 'libur_jadwal') {
-                statusBadge = '<span class="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100/50 dark:border-indigo-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Libur Jadwal</span>';
-                timeInfo = `<div class="text-[10px] text-slate-400">Jadwal: <span class="font-bold text-slate-700 dark:text-slate-300">${formatDivisionScheduleSummary(w.division)}</span></div>`;
-            } else if (mode === 'overtime') {
-                statusBadge = '<span class="bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-100/50 dark:border-amber-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Lembur</span>';
-                timeInfo = `<div class="text-sm font-bold text-amber-600 dark:text-amber-400">${w.extraInfo}</div>`;
-            } else if (mode === 'late') {
-                statusBadge = '<span class="bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100/50 dark:border-rose-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Terlambat</span>';
-                timeInfo = `<div class="text-sm font-bold text-rose-600 dark:text-rose-400">${w.extraInfo}</div>`;
-            } else {
-                statusBadge = `<span class="bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-slate-400 border border-slate-100/50 dark:border-white/5 text-[10px] px-2 py-0.5 rounded-full font-bold">ID: ${w.id}</span>`;
-            }
-            let actionBtns = '';
-            if (mode === 'active') {
-                actionBtns = `<div class="flex gap-1.5 mt-2">
-                    <button onclick="adminClockOut('${w.id}','${w.name}')" class="px-2.5 py-1 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-bold transition"><i class="fas fa-sign-out-alt mr-1"></i>Absen Out</button>
-                    <button onclick="adminDeleteAbsen('${w.id}','${w.name}')" class="px-2.5 py-1 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold transition"><i class="fas fa-trash-alt mr-1"></i>Hapus Absen</button>
-                </div>`;
-            }
-            return `
-            <div class="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-100 dark:border-white/5 shadow-sm">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500"><i class="fas fa-user"></i></div>
-                    <div class="flex-1"><div class="font-bold text-sm text-slate-800 dark:text-slate-200">${w.name}</div><div class="flex items-center gap-2 mt-0.5">${statusBadge} <span class="text-[10px] text-slate-400">• ${w.division}</span></div></div>
-                    <div class="text-right">${timeInfo}</div>
-                </div>
-                ${actionBtns}
-            </div>`;
-        }).join('') : '<div class="text-center text-slate-400 py-10">Tidak ada data.</div>';
-
-        list.innerHTML = offScheduleBanner + itemsHtml;
-    };
-    render();
     document.getElementById('activeWorkersModal').classList.remove('hidden');
     setTimeout(() => document.getElementById('activeWorkersModal').classList.remove('opacity-0'), 10);
-    if(activeWorkerTimer) clearInterval(activeWorkerTimer);
-    if(mode === 'active') activeWorkerTimer = setInterval(render, 1000); 
+    if (activeWorkerTimer) clearInterval(activeWorkerTimer);
+    if (mode === 'active') activeWorkerTimer = setInterval(renderActiveWorkersList, 1000); 
+}
+
+function renderActiveWorkersList() {
+    const title = currentActiveModalTitle;
+    const mode = currentActiveModalMode;
+    const filterParam = currentActiveModalFilterParam;
+    const list = document.getElementById('activeWorkersList');
+    if (!list) return;
+
+    if (title) document.getElementById('activeModalTitle').innerText = title;
+
+    const now = new Date();
+    const today = getLocalDateStr();
+    let filtered = [];
+    let offScheduleBanner = '';
+
+    const activeEmployees = employees.filter(e => ALLOWED_ROLES.includes(e.role || 'employee'));
+    const presentEmpIds = new Set(logs.filter(l => l.date === today && l.type === 'IN').map(l => String(l.empId)));
+
+    if (mode === 'all') {
+        document.getElementById('activeModalSubtitle').innerText = "Seluruh database relawan";
+        filtered = employees;
+    } else if (mode === 'active') {
+        document.getElementById('activeModalSubtitle').innerText = "Realtime tracking";
+        filtered = employees.map(e => {
+            const myLogs = logs.filter(l => l.empId === e.id).sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+            if (myLogs.length > 0 && myLogs[0].type === 'IN') { return { ...e, inTime: myLogs[0].time, inDate: myLogs[0].date, status: 'working' }; }
+            return null;
+        }).filter(e => e !== null);
+    } else if (mode === 'present') {
+        document.getElementById('activeModalSubtitle').innerText = `Kehadiran ${today}`;
+        const todayInLogs = logs.filter(l => l.date === today && l.type === 'IN');
+        filtered = todayInLogs.map(log => {
+            const emp = employees.find(e => e.id === log.empId);
+            return emp ? { ...emp, inTime: log.time, status: 'present' } : null;
+        }).filter(e => e);
+    } else if (mode === 'absent') {
+        document.getElementById('activeModalSubtitle').innerText = `Tidak Hadir ${today} (Hari Kerja Aktif)`;
+        
+        // Relawan yang divisinya terjadwal hari ini
+        const expectedEmployees = activeEmployees.filter(e => {
+            if (!isDivisionWorkingOnDate(e.division, today)) return false;
+            if (typeof isDateExcludedForDiv === 'function' && isDateExcludedForDiv(today, e.division)) return false;
+            return true;
+        });
+        filtered = expectedEmployees.filter(e => {
+            if (presentEmpIds.has(String(e.id))) return false;
+            const shift = appConfig.shifts?.[e.division];
+            if (!shift || typeof shift === 'string' || !shift.start) return false;
+            
+            const [sh, sm] = shift.start.split(':').map(Number);
+            const shiftDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm);
+            const limitDate = new Date(shiftDate.getTime() + 60 * 60 * 1000);
+            return now > limitDate;
+        });
+
+        // Banner info libur jadwal
+        const offToday = activeEmployees.filter(e => !isDivisionWorkingOnDate(e.division, today) && !presentEmpIds.has(String(e.id)));
+        if (offToday.length > 0) {
+            offScheduleBanner = `
+            <div class="mb-3 p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5 text-xs text-indigo-900 dark:text-indigo-200">
+                    <span class="w-7 h-7 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                        <i class="fas fa-calendar-check text-xs"></i>
+                    </span>
+                    <div>
+                        <div class="font-bold">${offToday.length} Relawan Libur Jadwal</div>
+                        <div class="text-[10px] text-indigo-600/80 dark:text-indigo-300/80">Divisi tidak dijadwalkan masuk hari ini</div>
+                    </div>
+                </div>
+                <button type="button" onclick="showScheduleOffVolunteers()" class="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] shadow-sm transition active:scale-95 shrink-0">
+                    Lihat Daftar
+                </button>
+            </div>`;
+        }
+    } else if (mode === 'belum_hadir') {
+        document.getElementById('activeModalSubtitle').innerText = `Belum Hadir ${today} (Hari Kerja Aktif)`;
+        
+        // Relawan yang divisinya terjadwal hari ini
+        const expectedEmployees = activeEmployees.filter(e => {
+            if (!isDivisionWorkingOnDate(e.division, today)) return false;
+            if (typeof isDateExcludedForDiv === 'function' && isDateExcludedForDiv(today, e.division)) return false;
+            return true;
+        });
+        filtered = expectedEmployees.filter(e => {
+            if (presentEmpIds.has(String(e.id))) return false;
+            const shift = appConfig.shifts?.[e.division];
+            if (!shift || typeof shift === 'string' || !shift.start) return true; // Default to Belum Hadir
+            
+            const [sh, sm] = shift.start.split(':').map(Number);
+            const shiftDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm);
+            const limitDate = new Date(shiftDate.getTime() + 60 * 60 * 1000);
+            return now <= limitDate;
+        });
+
+        // Banner info libur jadwal
+        const offToday = activeEmployees.filter(e => !isDivisionWorkingOnDate(e.division, today) && !presentEmpIds.has(String(e.id)));
+        if (offToday.length > 0) {
+            offScheduleBanner = `
+            <div class="mb-3 p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5 text-xs text-indigo-900 dark:text-indigo-200">
+                    <span class="w-7 h-7 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                        <i class="fas fa-calendar-check text-xs"></i>
+                    </span>
+                    <div>
+                        <div class="font-bold">${offToday.length} Relawan Libur Jadwal</div>
+                        <div class="text-[10px] text-indigo-600/80 dark:text-indigo-300/80">Divisi tidak dijadwalkan masuk hari ini</div>
+                    </div>
+                </div>
+                <button type="button" onclick="showScheduleOffVolunteers()" class="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] shadow-sm transition active:scale-95 shrink-0">
+                    Lihat Daftar
+                </button>
+            </div>`;
+        }
+    } else if (mode === 'libur_jadwal') {
+        document.getElementById('activeModalSubtitle').innerText = `Libur Jadwal ${today} (Tidak Ada Jadwal)`;
+        filtered = activeEmployees.filter(e => {
+            if (presentEmpIds.has(String(e.id))) return false;
+            return !isDivisionWorkingOnDate(e.division, today) || (typeof isDateExcludedForDiv === 'function' && isDateExcludedForDiv(today, e.division));
+        });
+    } else if (mode === 'overtime') {
+        document.getElementById('activeModalSubtitle').innerText = `Lembur ${today}`;
+        const todayOvertimeLogs = logs.filter(l => l.date === today && l.type === 'OUT' && l.overtime > 0);
+        filtered = todayOvertimeLogs.map(log => {
+            const emp = employees.find(e => e.id === log.empId);
+            return emp ? { ...emp, extraInfo: `+${log.overtime} Jam`, status: 'overtime' } : null;
+        }).filter(e => e);
+    } else if (mode === 'late') {
+        document.getElementById('activeModalSubtitle').innerText = `Terlambat ${today}`;
+        const todayLateLogs = logs.filter(l => l.date === today && l.lateMinutes > 0);
+        filtered = todayLateLogs.map(log => {
+            const emp = employees.find(e => e.id === log.empId);
+            const info = `${formatDuration(log.lateMinutes)}`;
+            return emp ? { ...emp, extraInfo: info, status: 'late' } : null;
+        }).filter(e => e);
+    } else if (mode === 'division') {
+        document.getElementById('activeModalSubtitle').innerText = "Filter Divisi";
+        filtered = employees.filter(e => e.division === filterParam);
+    }
+
+    // Apply search filter if active
+    if (activeModalSearchQuery) {
+        filtered = filtered.filter(w => {
+            const nameMatch = (w.name || '').toLowerCase().includes(activeModalSearchQuery);
+            const divMatch = (w.division || '').toLowerCase().includes(activeModalSearchQuery);
+            const idMatch = String(w.id || '').toLowerCase().includes(activeModalSearchQuery);
+            return nameMatch || divMatch || idMatch;
+        });
+    }
+
+    const itemsHtml = filtered.length ? filtered.map(w => {
+        let statusBadge = '', timeInfo = '';
+        const isPresent = presentEmpIds.has(String(w.id));
+
+        if (mode === 'active') {
+            const start = new Date(`${w.inDate}T${w.inTime}`);
+            const diffMs = Math.max(now - start, 0);
+            const hrs = Math.floor(diffMs / 3600000);
+            const mins = Math.floor((diffMs % 3600000) / 60000);
+            const secs = Math.floor((diffMs % 60000) / 1000); 
+            statusBadge = '<span class="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse">Sedang Bekerja</span>';
+            timeInfo = `<div class="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">${hrs}j ${mins}m ${secs}d</div>`; 
+        } else if (mode === 'present') {
+            statusBadge = '<span class="bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100/50 dark:border-blue-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Hadir</span>';
+            timeInfo = `<div class="text-[10px] text-slate-400">Masuk: <span class="font-bold text-slate-700 dark:text-slate-300">${w.inTime}</span></div>`;
+        } else if (mode === 'absent') {
+            statusBadge = '<span class="bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100/50 dark:border-rose-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Tidak Hadir</span>';
+            timeInfo = `<div class="text-[10px] text-slate-400">Shift: <span class="font-bold text-slate-700 dark:text-slate-300">${getShiftTime(w.division)}</span></div>`;
+        } else if (mode === 'belum_hadir') {
+            statusBadge = '<span class="bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 border border-slate-100/50 dark:border-white/5 text-[10px] px-2 py-0.5 rounded-full font-bold">Belum Hadir</span>';
+            timeInfo = `<div class="text-[10px] text-slate-400">Shift: <span class="font-bold text-slate-700 dark:text-slate-300">${getShiftTime(w.division)}</span></div>`;
+        } else if (mode === 'libur_jadwal') {
+            statusBadge = '<span class="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100/50 dark:border-indigo-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Libur Jadwal</span>';
+            timeInfo = `<div class="text-[10px] text-slate-400">Jadwal: <span class="font-bold text-slate-700 dark:text-slate-300">${formatDivisionScheduleSummary(w.division)}</span></div>`;
+        } else if (mode === 'overtime') {
+            statusBadge = '<span class="bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-100/50 dark:border-amber-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Lembur</span>';
+            timeInfo = `<div class="text-sm font-bold text-amber-600 dark:text-amber-400">${w.extraInfo}</div>`;
+        } else if (mode === 'late') {
+            statusBadge = '<span class="bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100/50 dark:border-rose-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Terlambat</span>';
+            timeInfo = `<div class="text-sm font-bold text-rose-600 dark:text-rose-400">${w.extraInfo}</div>`;
+        } else {
+            statusBadge = `<span class="bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-slate-400 border border-slate-100/50 dark:border-white/5 text-[10px] px-2 py-0.5 rounded-full font-bold">ID: ${w.id}</span>`;
+        }
+
+        let actionBtns = '';
+        if (mode === 'active') {
+            actionBtns = `<div class="flex gap-1.5 mt-2.5 pt-2 border-t border-slate-100 dark:border-white/5">
+                <button onclick="adminClockOut('${w.id}','${w.name}')" class="px-2.5 py-1.5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-[11px] font-bold transition shadow-sm active:scale-95"><i class="fas fa-sign-out-alt mr-1"></i>Absen Out</button>
+                <button onclick="adminDeleteAbsen('${w.id}','${w.name}')" class="px-2.5 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-bold transition shadow-sm active:scale-95"><i class="fas fa-trash-alt mr-1"></i>Hapus Absen</button>
+            </div>`;
+        } else if (mode === 'absent' || mode === 'belum_hadir' || mode === 'libur_jadwal' || (!isPresent && mode !== 'present')) {
+            actionBtns = `<div class="flex items-center justify-end gap-2 mt-2.5 pt-2 border-t border-slate-100 dark:border-white/5">
+                <button type="button" onclick="openQuickInModal('${w.id}')" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm shadow-emerald-500/20 transition active:scale-95">
+                    <i class="fas fa-sign-in-alt text-[11px]"></i>
+                    <span>Absen IN</span>
+                </button>
+            </div>`;
+        }
+
+        const avatarHtml = w.photo
+            ? `<img src="${w.photo}" class="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10 shrink-0">`
+            : `<div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0"><i class="fas fa-user"></i></div>`;
+
+        return `
+        <div class="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-100 dark:border-white/5 shadow-sm hover:border-slate-200 dark:hover:border-white/10 transition">
+            <div class="flex items-center gap-3">
+                ${avatarHtml}
+                <div class="flex-1 min-w-0">
+                    <div class="font-bold text-sm text-slate-800 dark:text-slate-200 truncate">${w.name}</div>
+                    <div class="flex items-center gap-2 mt-0.5">${statusBadge} <span class="text-[10px] text-slate-400">• ${w.division}</span></div>
+                </div>
+                <div class="text-right shrink-0">${timeInfo}</div>
+            </div>
+            ${actionBtns}
+        </div>`;
+    }).join('') : `<div class="text-center text-slate-400 py-10 flex flex-col items-center justify-center gap-2">
+        <i class="fas fa-search text-2xl text-slate-300 dark:text-slate-600"></i>
+        <div class="text-xs font-semibold">${activeModalSearchQuery ? 'Tidak ada relawan yang cocok dengan pencarian' : 'Tidak ada data relawan'}</div>
+    </div>`;
+
+    list.innerHTML = offScheduleBanner + itemsHtml;
+}
+
+// --- QUICK ABSEN IN (DARI DASHBOARD / DETAIL TIDAK HADIR) ---
+let currentQuickInEmpId = null;
+let quickInPhotoBase64 = null;
+
+function openQuickInModal(empId) {
+    const emp = employees.find(e => String(e.id) === String(empId));
+    if (!emp) {
+        showToast('Data relawan tidak ditemukan', 'error');
+        return;
+    }
+    currentQuickInEmpId = String(empId);
+
+    // Populate data
+    document.getElementById('quickInName').innerText = emp.name;
+    document.getElementById('quickInDivBadge').innerText = emp.division || '-';
+    document.getElementById('quickInIdBadge').innerText = `ID: ${emp.id}`;
+
+    const shift = appConfig.shifts?.[emp.division];
+    const shiftText = (shift && shift.start && shift.end) ? `${shift.start} - ${shift.end}` : (typeof getShiftTime === 'function' ? getShiftTime(emp.division) : '-');
+    document.getElementById('quickInShiftInfo').innerHTML = `<i class="far fa-clock text-[9px] mr-1"></i> Shift: <span class="font-bold ml-1 text-slate-700 dark:text-slate-300">${shiftText}</span>`;
+
+    const avatarEl = document.getElementById('quickInAvatar');
+    if (emp.photo) {
+        avatarEl.innerHTML = `<img src="${emp.photo}" class="w-full h-full object-cover">`;
+    } else {
+        const initials = (emp.name || 'R').split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase();
+        avatarEl.innerHTML = `<span>${initials}</span>`;
+    }
+
+    // Date & Time
+    const now = new Date();
+    document.getElementById('quickInDate').value = getLocalDateStr(now);
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    document.getElementById('quickInTime').value = timeStr;
+
+    // Reset controls
+    document.getElementById('quickInBadgeCheck').checked = true;
+    document.getElementById('quickInNote').value = '';
+    clearQuickInPhoto();
+
+    // Show modal
+    const modal = document.getElementById('quickInModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            modal.querySelector('.quick-in-content')?.classList.remove('scale-95');
+        }, 10);
+    }
+}
+
+function closeQuickInModal() {
+    const modal = document.getElementById('quickInModal');
+    if (!modal) return;
+    modal.classList.add('opacity-0');
+    modal.querySelector('.quick-in-content')?.classList.add('scale-95');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        currentQuickInEmpId = null;
+        clearQuickInPhoto();
+    }, 300);
+}
+
+function handleQuickInPhoto(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        showToast('File harus berupa gambar (JPG/PNG)', 'error');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        quickInPhotoBase64 = e.target.result;
+        const img = document.getElementById('quickInPreviewImg');
+        if (img) img.src = quickInPhotoBase64;
+        document.getElementById('quickInPreviewContainer')?.classList.remove('hidden');
+        document.getElementById('quickInUploadArea')?.classList.add('hidden');
+        const status = document.getElementById('quickInPhotoStatus');
+        if (status) {
+            status.innerText = '✓ Foto siap (akan diberi watermark)';
+            status.className = 'text-[10px] text-emerald-500 font-semibold';
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
+function clearQuickInPhoto() {
+    quickInPhotoBase64 = null;
+    const input = document.getElementById('quickInPhotoInput');
+    if (input) input.value = '';
+    const img = document.getElementById('quickInPreviewImg');
+    if (img) img.src = '';
+    document.getElementById('quickInPreviewContainer')?.classList.add('hidden');
+    document.getElementById('quickInUploadArea')?.classList.remove('hidden');
+    const status = document.getElementById('quickInPhotoStatus');
+    if (status) {
+        status.innerText = 'Belum ada foto';
+        status.className = 'text-[10px] text-slate-400 font-medium';
+    }
+}
+
+async function submitQuickIn() {
+    if (!currentQuickInEmpId) return;
+    const emp = employees.find(e => String(e.id) === String(currentQuickInEmpId));
+    if (!emp) {
+        showToast('Relawan tidak ditemukan', 'error');
+        return;
+    }
+
+    const submitBtn = document.getElementById('quickInSubmitBtn');
+    const origHtml = submitBtn ? submitBtn.innerHTML : '';
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i> Memproses...';
+    }
+
+    try {
+        const now = new Date();
+        const today = document.getElementById('quickInDate')?.value || getLocalDateStr(now);
+        let timeStr = document.getElementById('quickInTime')?.value || `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        timeStr = String(timeStr).replace(/\./g, ':');
+        const forcedTime = timeStr.length > 5 ? timeStr.slice(0, 5) : timeStr;
+        if (timeStr.length === 5) timeStr += ':00';
+
+        const isBadgeChecked = document.getElementById('quickInBadgeCheck')?.checked ?? true;
+        const rawNote = (document.getElementById('quickInNote')?.value || '').trim();
+        const finalNote = isBadgeChecked
+            ? (rawNote ? `${rawNote} [Absen Manual]` : '[Absen Manual]')
+            : (rawNote || '[Admin IN]');
+
+        // Watermark photo if uploaded (strictly optional)
+        let processedPhoto = '';
+        if (quickInPhotoBase64) {
+            try {
+                if (typeof generateWatermarkedPhoto === 'function') {
+                    processedPhoto = await generateWatermarkedPhoto(quickInPhotoBase64, {
+                        time: forcedTime,
+                        date: today,
+                        lat: appConfig?.geofenceLat || GEOFENCE_CONFIG.lat,
+                        lng: appConfig?.geofenceLng || GEOFENCE_CONFIG.lng,
+                        type: 'IN',
+                        includeManualBadge: isBadgeChecked
+                    });
+                }
+            } catch (pErr) {
+                console.warn('Gagal watermark foto absen cepat:', pErr);
+            }
+            if (!processedPhoto) {
+                processedPhoto = quickInPhotoBase64.includes(',') ? quickInPhotoBase64.split(',')[1] : quickInPhotoBase64;
+            }
+        }
+
+        // Calculate late minutes
+        let lateMin = 0;
+        const shift = appConfig.shifts?.[emp.division];
+        if (shift && shift.start) {
+            const [sh, sm] = shift.start.split(':').map(Number);
+            const [ah, am] = forcedTime.split(':').map(Number);
+            const diff = (ah * 60 + am) - (sh * 60 + sm);
+            if (diff > 0) lateMin = diff;
+        }
+
+        const payload = {
+            empId: String(emp.id),
+            name: emp.name,
+            type: 'IN',
+            date: today,
+            time: timeStr,
+            forcedTime: forcedTime,
+            location: `${appConfig?.geofenceLat || GEOFENCE_CONFIG.lat}, ${appConfig?.geofenceLng || GEOFENCE_CONFIG.lng}`,
+            photo: processedPhoto || '',
+            overtime: 0,
+            lateMinutes: lateMin,
+            note: finalNote,
+            absentBy: 'Admin',
+            isManual: isBadgeChecked
+        };
+
+        // Kirim ke backend (Supabase first)
+        let success = false;
+        if (sbClient) {
+            try {
+                const sbRes = await sbPostData('attendance', payload);
+                if (sbRes && sbRes.status === 'success') success = true;
+            } catch (sbErr) {
+                console.warn('Gagal kirim via sbPostData, fallback maSendOneEntry:', sbErr);
+            }
+        }
+        if (!success) {
+            success = await maSendOneEntry(payload);
+        }
+
+        if (!success) {
+            throw new Error('Gagal menyimpan absensi ke server.');
+        }
+
+        // Optimistic log insertion into local logs so dashboard, salary, & list update immediately
+        const exists = logs.some(l => String(l.empId) === String(emp.id) && l.date === today && l.type === 'IN');
+        if (!exists) {
+            logs.unshift({
+                id: 'quick_in_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                empId: String(emp.id),
+                name: emp.name,
+                type: 'IN',
+                date: today,
+                time: timeStr,
+                photo: processedPhoto ? 'data:image/jpeg;base64,' + processedPhoto : '',
+                overtime: 0,
+                lateMinutes: lateMin,
+                location: payload.location,
+                note: finalNote,
+                absentBy: 'Admin',
+                isManual: isBadgeChecked
+            });
+        }
+
+        _saveToCache(employees, logs, appConfig);
+
+        // Close quick in modal
+        closeQuickInModal();
+
+        // Realtime update: refresh dashboard stats and modal list
+        refreshUI();
+        renderActiveWorkersList();
+
+        showToast(`Berhasil absenkan MASUK (IN) untuk ${emp.name}!`, 'success');
+
+        // Sync fresh data from Supabase in background
+        try {
+            await fetchData(true);
+            refreshUI();
+            renderActiveWorkersList();
+        } catch (syncErr) {
+            console.warn('Background sync after quick in:', syncErr);
+        }
+
+    } catch (err) {
+        console.error('Submit Quick IN Error:', err);
+        showToast('Gagal absen cepat: ' + (err.message || 'Terjadi kesalahan'), 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origHtml;
+        }
+    }
 }
 async function adminClockOut(empId, empName) {
     const ok = await showCustomConfirm({
@@ -6183,7 +6503,14 @@ async function autoClockOutForgotten() {
 function closeActiveWorkers() {
     const modal = document.getElementById('activeWorkersModal');
     modal.classList.add('opacity-0');
-    setTimeout(() => modal.classList.add('hidden'), 300);
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        const searchInput = document.getElementById('activeWorkersSearch');
+        if (searchInput) searchInput.value = '';
+        const clearBtn = document.getElementById('activeWorkersClearSearch');
+        if (clearBtn) clearBtn.classList.add('hidden');
+        activeModalSearchQuery = '';
+    }, 300);
     if(activeWorkerTimer) clearInterval(activeWorkerTimer);
 }
 // UI Helpers
