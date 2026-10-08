@@ -897,6 +897,317 @@
         </div>
     </div>
 
+    <!-- QUICK ABSEN BACKUP MODAL -->
+    <div id="quickBackupModal" class="fixed inset-0 z-[260] bg-slate-950/60 backdrop-blur-md hidden flex items-end md:items-center justify-center p-0 md:p-4 transition-opacity duration-300 opacity-0">
+        <div class="quick-backup-content w-full md:max-w-md bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] transform transition-transform duration-300 scale-95 animate-slide-up">
+            <!-- Header -->
+            <div class="p-5 border-b border-slate-100 dark:border-white/5 bg-slate-50/70 dark:bg-slate-800/40 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center text-base shrink-0 shadow-xs">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-slate-800 dark:text-white leading-tight">Absen Backup Relawan</h3>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Catat kehadiran relawan pengganti (backup)</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeQuickBackupModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 flex items-center justify-center transition shrink-0 ml-2">
+                    <i class="fas fa-times text-xs"></i>
+                </button>
+            </div>
+
+            <!-- Scrollable Body -->
+            <div class="p-5 space-y-4 overflow-y-auto flex-1">
+                <!-- Target Volunteer Info Banner -->
+                <div class="p-3.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-500/20 flex items-center gap-3.5">
+                    <div id="quickBackupTargetAvatar" class="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white font-black text-sm flex items-center justify-center shadow-sm overflow-hidden shrink-0">
+                        <!-- Avatar / Initial -->
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1">
+                            <i class="fas fa-people-arrows text-[9px]"></i> Membackup Relawan:
+                        </div>
+                        <h4 id="quickBackupTargetName" class="font-bold text-sm text-slate-800 dark:text-white truncate mt-0.5">Nama Relawan</h4>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span id="quickBackupTargetDiv" class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">Divisi</span>
+                            <span id="quickBackupTargetId" class="text-[10px] text-slate-400 font-mono">ID: -</span>
+                        </div>
+                        <div id="quickBackupTargetShift" class="text-[10px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1 font-medium">
+                            <i class="far fa-clock text-[9px]"></i> Shift: -
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-xl border border-slate-100 dark:border-white/5 flex items-center gap-2">
+                    <i class="fas fa-info-circle text-amber-500 text-xs shrink-0"></i>
+                    <span>Relawan asli tidak akan dihitung hari kerjanya dan tidak menerima upah hari ini.</span>
+                </div>
+
+                <!-- Input Nama Lengkap Backup -->
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1.5">
+                        Nama Lengkap Backup <span class="text-rose-500">*</span>
+                    </label>
+                    <input type="text" id="quickBackupName" placeholder="Contoh: Budi Santoso" class="w-full px-3.5 py-2.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition font-semibold" required>
+                </div>
+
+                <!-- Input NIK Backup (Opsional) -->
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                        NIK KTP <span class="text-slate-400 font-normal normal-case">(Opsional)</span>
+                    </label>
+                    <input type="text" id="quickBackupNik" placeholder="Nomor Induk Kependudukan (16 digit)..." class="w-full px-3.5 py-2.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition font-mono">
+                </div>
+
+                <!-- Date & Time Row -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Tanggal</label>
+                        <input type="date" id="quickBackupDate" class="w-full px-3 py-2.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white font-medium outline-none cursor-not-allowed" readonly>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Jam Masuk (IN)</label>
+                        <input type="time" id="quickBackupTime" class="w-full px-3 py-2.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white font-bold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition">
+                    </div>
+                </div>
+
+                <!-- Photo Upload (Optional) -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                            Foto Backup <span class="text-slate-400 font-normal normal-case">(Opsional)</span>
+                        </label>
+                        <span id="quickBackupPhotoStatus" class="text-[10px] text-slate-400 font-medium">Belum ada foto</span>
+                    </div>
+
+                    <input type="file" id="quickBackupPhotoInput" accept="image/*" class="hidden" onchange="handleQuickBackupPhoto(this)">
+
+                    <!-- Placeholder -->
+                    <div id="quickBackupUploadArea" onclick="document.getElementById('quickBackupPhotoInput').click()" class="cursor-pointer border-2 border-dashed border-slate-200 dark:border-white/10 hover:border-amber-500/60 dark:hover:border-amber-400/60 bg-slate-50/50 dark:bg-slate-800/30 hover:bg-amber-50/20 dark:hover:bg-amber-950/20 rounded-2xl p-4 text-center transition group">
+                        <div class="w-10 h-10 mx-auto rounded-full bg-slate-100 dark:bg-slate-700/60 text-slate-400 group-hover:text-amber-500 flex items-center justify-center text-sm transition mb-2">
+                            <i class="fas fa-camera"></i>
+                        </div>
+                        <div class="text-xs font-semibold text-slate-700 dark:text-slate-200 group-hover:text-amber-600 dark:group-hover:text-amber-400">Pilih / Ambil Foto Backup</div>
+                        <div class="text-[10px] text-slate-400 mt-0.5">Watermark jam, lokasi kantor, & tanda ABSEN BACKUP disematkan otomatis</div>
+                    </div>
+
+                    <!-- Preview -->
+                    <div id="quickBackupPreviewContainer" class="hidden relative rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 bg-black/10">
+                        <img id="quickBackupPreviewImg" src="" alt="Preview" class="w-full max-h-48 object-cover">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 flex flex-col justify-between p-3">
+                            <div class="flex justify-end">
+                                <button type="button" onclick="clearQuickBackupPhoto()" class="px-2.5 py-1 rounded-lg bg-red-500/90 hover:bg-red-600 text-white text-[10px] font-bold shadow-md transition flex items-center gap-1 active:scale-95">
+                                    <i class="fas fa-trash-alt"></i> Hapus Foto
+                                </button>
+                            </div>
+                            <div class="text-[10px] text-white/90 font-mono flex items-center gap-1">
+                                <i class="fas fa-shield-alt text-amber-400"></i> Watermark ABSEN BACKUP aktif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Badge Absen Backup Checkbox (Default Checked) -->
+                <div class="p-3 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-500/20 flex items-start gap-3">
+                    <input type="checkbox" id="quickBackupBadgeCheck" checked class="mt-0.5 w-4 h-4 rounded border-amber-300 text-amber-500 focus:ring-amber-400 cursor-pointer">
+                    <label for="quickBackupBadgeCheck" class="text-xs cursor-pointer select-none">
+                        <span class="font-bold text-amber-900 dark:text-amber-300 block">Sertakan Badge "Absen Backup"</span>
+                        <span class="text-[10px] text-amber-700/80 dark:text-amber-400/80 block mt-0.5">Cantumkan tanda Absen Backup pada watermark foto, log kehadiran, dan rekap gaji</span>
+                    </label>
+                </div>
+
+                <!-- Note (Optional) -->
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">Catatan <span class="text-slate-400 font-normal normal-case">(Opsional)</span></label>
+                    <input type="text" id="quickBackupNote" placeholder="Misal: Menggantikan karena sakit / urusan mendesak..." class="w-full px-3 py-2.5 rounded-xl text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition">
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="p-4 bg-slate-50/80 dark:bg-slate-800/80 border-t border-slate-100 dark:border-white/5 flex items-center justify-end gap-2.5 shrink-0">
+                <button type="button" onclick="closeQuickBackupModal()" class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700/60 transition active:scale-95">
+                    Batal
+                </button>
+                <button type="button" id="quickBackupSubmitBtn" onclick="submitQuickBackup()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-amber-500/25 transition active:scale-95">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Kirim Absen Backup</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BACKUP PROFILE MODAL -->
+    <div id="backupProfileModal" class="fixed inset-0 z-[270] bg-slate-950/60 backdrop-blur-md hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+        <div class="backup-profile-content w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transform transition-transform duration-300 scale-95 animate-slide-up">
+            <div class="p-5 border-b border-slate-100 dark:border-white/5 bg-slate-50/70 dark:bg-slate-800/40 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center text-base shrink-0 shadow-xs">
+                        <i class="fas fa-id-card"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-slate-800 dark:text-white leading-tight">Profil Relawan Backup</h3>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Detail kehadiran relawan pengganti</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeBackupProfileModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 flex items-center justify-center transition shrink-0 ml-2">
+                    <i class="fas fa-times text-xs"></i>
+                </button>
+            </div>
+
+            <div class="p-5 space-y-4 overflow-y-auto flex-1">
+                <!-- Backup Profile Header Card -->
+                <div class="text-center p-4 rounded-2xl bg-gradient-to-b from-amber-50/60 to-transparent dark:from-amber-950/20 dark:to-transparent border border-amber-100 dark:border-white/5">
+                    <div id="backupProfilePhotoContainer" class="w-20 h-20 mx-auto rounded-2xl bg-slate-100 dark:bg-slate-800 border-2 border-amber-400/40 overflow-hidden shadow-md mb-3 flex items-center justify-center">
+                        <!-- Image or Initial -->
+                    </div>
+                    <h4 id="backupProfileName" class="font-bold text-base text-slate-800 dark:text-white">Nama Backup</h4>
+                    <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 mt-1">
+                        <i class="fas fa-user-shield text-[9px]"></i> Relawan Backup
+                    </div>
+                </div>
+
+                <!-- Backup Details List -->
+                <div class="space-y-2.5 text-xs">
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-white/5">
+                        <span class="text-slate-500 dark:text-slate-400 font-medium">NIK:</span>
+                        <span id="backupProfileNik" class="font-mono font-bold text-slate-700 dark:text-slate-200">-</span>
+                    </div>
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-white/5">
+                        <span class="text-slate-500 dark:text-slate-400 font-medium">Tanggal & Waktu:</span>
+                        <span id="backupProfileTime" class="font-bold text-slate-700 dark:text-slate-200">-</span>
+                    </div>
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-white/5">
+                        <span class="text-slate-500 dark:text-slate-400 font-medium">Divisi yang Dibackup:</span>
+                        <span id="backupProfileTargetDiv" class="font-bold text-indigo-600 dark:text-indigo-400">-</span>
+                    </div>
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-white/5">
+                        <span class="text-slate-500 dark:text-slate-400 font-medium">Membackup Relawan:</span>
+                        <span id="backupProfileTargetName" class="font-bold text-slate-800 dark:text-slate-100">-</span>
+                    </div>
+                </div>
+
+                <div class="p-3 rounded-2xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200/50 dark:border-rose-500/20 text-[11px] text-rose-700 dark:text-rose-300 flex items-start gap-2">
+                    <i class="fas fa-exclamation-circle text-xs mt-0.5 shrink-0"></i>
+                    <span>Relawan asli tidak hadir pada tanggal ini dan tidak dihitung upah kerjanya.</span>
+                </div>
+            </div>
+
+            <div class="p-4 bg-slate-50/80 dark:bg-slate-800/80 border-t border-slate-100 dark:border-white/5 flex items-center justify-end">
+                <button type="button" onclick="closeBackupProfileModal()" class="w-full py-2.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs transition active:scale-95">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DAILY ATTENDANCE DETAIL MODAL (MASUK & KELUAR) -->
+    <div id="dailyAttendanceDetailModal" class="fixed inset-0 z-[270] bg-slate-950/60 backdrop-blur-md hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+        <div class="daily-detail-content w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transform transition-transform duration-300 scale-95 animate-slide-up">
+            <!-- Header -->
+            <div class="p-5 border-b border-slate-100 dark:border-white/5 bg-slate-50/70 dark:bg-slate-800/40 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center text-base shrink-0 shadow-xs">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-slate-800 dark:text-white leading-tight">Detail Kehadiran Relawan</h3>
+                        <p id="dailyDetailDate" class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Tanggal Kehadiran</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeDailyAttendanceDetailModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 flex items-center justify-center transition shrink-0 ml-2">
+                    <i class="fas fa-times text-xs"></i>
+                </button>
+            </div>
+
+            <!-- Scrollable Body -->
+            <div class="p-5 space-y-4 overflow-y-auto flex-1">
+                <!-- Volunteer Info Card -->
+                <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-white/5 flex items-center gap-3.5">
+                    <div id="dailyDetailEmpAvatar" class="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-black text-sm flex items-center justify-center shadow-sm overflow-hidden shrink-0">
+                        <!-- Avatar / Initial -->
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h4 id="dailyDetailEmpName" class="font-bold text-sm text-slate-800 dark:text-white truncate">Nama Relawan</h4>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span id="dailyDetailEmpDiv" class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">Divisi</span>
+                            <span id="dailyDetailEmpId" class="text-[10px] text-slate-400 font-mono">ID: -</span>
+                        </div>
+                        <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 flex items-center gap-1">
+                            <i class="fas fa-coins text-[9px]"></i> Gaji Harian: <span id="dailyDetailSalary" class="ml-0.5">Rp 0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Absen Masuk (IN) Card -->
+                <div class="p-3.5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-500/20 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500 text-white shadow-xs">
+                            <i class="fas fa-sign-in-alt text-[9px]"></i> ABSEN MASUK (IN)
+                        </span>
+                        <span id="dailyDetailInTime" class="font-mono font-extrabold text-sm text-emerald-700 dark:text-emerald-300">--:--:--</span>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2 items-center">
+                        <div id="dailyDetailInPhotoContainer" class="col-span-1 h-20 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 overflow-hidden flex items-center justify-center">
+                            <!-- Photo or placeholder -->
+                        </div>
+                        <div class="col-span-2 space-y-1 text-xs">
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-500 dark:text-slate-400">Status:</span>
+                                <span id="dailyDetailInStatus" class="font-bold text-emerald-600">Tepat Waktu</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-500 dark:text-slate-400">Keterangan:</span>
+                                <span id="dailyDetailInNote" class="font-medium text-slate-700 dark:text-slate-200 truncate max-w-[140px]">-</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-500 dark:text-slate-400">Diabsenkan:</span>
+                                <span id="dailyDetailInBy" class="font-semibold text-slate-600 dark:text-slate-300">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Absen Keluar (OUT) Card -->
+                <div class="p-3.5 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-500/20 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-500 text-white shadow-xs">
+                            <i class="fas fa-sign-out-alt text-[9px]"></i> ABSEN KELUAR (OUT)
+                        </span>
+                        <span id="dailyDetailOutTime" class="font-mono font-extrabold text-sm text-blue-700 dark:text-blue-300">--:--:--</span>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2 items-center">
+                        <div id="dailyDetailOutPhotoContainer" class="col-span-1 h-20 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 overflow-hidden flex items-center justify-center">
+                            <!-- Photo or placeholder -->
+                        </div>
+                        <div class="col-span-2 space-y-1 text-xs">
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-500 dark:text-slate-400">Lembur:</span>
+                                <span id="dailyDetailOutOvertime" class="font-bold text-amber-600">0 Jam</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-500 dark:text-slate-400">Keterangan:</span>
+                                <span id="dailyDetailOutNote" class="font-medium text-slate-700 dark:text-slate-200 truncate max-w-[140px]">-</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-500 dark:text-slate-400">Diabsenkan:</span>
+                                <span id="dailyDetailOutBy" class="font-semibold text-slate-600 dark:text-slate-300">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="p-4 bg-slate-50/80 dark:bg-slate-800/80 border-t border-slate-100 dark:border-white/5 flex items-center justify-end">
+                <button type="button" onclick="closeDailyAttendanceDetailModal()" class="w-full py-2.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs transition active:scale-95">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- TOAST NOTIFICATION -->
     <div id="toast" class="fixed top-6 right-0 left-0 mx-auto w-full max-w-[380px] z-[999] transition-all duration-500 transform -translate-y-[150%] scale-95 opacity-0 bg-white/80 dark:bg-slate-950/75 backdrop-blur-xl text-slate-800 dark:text-white p-4 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] flex flex-col gap-3 border border-slate-200/60 dark:border-white/10 overflow-hidden">
         <div class="flex items-center gap-3">
@@ -4759,6 +5070,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <!-- MAIN SCRIPT -->
-    <script src="script.js?v=3.2.0"></script>
+    <script src="script.js?v=3.3.0"></script>
 </body>
 </html>

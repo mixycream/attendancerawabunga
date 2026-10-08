@@ -2309,6 +2309,59 @@ function onSalaryDateChange(changedInputId) {
     renderSalary();
 }
 
+// --- BACKUP ATTENDANCE HELPERS ---
+function parseBackupData(note) {
+    if (!note || typeof note !== 'string') return null;
+    if (!note.includes('[Absen Backup]') && !note.includes('BACKUP_DATA:')) return null;
+
+    // Check for embedded JSON payload <!--BACKUP_DATA:{...}-->
+    const match = note.match(/<!--BACKUP_DATA:(.*?)-->/);
+    if (match && match[1]) {
+        try {
+            return JSON.parse(match[1]);
+        } catch (e) {
+            console.warn('Gagal parse BACKUP_DATA JSON:', e);
+        }
+    }
+
+    // Fallback regex parsing
+    const fallbackMatch = note.match(/\[Absen Backup\]\s*([^(|]+)(?:\(Membackup:\s*([^-\)]+)(?:\s*-\s*([^)]+))?\))?(?:\s*\|\s*NIK:\s*([^\s<]+))?/i);
+    if (fallbackMatch) {
+        return {
+            isBackup: true,
+            backupName: (fallbackMatch[1] || '').trim(),
+            backedUpEmpName: (fallbackMatch[2] || '').trim(),
+            division: (fallbackMatch[3] || '').trim(),
+            backupNik: (fallbackMatch[4] || '').trim()
+        };
+    }
+
+    return {
+        isBackup: true,
+        backupName: 'Relawan Backup',
+        backedUpEmpName: '',
+        division: '',
+        backupNik: ''
+    };
+}
+
+function isBackupLog(log) {
+    if (!log) return false;
+    const note = log.note || '';
+    return note.includes('[Absen Backup]') || note.includes('BACKUP_DATA:') || !!parseBackupData(note);
+}
+
+function formatIndoDateLong(dateStr) {
+    if (!dateStr) return '-';
+    try {
+        const d = new Date(dateStr + 'T00:00:00');
+        if (isNaN(d.getTime())) return dateStr;
+        return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    } catch (e) {
+        return dateStr;
+    }
+}
+
 function renderSalary(filteredLogsOverride) {
     const body = document.getElementById('salaryTableBody');
     const detailBody = document.getElementById('overtimeDetailBody');
@@ -2400,15 +2453,16 @@ function renderSalary(filteredLogsOverride) {
         const empLogs = periodLogs.filter(l => String(l.empId) === String(e.id));
         const allLogsOfEmp = useLogs.filter(l => String(l.empId) === String(e.id)); // For details which might extend
         
-        // Count days where employee has IN (each unique IN date = 1 work day)
-        const inDates = new Set(empLogs.filter(l => l.type === 'IN').map(l => l.date));
+        // Count days where employee has regular IN (exclude days where employee was backed up)
+        const regularInLogs = empLogs.filter(l => l.type === 'IN' && !isBackupLog(l));
+        const inDates = new Set(regularInLogs.map(l => l.date));
         const days = inDates.size;
         
         let totalOvertimeHours = 0;
         let totalLateCount = 0; 
         
-        // Detail Lembur
-        allLogsOfEmp.filter(l => l.type === 'OUT' && l.overtime > 0 && (!tglMulai || (l.date >= tglMulai && l.date <= tglSelesai))).forEach(l => {
+        // Detail Lembur (exclude backup logs)
+        allLogsOfEmp.filter(l => !isBackupLog(l) && l.type === 'OUT' && l.overtime > 0 && (!tglMulai || (l.date >= tglMulai && l.date <= tglSelesai))).forEach(l => {
             totalOvertimeHours += (parseInt(l.overtime) || 0);
             const shift = appConfig.shifts[e.division];
             const shiftEnd = shift ? (typeof shift === 'string' ? 'Auto 8h' : shift.end) : '-';
@@ -2424,8 +2478,8 @@ function renderSalary(filteredLogsOverride) {
             </tr>`;
         });
 
-        // Detail Telat
-        allLogsOfEmp.filter(l => l.type === 'IN' && l.lateMinutes > 0 && (!tglMulai || (l.date >= tglMulai && l.date <= tglSelesai))).forEach(l => {
+        // Detail Telat (exclude backup logs)
+        allLogsOfEmp.filter(l => !isBackupLog(l) && l.type === 'IN' && l.lateMinutes > 0 && (!tglMulai || (l.date >= tglMulai && l.date <= tglSelesai))).forEach(l => {
             totalLateCount++;
             const shift = appConfig.shifts[e.division];
             const shiftStart = shift ? (typeof shift === 'string' ? '00:00' : shift.start) : '-';
@@ -2575,8 +2629,21 @@ function renderSalary(filteredLogsOverride) {
                     let tdClass = 'border-r border-slate-200/60 dark:border-white/5 p-1.5 text-center font-mono text-[10px] align-middle';
                     let tdAttributes = '';
 
-                    if (val > 0) {
-                        cellContent = `<span class="text-emerald-600 dark:text-emerald-400 font-extrabold">${val.toLocaleString()}</span>`;
+                    // Cek apakah relawan ini dibackup pada tanggal ini
+                    const backupLogOnDate = useLogs.find(l => String(l.empId) === String(item.id) && l.date === cellDate && l.type === 'IN' && isBackupLog(l));
+
+                    if (backupLogOnDate) {
+                        cellContent = `
+                            <button type="button" onclick="showBackupProfileModal('${backupLogOnDate.id}')" class="px-1.5 py-0.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-[9px] font-bold tracking-tight transition active:scale-95 shadow-2xs inline-flex items-center gap-0.5 cursor-pointer" title="Klik untuk lihat profil relawan pengganti (Backup)">
+                                <i class="fas fa-user-friends text-[8px]"></i>
+                                <span>Backup</span>
+                            </button>`;
+                        tdClass += ' bg-amber-50/40 dark:bg-amber-950/20';
+                    } else if (val > 0) {
+                        cellContent = `
+                            <button type="button" onclick="showDailyAttendanceDetailModal('${item.id}', '${cellDate}')" class="text-emerald-600 dark:text-emerald-400 font-extrabold hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline transition cursor-pointer" title="Klik untuk melihat detail absen masuk & pulang">
+                                ${val.toLocaleString()}
+                            </button>`;
                     } else if (!isDivisionWorkingOnDate(item.division, cellDate)) {
                         if (quickAbsenMode) {
                             const isSelected = quickAbsenSelected.has(cellKey);
@@ -2839,8 +2906,12 @@ function generateWatermarkedPhoto(imageSource, options = {}) {
                 ctx.fillStyle = isOut ? '#60a5fa' : '#34d399';
                 ctx.fillText(isOut ? 'ABSEN PULANG' : 'ABSEN MASUK', canvas.width - 110, canvas.height - barH + 18);
 
-                // Optional badge Absen Manual in watermark
-                if (options.includeManualBadge) {
+                // Optional badge Absen Manual / Absen Backup in watermark
+                if (options.badgeText) {
+                    ctx.font = 'bold 9px monospace';
+                    ctx.fillStyle = options.badgeColor || '#fbbf24';
+                    ctx.fillText(options.badgeText, canvas.width - 110, canvas.height - barH + 34);
+                } else if (options.includeManualBadge) {
                     ctx.font = 'bold 9px monospace';
                     ctx.fillStyle = '#fbbf24';
                     ctx.fillText('ABSEN MANUAL', canvas.width - 110, canvas.height - barH + 34);
@@ -5499,7 +5570,19 @@ function renderActiveWorkersList() {
         document.getElementById('activeModalSubtitle').innerText = "Realtime tracking";
         filtered = employees.map(e => {
             const myLogs = logs.filter(l => l.empId === e.id).sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
-            if (myLogs.length > 0 && myLogs[0].type === 'IN') { return { ...e, inTime: myLogs[0].time, inDate: myLogs[0].date, status: 'working' }; }
+            if (myLogs.length > 0 && myLogs[0].type === 'IN') { 
+                const lastIn = myLogs[0];
+                const bData = parseBackupData(lastIn.note);
+                return { 
+                    ...e, 
+                    inTime: lastIn.time, 
+                    inDate: lastIn.date, 
+                    status: 'working',
+                    isBackup: !!bData,
+                    backupData: bData,
+                    logPhoto: lastIn.photo || e.photo
+                }; 
+            }
             return null;
         }).filter(e => e !== null);
     } else if (mode === 'present') {
@@ -5507,7 +5590,19 @@ function renderActiveWorkersList() {
         const todayInLogs = logs.filter(l => l.date === today && l.type === 'IN');
         filtered = todayInLogs.map(log => {
             const emp = employees.find(e => e.id === log.empId);
-            return emp ? { ...emp, inTime: log.time, status: 'present' } : null;
+            const bData = parseBackupData(log.note);
+            if (!emp && !bData) return null;
+            return {
+                ...(emp || {}),
+                id: emp ? emp.id : (bData?.backedUpEmpId || log.empId),
+                name: emp ? emp.name : (bData?.backedUpEmpName || log.name),
+                division: emp ? emp.division : (bData?.division || '-'),
+                inTime: log.time,
+                status: 'present',
+                isBackup: !!bData,
+                backupData: bData,
+                logPhoto: log.photo || (emp ? emp.photo : '')
+            };
         }).filter(e => e);
     } else if (mode === 'absent') {
         document.getElementById('activeModalSubtitle').innerText = `Tidak Hadir ${today} (Hari Kerja Aktif)`;
@@ -5617,9 +5712,10 @@ function renderActiveWorkersList() {
     if (activeModalSearchQuery) {
         filtered = filtered.filter(w => {
             const nameMatch = (w.name || '').toLowerCase().includes(activeModalSearchQuery);
+            const backupNameMatch = w.backupData ? (w.backupData.backupName || '').toLowerCase().includes(activeModalSearchQuery) : false;
             const divMatch = (w.division || '').toLowerCase().includes(activeModalSearchQuery);
             const idMatch = String(w.id || '').toLowerCase().includes(activeModalSearchQuery);
-            return nameMatch || divMatch || idMatch;
+            return nameMatch || backupNameMatch || divMatch || idMatch;
         });
     }
 
@@ -5633,10 +5729,18 @@ function renderActiveWorkersList() {
             const hrs = Math.floor(diffMs / 3600000);
             const mins = Math.floor((diffMs % 3600000) / 60000);
             const secs = Math.floor((diffMs % 60000) / 1000); 
-            statusBadge = '<span class="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse">Sedang Bekerja</span>';
-            timeInfo = `<div class="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">${hrs}j ${mins}m ${secs}d</div>`; 
+            if (w.isBackup) {
+                statusBadge = '<span class="bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse">Sedang Bekerja (Backup)</span>';
+            } else {
+                statusBadge = '<span class="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse">Sedang Bekerja</span>';
+            }
+            timeInfo = `<div class="font-mono font-bold ${w.isBackup ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'} text-sm">${hrs}j ${mins}m ${secs}d</div>`; 
         } else if (mode === 'present') {
-            statusBadge = '<span class="bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100/50 dark:border-blue-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Hadir</span>';
+            if (w.isBackup) {
+                statusBadge = '<span class="bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Hadir Backup</span>';
+            } else {
+                statusBadge = '<span class="bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100/50 dark:border-blue-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Hadir</span>';
+            }
             timeInfo = `<div class="text-[10px] text-slate-400">Masuk: <span class="font-bold text-slate-700 dark:text-slate-300">${w.inTime}</span></div>`;
         } else if (mode === 'absent') {
             statusBadge = '<span class="bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100/50 dark:border-rose-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Tidak Hadir</span>';
@@ -5664,25 +5768,48 @@ function renderActiveWorkersList() {
                 <button onclick="adminDeleteAbsen('${w.id}','${w.name}')" class="px-2.5 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-bold transition shadow-sm active:scale-95"><i class="fas fa-trash-alt mr-1"></i>Hapus Absen</button>
             </div>`;
         } else if (mode === 'absent' || mode === 'belum_hadir' || mode === 'libur_jadwal' || (!isPresent && mode !== 'present')) {
+            // DUA TOMBOL: ABSEN IN & ABSEN BACKUP
             actionBtns = `<div class="flex items-center justify-end gap-2 mt-2.5 pt-2 border-t border-slate-100 dark:border-white/5">
-                <button type="button" onclick="openQuickInModal('${w.id}')" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm shadow-emerald-500/20 transition active:scale-95">
+                <button type="button" onclick="openQuickInModal('${w.id}')" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm shadow-emerald-500/20 transition active:scale-95" title="Absenkan relawan asli">
                     <i class="fas fa-sign-in-alt text-[11px]"></i>
                     <span>Absen IN</span>
+                </button>
+                <button type="button" onclick="openQuickBackupModal('${w.id}')" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm shadow-amber-500/20 transition active:scale-95" title="Catat relawan pengganti (Backup)">
+                    <i class="fas fa-user-shield text-[11px]"></i>
+                    <span>Absen Backup</span>
                 </button>
             </div>`;
         }
 
-        const avatarHtml = w.photo
-            ? `<img src="${w.photo}" class="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10 shrink-0">`
-            : `<div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0"><i class="fas fa-user"></i></div>`;
+        // Tampilan avatar & nama jika relawan backup
+        let nameTitleHtml = `<div class="font-bold text-sm text-slate-800 dark:text-slate-200 truncate">${w.name}</div>`;
+        let metaHtml = `<div class="flex items-center gap-2 mt-0.5">${statusBadge} <span class="text-[10px] text-slate-400">• ${w.division}</span></div>`;
+        let avatarSrc = w.photo;
+
+        if (w.isBackup && w.backupData) {
+            nameTitleHtml = `<div class="font-bold text-sm text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
+                <span>${w.backupData.backupName}</span>
+                <span class="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">Backup</span>
+            </div>`;
+            metaHtml = `<div class="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                ${statusBadge}
+                <span>• <strong class="text-indigo-600 dark:text-indigo-400">${w.division}</strong></span>
+                <span>• Membackup: <strong class="text-slate-700 dark:text-slate-200">${w.name}</strong></span>
+            </div>`;
+            if (w.logPhoto) avatarSrc = w.logPhoto;
+        }
+
+        const avatarHtml = avatarSrc
+            ? `<img src="${avatarSrc}" class="w-10 h-10 rounded-full object-cover border ${w.isBackup ? 'border-amber-400' : 'border-slate-200 dark:border-white/10'} shrink-0">`
+            : `<div class="w-10 h-10 rounded-full ${w.isBackup ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-600' : 'bg-slate-200 dark:bg-slate-800 text-slate-400'} flex items-center justify-center font-bold text-xs shrink-0"><i class="fas ${w.isBackup ? 'fa-user-shield' : 'fa-user'}"></i></div>`;
 
         return `
         <div class="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-100 dark:border-white/5 shadow-sm hover:border-slate-200 dark:hover:border-white/10 transition">
             <div class="flex items-center gap-3">
                 ${avatarHtml}
                 <div class="flex-1 min-w-0">
-                    <div class="font-bold text-sm text-slate-800 dark:text-slate-200 truncate">${w.name}</div>
-                    <div class="flex items-center gap-2 mt-0.5">${statusBadge} <span class="text-[10px] text-slate-400">• ${w.division}</span></div>
+                    ${nameTitleHtml}
+                    ${metaHtml}
                 </div>
                 <div class="text-right shrink-0">${timeInfo}</div>
             </div>
@@ -5944,6 +6071,499 @@ async function submitQuickIn() {
         }
     }
 }
+
+// --- QUICK ABSEN BACKUP (DARI DASHBOARD / DETAIL TIDAK HADIR) ---
+let currentQuickBackupEmpId = null;
+let quickBackupPhotoBase64 = null;
+
+function openQuickBackupModal(empId) {
+    const emp = employees.find(e => String(e.id) === String(empId));
+    if (!emp) {
+        showToast('Data relawan tidak ditemukan', 'error');
+        return;
+    }
+    currentQuickBackupEmpId = String(empId);
+
+    // Target Volunteer Banner
+    document.getElementById('quickBackupTargetName').innerText = emp.name;
+    document.getElementById('quickBackupTargetDiv').innerText = emp.division || '-';
+    document.getElementById('quickBackupTargetId').innerText = `ID: ${emp.id}`;
+
+    const shift = appConfig.shifts?.[emp.division];
+    const shiftText = (shift && shift.start && shift.end) ? `${shift.start} - ${shift.end}` : (typeof getShiftTime === 'function' ? getShiftTime(emp.division) : '-');
+    document.getElementById('quickBackupTargetShift').innerHTML = `<i class="far fa-clock text-[9px] mr-1"></i> Shift: <span class="font-bold ml-1 text-slate-700 dark:text-slate-300">${shiftText}</span>`;
+
+    const avatarEl = document.getElementById('quickBackupTargetAvatar');
+    if (avatarEl) {
+        if (emp.photo) {
+            avatarEl.innerHTML = `<img src="${emp.photo}" class="w-full h-full object-cover">`;
+        } else {
+            const initials = (emp.name || 'R').split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase();
+            avatarEl.innerHTML = `<span>${initials}</span>`;
+        }
+    }
+
+    // Reset Form Fields
+    document.getElementById('quickBackupName').value = '';
+    document.getElementById('quickBackupNik').value = '';
+    
+    const now = new Date();
+    document.getElementById('quickBackupDate').value = getLocalDateStr(now);
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    document.getElementById('quickBackupTime').value = timeStr;
+
+    document.getElementById('quickBackupBadgeCheck').checked = true;
+    document.getElementById('quickBackupNote').value = '';
+    clearQuickBackupPhoto();
+
+    // Show modal
+    const modal = document.getElementById('quickBackupModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.remove('opacity-0');
+            modal.querySelector('.quick-backup-content')?.classList.remove('scale-95');
+        }, 10);
+    }
+}
+
+function closeQuickBackupModal() {
+    const modal = document.getElementById('quickBackupModal');
+    if (!modal) return;
+    modal.classList.add('opacity-0');
+    modal.querySelector('.quick-backup-content')?.classList.add('scale-95');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        currentQuickBackupEmpId = null;
+        clearQuickBackupPhoto();
+    }, 300);
+}
+
+function handleQuickBackupPhoto(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        showToast('File harus berupa gambar (JPG/PNG)', 'error');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        quickBackupPhotoBase64 = e.target.result;
+        const img = document.getElementById('quickBackupPreviewImg');
+        if (img) img.src = quickBackupPhotoBase64;
+        document.getElementById('quickBackupPreviewContainer')?.classList.remove('hidden');
+        document.getElementById('quickBackupUploadArea')?.classList.add('hidden');
+        const status = document.getElementById('quickBackupPhotoStatus');
+        if (status) {
+            status.innerText = '✓ Foto siap (akan diberi watermark ABSEN BACKUP)';
+            status.className = 'text-[10px] text-amber-500 font-semibold';
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
+function clearQuickBackupPhoto() {
+    quickBackupPhotoBase64 = null;
+    const input = document.getElementById('quickBackupPhotoInput');
+    if (input) input.value = '';
+    const img = document.getElementById('quickBackupPreviewImg');
+    if (img) img.src = '';
+    document.getElementById('quickBackupPreviewContainer')?.classList.add('hidden');
+    document.getElementById('quickBackupUploadArea')?.classList.remove('hidden');
+    const status = document.getElementById('quickBackupPhotoStatus');
+    if (status) {
+        status.innerText = 'Belum ada foto';
+        status.className = 'text-[10px] text-slate-400 font-medium';
+    }
+}
+
+async function submitQuickBackup() {
+    if (!currentQuickBackupEmpId) return;
+    const emp = employees.find(e => String(e.id) === String(currentQuickBackupEmpId));
+    if (!emp) {
+        showToast('Relawan yang dibackup tidak ditemukan', 'error');
+        return;
+    }
+
+    const backupName = (document.getElementById('quickBackupName')?.value || '').trim();
+    if (!backupName) {
+        showToast('Nama Lengkap Backup wajib diisi', 'error');
+        document.getElementById('quickBackupName')?.focus();
+        return;
+    }
+
+    const backupNik = (document.getElementById('quickBackupNik')?.value || '').trim();
+    const isBadgeChecked = document.getElementById('quickBackupBadgeCheck')?.checked ?? true;
+    const rawNote = (document.getElementById('quickBackupNote')?.value || '').trim();
+
+    const submitBtn = document.getElementById('quickBackupSubmitBtn');
+    const origHtml = submitBtn ? submitBtn.innerHTML : '';
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i> Memproses...';
+    }
+
+    try {
+        const now = new Date();
+        const today = document.getElementById('quickBackupDate')?.value || getLocalDateStr(now);
+        let timeStr = document.getElementById('quickBackupTime')?.value || `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        timeStr = String(timeStr).replace(/\./g, ':');
+        const forcedTime = timeStr.length > 5 ? timeStr.slice(0, 5) : timeStr;
+        if (timeStr.length === 5) timeStr += ':00';
+
+        // Watermark photo if uploaded (strictly optional)
+        let processedPhoto = '';
+        if (quickBackupPhotoBase64) {
+            try {
+                if (typeof generateWatermarkedPhoto === 'function') {
+                    processedPhoto = await generateWatermarkedPhoto(quickBackupPhotoBase64, {
+                        time: forcedTime,
+                        date: today,
+                        lat: appConfig?.geofenceLat || GEOFENCE_CONFIG.lat,
+                        lng: appConfig?.geofenceLng || GEOFENCE_CONFIG.lng,
+                        type: 'IN',
+                        badgeText: isBadgeChecked ? 'ABSEN BACKUP' : '',
+                        badgeColor: '#f59e0b'
+                    });
+                }
+            } catch (pErr) {
+                console.warn('Gagal watermark foto absen backup:', pErr);
+            }
+            if (!processedPhoto) {
+                processedPhoto = quickBackupPhotoBase64.includes(',') ? quickBackupPhotoBase64.split(',')[1] : quickBackupPhotoBase64;
+            }
+        }
+
+        const shift = appConfig.shifts?.[emp.division];
+        const shiftText = (shift && shift.start && shift.end) ? `${shift.start} - ${shift.end}` : (typeof getShiftTime === 'function' ? getShiftTime(emp.division) : '-');
+
+        // Calculate late minutes if any
+        let lateMin = 0;
+        if (shift && shift.start) {
+            const [sh, sm] = shift.start.split(':').map(Number);
+            const [ah, am] = forcedTime.split(':').map(Number);
+            const diff = (ah * 60 + am) - (sh * 60 + sm);
+            if (diff > 0) lateMin = diff;
+        }
+
+        const backupMeta = {
+            isBackup: true,
+            backupName: backupName,
+            backupNik: backupNik,
+            backedUpEmpId: String(emp.id),
+            backedUpEmpName: emp.name,
+            division: emp.division,
+            shift: shiftText
+        };
+
+        let noteText = `[Absen Backup] ${backupName} (Membackup: ${emp.name} - ${emp.division})`;
+        if (backupNik) noteText += ` | NIK: ${backupNik}`;
+        if (rawNote) noteText += ` - ${rawNote}`;
+        noteText += ` <!--BACKUP_DATA:${JSON.stringify(backupMeta)}-->`;
+
+        const payload = {
+            empId: String(emp.id),
+            name: emp.name,
+            type: 'IN',
+            date: today,
+            time: timeStr,
+            forcedTime: forcedTime,
+            location: `${appConfig?.geofenceLat || GEOFENCE_CONFIG.lat}, ${appConfig?.geofenceLng || GEOFENCE_CONFIG.lng}`,
+            photo: processedPhoto || '',
+            overtime: 0,
+            lateMinutes: lateMin,
+            note: noteText,
+            absentBy: `Admin (Backup: ${backupName})`,
+            isManual: true
+        };
+
+        // Send to backend (Supabase first)
+        let success = false;
+        if (sbClient) {
+            try {
+                const sbRes = await sbPostData('attendance', payload);
+                if (sbRes && sbRes.status === 'success') success = true;
+            } catch (sbErr) {
+                console.warn('Gagal kirim backup via sbPostData:', sbErr);
+            }
+        }
+        if (!success) {
+            success = await maSendOneEntry(payload);
+        }
+
+        if (!success) {
+            throw new Error('Gagal menyimpan absensi backup ke server.');
+        }
+
+        // Auto OUT retroaktif jika jam sekarang sudah lewat shift end divisi yang dibackup
+        if (shift && shift.end) {
+            const [endH, endM] = shift.end.split(':').map(Number);
+            const shiftEndDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), endH, endM, 0);
+            if (now > shiftEndDate) {
+                const outTimeStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
+                const outPayload = {
+                    empId: String(emp.id),
+                    name: emp.name,
+                    type: 'OUT',
+                    date: today,
+                    forcedTime: `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`,
+                    time: outTimeStr,
+                    location: payload.location,
+                    photo: '',
+                    overtime: 0,
+                    lateMinutes: 0,
+                    note: `[Auto OUT Backup] ${backupName} (Sesuai shift ${emp.division}: ${shift.end}) <!--BACKUP_DATA:${JSON.stringify(backupMeta)}-->`,
+                    absentBy: 'Sistem (Auto OUT)',
+                    isManual: false
+                };
+                try {
+                    if (sbClient) await sbPostData('attendance', outPayload);
+                    else await maSendOneEntry(outPayload);
+                    logs.push({
+                        id: 'backup_out_' + Date.now(),
+                        ...outPayload
+                    });
+                } catch (oErr) {
+                    console.warn('Auto OUT backup retroaktif error:', oErr);
+                }
+            }
+        }
+
+        // Optimistic local log insertion
+        logs.unshift({
+            id: 'backup_in_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+            empId: String(emp.id),
+            name: emp.name,
+            type: 'IN',
+            date: today,
+            time: timeStr,
+            photo: processedPhoto ? (processedPhoto.startsWith('http') || processedPhoto.startsWith('data:') ? processedPhoto : 'data:image/jpeg;base64,' + processedPhoto) : '',
+            overtime: 0,
+            lateMinutes: lateMin,
+            location: payload.location,
+            note: noteText,
+            absentBy: payload.absentBy,
+            isManual: true
+        });
+
+        _saveToCache(employees, logs, appConfig);
+        closeQuickBackupModal();
+        refreshUI();
+        renderActiveWorkersList();
+
+        showToast(`Berhasil mencatat absensi BACKUP untuk ${emp.name} oleh ${backupName}!`, 'success');
+
+        // Sync fresh data from Supabase in background
+        try {
+            await fetchData(true);
+            refreshUI();
+            renderActiveWorkersList();
+        } catch (syncErr) {
+            console.warn('Background sync after quick backup:', syncErr);
+        }
+
+    } catch (err) {
+        console.error('Submit Quick Backup Error:', err);
+        showToast('Gagal absen backup: ' + (err.message || 'Terjadi kesalahan'), 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origHtml;
+        }
+    }
+}
+
+// --- PROFIL RELAWAN BACKUP MODAL ---
+function showBackupProfileModal(logId) {
+    const log = logs.find(l => String(l.id) === String(logId)) || logs.find(l => l.note && l.note.includes(logId));
+    if (!log) {
+        showToast('Data log absensi backup tidak ditemukan', 'error');
+        return;
+    }
+    const backupData = parseBackupData(log.note);
+    const targetEmp = employees.find(e => String(e.id) === String(log.empId));
+
+    const modal = document.getElementById('backupProfileModal');
+    if (!modal) return;
+
+    // Photo
+    const photoContainer = document.getElementById('backupProfilePhotoContainer');
+    if (photoContainer) {
+        if (log.photo) {
+            photoContainer.innerHTML = `<img src="${log.photo}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition" onclick="previewImage('${log.photo}')">`;
+        } else {
+            const initials = (backupData?.backupName || 'B').split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase();
+            photoContainer.innerHTML = `<div class="w-full h-full flex items-center justify-center font-bold text-amber-600 dark:text-amber-400 text-xl">${initials}</div>`;
+        }
+    }
+
+    // Name & NIK
+    const nameEl = document.getElementById('backupProfileName');
+    if (nameEl) nameEl.innerText = backupData?.backupName || 'Relawan Backup';
+
+    const nikEl = document.getElementById('backupProfileNik');
+    if (nikEl) nikEl.innerText = backupData?.backupNik || '(Tidak dicantumkan)';
+
+    // Date & Time
+    const timeEl = document.getElementById('backupProfileTime');
+    if (timeEl) {
+        const dateStr = typeof formatIndoDateLong === 'function' ? formatIndoDateLong(log.date) : log.date;
+        timeEl.innerText = `${dateStr} pukul ${log.time || '-'}`;
+    }
+
+    // Target Div & Target Name
+    const divEl = document.getElementById('backupProfileTargetDiv');
+    if (divEl) divEl.innerText = backupData?.division || targetEmp?.division || '-';
+
+    const targetNameEl = document.getElementById('backupProfileTargetName');
+    if (targetNameEl) targetNameEl.innerText = backupData?.backedUpEmpName || targetEmp?.name || '-';
+
+    // Show modal
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        modal.querySelector('.backup-profile-content')?.classList.remove('scale-95');
+    }, 10);
+}
+
+function closeBackupProfileModal() {
+    const modal = document.getElementById('backupProfileModal');
+    if (!modal) return;
+    modal.classList.add('opacity-0');
+    modal.querySelector('.backup-profile-content')?.classList.add('scale-95');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+}
+
+// --- DETAIL KEHADIRAN HARIAN MODAL (MASUK & KELUAR) ---
+function showDailyAttendanceDetailModal(empId, date) {
+    const emp = employees.find(e => String(e.id) === String(empId));
+    if (!emp) {
+        showToast('Data relawan tidak ditemukan', 'error');
+        return;
+    }
+
+    const modal = document.getElementById('dailyAttendanceDetailModal');
+    if (!modal) return;
+
+    const inLog = logs.find(l => String(l.empId) === String(empId) && l.date === date && l.type === 'IN');
+    const outLog = logs.find(l => String(l.empId) === String(empId) && l.date === date && l.type === 'OUT');
+
+    // Header info
+    const dateEl = document.getElementById('dailyDetailDate');
+    if (dateEl) dateEl.innerText = typeof formatIndoDateLong === 'function' ? formatIndoDateLong(date) : date;
+
+    const empNameEl = document.getElementById('dailyDetailEmpName');
+    if (empNameEl) empNameEl.innerText = emp.name;
+
+    const empDivEl = document.getElementById('dailyDetailEmpDiv');
+    if (empDivEl) empDivEl.innerText = emp.division || '-';
+
+    const empIdEl = document.getElementById('dailyDetailEmpId');
+    if (empIdEl) empIdEl.innerText = `ID: ${emp.id}`;
+
+    const salaryEl = document.getElementById('dailyDetailSalary');
+    if (salaryEl) salaryEl.innerText = `Rp ${parseInt(emp.salary || 0).toLocaleString()}`;
+
+    const avatarEl = document.getElementById('dailyDetailEmpAvatar');
+    if (avatarEl) {
+        if (emp.photo) {
+            avatarEl.innerHTML = `<img src="${emp.photo}" class="w-full h-full object-cover">`;
+        } else {
+            const initials = (emp.name || 'R').split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase();
+            avatarEl.innerHTML = `<span>${initials}</span>`;
+        }
+    }
+
+    // Absen Masuk (IN) Card
+    const inTimeEl = document.getElementById('dailyDetailInTime');
+    const inPhotoCont = document.getElementById('dailyDetailInPhotoContainer');
+    const inStatusEl = document.getElementById('dailyDetailInStatus');
+    const inNoteEl = document.getElementById('dailyDetailInNote');
+    const inByEl = document.getElementById('dailyDetailInBy');
+
+    if (inLog) {
+        if (inTimeEl) inTimeEl.innerText = inLog.time || '--:--:--';
+        if (inPhotoCont) {
+            inPhotoCont.innerHTML = inLog.photo
+                ? `<img src="${inLog.photo}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition" onclick="previewImage('${inLog.photo}')" alt="Foto Masuk">`
+                : `<span class="text-[10px] text-slate-400">Tanpa Foto</span>`;
+        }
+        if (inStatusEl) {
+            if (inLog.lateMinutes > 0) {
+                inStatusEl.innerHTML = `<span class="text-rose-500 font-bold">Terlambat ${inLog.lateMinutes} m</span>`;
+            } else {
+                inStatusEl.innerHTML = `<span class="text-emerald-600 font-bold">Tepat Waktu</span>`;
+            }
+        }
+        if (inNoteEl) {
+            inNoteEl.innerText = inLog.note || '-';
+            inNoteEl.title = inLog.note || '';
+        }
+        if (inByEl) {
+            inByEl.innerText = inLog.absentBy || (inLog.isManual ? 'Manual/Admin' : 'Sistem');
+        }
+    } else {
+        if (inTimeEl) inTimeEl.innerText = 'Tidak Ada';
+        if (inPhotoCont) inPhotoCont.innerHTML = `<span class="text-[10px] text-slate-400">-</span>`;
+        if (inStatusEl) inStatusEl.innerText = '-';
+        if (inNoteEl) inNoteEl.innerText = '-';
+        if (inByEl) inByEl.innerText = '-';
+    }
+
+    // Absen Keluar (OUT) Card
+    const outTimeEl = document.getElementById('dailyDetailOutTime');
+    const outPhotoCont = document.getElementById('dailyDetailOutPhotoContainer');
+    const outOvertimeEl = document.getElementById('dailyDetailOutOvertime');
+    const outNoteEl = document.getElementById('dailyDetailOutNote');
+    const outByEl = document.getElementById('dailyDetailOutBy');
+
+    if (outLog) {
+        if (outTimeEl) outTimeEl.innerText = outLog.time || '--:--:--';
+        if (outPhotoCont) {
+            outPhotoCont.innerHTML = outLog.photo
+                ? `<img src="${outLog.photo}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition" onclick="previewImage('${outLog.photo}')" alt="Foto Pulang">`
+                : `<span class="text-[10px] text-slate-400">Tanpa Foto</span>`;
+        }
+        if (outOvertimeEl) {
+            if (outLog.overtime > 0) {
+                outOvertimeEl.innerHTML = `<span class="text-amber-600 font-bold">+${outLog.overtime} Jam</span>`;
+            } else {
+                outOvertimeEl.innerHTML = `<span class="text-slate-500 font-medium">0 Jam</span>`;
+            }
+        }
+        if (outNoteEl) {
+            outNoteEl.innerText = outLog.note || '-';
+            outNoteEl.title = outLog.note || '';
+        }
+        if (outByEl) {
+            outByEl.innerText = outLog.absentBy || (outLog.isManual ? 'Manual/Admin' : 'Sistem');
+        }
+    } else {
+        if (outTimeEl) outTimeEl.innerText = 'Belum Pulang';
+        if (outPhotoCont) outPhotoCont.innerHTML = `<span class="text-[10px] text-slate-400">-</span>`;
+        if (outOvertimeEl) outOvertimeEl.innerText = '-';
+        if (outNoteEl) outNoteEl.innerText = '-';
+        if (outByEl) outByEl.innerText = '-';
+    }
+
+    // Show modal
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        modal.querySelector('.daily-detail-content')?.classList.remove('scale-95');
+    }, 10);
+}
+
+function closeDailyAttendanceDetailModal() {
+    const modal = document.getElementById('dailyAttendanceDetailModal');
+    if (!modal) return;
+    modal.classList.add('opacity-0');
+    modal.querySelector('.daily-detail-content')?.classList.add('scale-95');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+}
+
 async function adminClockOut(empId, empName) {
     const ok = await showCustomConfirm({
         title: 'Absen OUT Relawan?',
@@ -6450,6 +7070,11 @@ async function autoClockOutForgotten() {
             }
 
             try {
+                const bData = typeof parseBackupData === 'function' ? parseBackupData(lastIN.note) : null;
+                const autoOutNote = bData
+                    ? `[Auto OUT Backup] ${bData.backupName} (Sesuai shift ${emp.division}: ${divShift?.end || outTime.substring(0, 5)}) <!--BACKUP_DATA:${JSON.stringify(bData)}-->`
+                    : '[Auto OUT - Lupa Absen]';
+
                 const payload = {
                     action: 'attendance',
                     empId: emp.id,
@@ -6459,8 +7084,8 @@ async function autoClockOutForgotten() {
                     forcedTime: outTime.substring(0, 5),
                     overtime: 0,
                     location,
-                    note: '[Auto OUT - Lupa Absen]',
-                    absentBy: 'Admin'
+                    note: autoOutNote,
+                    absentBy: bData ? `Sistem (Auto OUT Backup: ${bData.backupName})` : 'Admin'
                 };
 
                 let ok = false;
@@ -6481,7 +7106,7 @@ async function autoClockOutForgotten() {
                         empId: emp.id, name: emp.name, type: 'OUT',
                         date: outDate, time: outTime,
                         overtime: 0, lateMinutes: 0,
-                        location, note: '[Auto OUT - Lupa Absen]', absentBy: 'Admin'
+                        location, note: autoOutNote, absentBy: payload.absentBy
                     });
                     successCount++;
                     console.log(`[AutoClockOut] ${emp.name} auto OUT at ${outTime} on ${outDate}`);
