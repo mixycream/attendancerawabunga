@@ -3146,8 +3146,76 @@ function maRenderBackupList() {
         const safeName = (existing.name || '').replace(/"/g, '&quot;');
         const safeNik = (existing.nik || '').replace(/"/g, '&quot;');
 
+        const photos = maVolunteerPhotos[emp.id] || {};
+        const type = document.getElementById('maType')?.value || 'BOTH';
+        const showIn = (type === 'IN' || type === 'BOTH');
+        const showOut = (type === 'OUT' || type === 'BOTH');
+
+        let photoSlotsHtml = '';
+        if (showIn) {
+            const inPhoto = photos.in || null;
+            photoSlotsHtml += `
+            <div class="flex-1 p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-[9.5px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                        <i class="fas fa-camera text-[9px]"></i> Foto Masuk (IN)
+                    </span>
+                    <span class="text-[9px] ${inPhoto ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-slate-400 font-mono'}">${inPhoto ? '✓ Terpasang' : 'Opsional'}</span>
+                </div>
+                ${inPhoto ? `
+                    <div class="flex items-center gap-2.5">
+                        <img src="${inPhoto}" onclick="previewImage('${inPhoto.replace(/'/g, "\\'")}')" class="w-11 h-11 rounded-xl object-cover border-2 border-emerald-400 shadow-sm cursor-pointer hover:scale-105 transition shrink-0" alt="Foto Backup Masuk" title="Klik untuk perbesar">
+                        <div class="min-w-0 flex-1">
+                            <div class="text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300 truncate">Foto Backup Siap</div>
+                            <div class="text-[9px] text-slate-400">Watermark otomatis terpasang</div>
+                        </div>
+                        <button type="button" onclick="maClearVolunteerPhoto('${safeId}', 'in')" class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center transition shrink-0 active:scale-95 shadow-2xs" title="Hapus Foto">
+                            <i class="fas fa-trash-alt text-[10px]"></i>
+                        </button>
+                    </div>
+                ` : `
+                    <label class="cursor-pointer w-full py-2 px-3 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 hover:border-emerald-500 bg-white dark:bg-slate-900/60 hover:bg-emerald-50/30 text-slate-600 dark:text-slate-300 hover:text-emerald-600 text-[11px] font-bold transition flex items-center justify-center gap-1.5 shadow-2xs active:scale-95">
+                        <i class="fas fa-cloud-upload-alt text-emerald-500 text-xs"></i>
+                        <span>Upload Foto Backup (IN)</span>
+                        <input type="file" accept="image/*" class="hidden" onchange="maHandleVolunteerPhotoUpload('${safeId}', 'in', this)">
+                    </label>
+                `}
+            </div>`;
+        }
+
+        if (showOut) {
+            const outPhoto = photos.out || null;
+            photoSlotsHtml += `
+            <div class="flex-1 p-2.5 rounded-xl bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-[9.5px] font-extrabold text-blue-600 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1">
+                        <i class="fas fa-camera text-[9px]"></i> Foto Pulang (OUT)
+                    </span>
+                    <span class="text-[9px] ${outPhoto ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-400 font-mono'}">${outPhoto ? '✓ Terpasang' : 'Opsional'}</span>
+                </div>
+                ${outPhoto ? `
+                    <div class="flex items-center gap-2.5">
+                        <img src="${outPhoto}" onclick="previewImage('${outPhoto.replace(/'/g, "\\'")}')" class="w-11 h-11 rounded-xl object-cover border-2 border-blue-400 shadow-sm cursor-pointer hover:scale-105 transition shrink-0" alt="Foto Backup Pulang" title="Klik untuk perbesar">
+                        <div class="min-w-0 flex-1">
+                            <div class="text-[10.5px] font-bold text-blue-700 dark:text-blue-300 truncate">Foto Backup Siap</div>
+                            <div class="text-[9px] text-slate-400">Watermark otomatis terpasang</div>
+                        </div>
+                        <button type="button" onclick="maClearVolunteerPhoto('${safeId}', 'out')" class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 flex items-center justify-center transition shrink-0 active:scale-95 shadow-2xs" title="Hapus Foto">
+                            <i class="fas fa-trash-alt text-[10px]"></i>
+                        </button>
+                    </div>
+                ` : `
+                    <label class="cursor-pointer w-full py-2 px-3 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-500 bg-white dark:bg-slate-900/60 hover:bg-blue-50/30 text-slate-600 dark:text-slate-300 hover:text-blue-600 text-[11px] font-bold transition flex items-center justify-center gap-1.5 shadow-2xs active:scale-95">
+                        <i class="fas fa-cloud-upload-alt text-blue-500 text-xs"></i>
+                        <span>Upload Foto Backup (OUT)</span>
+                        <input type="file" accept="image/*" class="hidden" onchange="maHandleVolunteerPhotoUpload('${safeId}', 'out', this)">
+                    </label>
+                `}
+            </div>`;
+        }
+
         html += `
-        <div class="p-3.5 rounded-xl bg-white dark:bg-slate-900/60 border border-amber-200 dark:border-amber-500/30 shadow-xs space-y-2.5 transition">
+        <div class="p-3.5 rounded-xl bg-white dark:bg-slate-900/60 border border-amber-200 dark:border-amber-500/30 shadow-xs space-y-3 transition">
             <div class="flex items-center justify-between gap-2">
                 <div class="flex items-center gap-2.5 min-w-0">
                     <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-[10px] flex items-center justify-center shrink-0">
@@ -3184,6 +3252,19 @@ function maRenderBackupList() {
                         oninput="maSetVolunteerBackupData('${safeId}', 'nik', this.value)"
                         class="input-field border-amber-300 dark:border-amber-500/40 text-xs py-2 focus:border-amber-500 focus:ring-amber-200" 
                         placeholder="NIK relawan backup (jika ada)...">
+                </div>
+            </div>
+
+            <!-- Upload Foto Relawan Backup -->
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+                <label class="text-[9.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1.5 flex items-center justify-between">
+                    <span>Foto Relawan Backup <span class="text-slate-400 font-normal lowercase">(opsional)</span></span>
+                    <span class="text-[9px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                        <i class="fas fa-certificate text-[8px]"></i> Watermark ABSEN BACKUP otomatis
+                    </span>
+                </label>
+                <div class="flex flex-col sm:flex-row gap-2.5">
+                    ${photoSlotsHtml}
                 </div>
             </div>
         </div>`;
@@ -3512,6 +3593,7 @@ function maHandleVolunteerPhotoUpload(empId, slotType, input) {
         if (!maVolunteerPhotos[empId]) maVolunteerPhotos[empId] = {};
         maVolunteerPhotos[empId][slotType] = e.target.result;
         maRenderPhotoList();
+        if (typeof maRenderBackupList === 'function') maRenderBackupList();
         showToast(`Foto ${slotType.toUpperCase()} berhasil dipilih.`, 'success');
     };
     reader.readAsDataURL(file);
@@ -3521,6 +3603,7 @@ function maClearVolunteerPhoto(empId, slotType) {
     if (maVolunteerPhotos[empId] && maVolunteerPhotos[empId][slotType]) {
         delete maVolunteerPhotos[empId][slotType];
         maRenderPhotoList();
+        if (typeof maRenderBackupList === 'function') maRenderBackupList();
     }
 }
 
@@ -8848,6 +8931,7 @@ function maTypeChanged() {
         if (calOut) calOut.classList.remove('hidden');
     }
     maRenderPhotoList();
+    if (typeof maRenderBackupList === 'function') maRenderBackupList();
 }
 
 function maRenderHistory() {
@@ -9224,7 +9308,10 @@ async function maSubmit() {
         for (let i = 0; i < entries.length; i++) {
             const entry = entries[i];
             const slot = entry.type.toLowerCase(); // 'in' or 'out'
-            const rawPhoto = maVolunteerPhotos[entry.empId]?.[slot];
+            let rawPhoto = maVolunteerPhotos[entry.empId]?.[slot];
+            if (!rawPhoto && slot === 'out' && maVolunteerPhotos[entry.empId]?.in) {
+                rawPhoto = maVolunteerPhotos[entry.empId].in;
+            }
 
             if (rawPhoto) {
                 const bInfo = isBackupMode ? (maBackupData[entry.empId] || {}) : {};
