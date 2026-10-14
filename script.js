@@ -2836,6 +2836,8 @@ function updateQuickAbsenUI() {
     const countBadge = document.getElementById('quickAbsenCountBadge');
     const btnSubmit = document.getElementById('btnQuickAbsenSubmit');
     const submitLabel = document.getElementById('btnQuickAbsenSubmitLabel');
+    const btnBackup = document.getElementById('btnQuickAbsenBackupSubmit');
+    const backupLabel = document.getElementById('btnQuickAbsenBackupSubmitLabel');
 
     if (countBadge) {
         countBadge.textContent = `${count} dipilih`;
@@ -2846,9 +2848,180 @@ function updateQuickAbsenUI() {
     if (submitLabel) {
         submitLabel.textContent = count > 0 ? `Absenkan Masuk + Keluar (${count})` : 'Absenkan Masuk + Keluar';
     }
+    if (btnBackup) {
+        btnBackup.disabled = count === 0;
+    }
+    if (backupLabel) {
+        backupLabel.textContent = count > 0 ? `Absen Backup (${count})` : 'Absen Backup';
+    }
 }
 
-// --- WATERMARK GENERATOR FOR MANUAL ATTENDANCE ---
+// --- WATERMARK & TIMEMARK ANTI-COLLISION ENGINE ---
+function drawWatermarkPill(ctx, x, y, w, h, text, bgColor, borderColor, textColor = '#ffffff', dotColor = null) {
+    ctx.save();
+    ctx.beginPath();
+    const r = h / 2;
+    if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(x, y, w, h, r);
+    } else {
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.arcTo(x + w, y, x + w, y + r, r);
+        ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+        ctx.lineTo(x + r, y + h);
+        ctx.arcTo(x, y + h, x, y + h - r, r);
+        ctx.arcTo(x, y, x + r, y, r);
+        ctx.closePath();
+    }
+    ctx.fillStyle = bgColor;
+    ctx.fill();
+    if (borderColor) {
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+
+    let textStartX = x + w / 2;
+    if (dotColor) {
+        ctx.beginPath();
+        ctx.arc(x + 9, y + h / 2, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = dotColor;
+        ctx.fill();
+        textStartX = x + 12 + (w - 12) / 2;
+    }
+
+    ctx.fillStyle = textColor;
+    ctx.font = 'bold 8.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.fillText(text, textStartX, y + h / 2 + 0.5, w - (dotColor ? 18 : 8));
+    ctx.restore();
+}
+
+function drawAttendanceWatermark(ctx, canvasWidth, canvasHeight, options = {}) {
+    ctx.save();
+
+    const hasBackup = Boolean(options.backupName);
+    const barH = hasBackup ? 68 : 56;
+
+    // 1. Top accent border line
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
+    ctx.fillRect(0, canvasHeight - barH, canvasWidth, 1);
+
+    // 2. Bar background with rich dark glassmorphic gradient
+    const bgGrad = ctx.createLinearGradient(0, canvasHeight - barH, 0, canvasHeight);
+    bgGrad.addColorStop(0, 'rgba(15, 23, 42, 0.82)');
+    bgGrad.addColorStop(0.35, 'rgba(15, 23, 42, 0.92)');
+    bgGrad.addColorStop(1, 'rgba(15, 23, 42, 0.98)');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, canvasHeight - barH + 1, canvasWidth, barH - 1);
+
+    // Coordinates & dimensions: Right-aligned badges with guaranteed buffer
+    const leftX = 12;
+    const badgeW = 92;
+    const badgeH = 17;
+    const badgeX = canvasWidth - badgeW - 12;
+    const maxLeftW = badgeX - leftX - 10; // Guaranteed airgap between left text & right badges
+
+    // Time & Date formatting
+    let timeStr = options.time || '08:00:00';
+    if (timeStr.length === 5) timeStr += ':00';
+    let dateStr = options.date || '';
+    if (dateStr && dateStr.includes('-')) {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) dateStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    } else if (!dateStr) {
+        const now = new Date();
+        dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    // Location coordinates
+    const rawLat = typeof options.lat === 'number' ? options.lat : parseFloat(options.lat || (appConfig?.geofenceLat || GEOFENCE_CONFIG.lat));
+    const rawLng = typeof options.lng === 'number' ? options.lng : parseFloat(options.lng || (appConfig?.geofenceLng || GEOFENCE_CONFIG.lng));
+    const lat = isNaN(rawLat) ? GEOFENCE_CONFIG.lat : rawLat;
+    const lng = isNaN(rawLng) ? GEOFENCE_CONFIG.lng : rawLng;
+    const alt = options.alt !== undefined ? options.alt : 15;
+
+    // Text shadows for maximum readability on any photo background
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 1;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+
+    // Row 1: Timemark (Time • Date)
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace';
+    ctx.fillText(`${timeStr}  •  ${dateStr}`, leftX, canvasHeight - barH + 19, maxLeftW);
+
+    // Row 2: Location
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = '9.5px "Courier New", monospace';
+    const altText = alt ? ` • Alt: ${Math.round(alt)}m` : '';
+    ctx.fillText(`Lat: ${lat.toFixed(5)}  Lon: ${lng.toFixed(5)}${altText}`, leftX, canvasHeight - barH + 35, maxLeftW);
+
+    // Row 3: Backup Info (if present)
+    if (hasBackup) {
+        ctx.fillStyle = '#fcd34d';
+        ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        const targetText = options.backedUpEmpName ? ` (utk ${options.backedUpEmpName})` : '';
+        ctx.fillText(`Backup: ${options.backupName}${targetText}`, leftX, canvasHeight - barH + 51, maxLeftW);
+    }
+
+    // Right Column: Badges (Pills)
+    const isOut = options.type === 'OUT';
+    const badge1Y = canvasHeight - barH + (hasBackup ? 12 : 9);
+    drawWatermarkPill(
+        ctx,
+        badgeX,
+        badge1Y,
+        badgeW,
+        badgeH,
+        isOut ? 'ABSEN PULANG' : 'ABSEN MASUK',
+        isOut ? 'rgba(37, 99, 235, 0.92)' : 'rgba(5, 150, 105, 0.92)',
+        isOut ? 'rgba(147, 197, 253, 0.5)' : 'rgba(110, 231, 183, 0.5)',
+        '#ffffff',
+        '#ffffff'
+    );
+
+    if (options.badgeText) {
+        const badge2Y = badge1Y + badgeH + (hasBackup ? 5 : 4);
+        drawWatermarkPill(
+            ctx,
+            badgeX,
+            badge2Y,
+            badgeW,
+            badgeH,
+            options.badgeText,
+            options.badgeColor || 'rgba(217, 119, 6, 0.92)',
+            'rgba(252, 211, 77, 0.5)',
+            '#ffffff',
+            '#fef08a'
+        );
+    } else if (options.includeManualBadge) {
+        const badge2Y = badge1Y + badgeH + (hasBackup ? 5 : 4);
+        drawWatermarkPill(
+            ctx,
+            badgeX,
+            badge2Y,
+            badgeW,
+            badgeH,
+            'ABSEN MANUAL',
+            'rgba(217, 119, 6, 0.92)',
+            'rgba(252, 211, 77, 0.5)',
+            '#ffffff',
+            '#fef08a'
+        );
+    }
+
+    ctx.restore();
+}
+
+// --- WATERMARK GENERATOR FOR MANUAL ATTENDANCE & UPLOADS ---
 function generateWatermarkedPhoto(imageSource, options = {}) {
     return new Promise((resolve) => {
         if (!imageSource) return resolve('');
@@ -2859,8 +3032,9 @@ function generateWatermarkedPhoto(imageSource, options = {}) {
         img.onload = () => {
             try {
                 const canvas = document.createElement('canvas');
-                canvas.width = 280;
-                canvas.height = 373;
+                // Standard 3:4 portrait resolution for sharp & clean attendance photos
+                canvas.width = 360;
+                canvas.height = 480;
                 const ctx = canvas.getContext('2d');
 
                 // Draw image with cover behavior
@@ -2872,50 +3046,8 @@ function generateWatermarkedPhoto(imageSource, options = {}) {
 
                 ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
 
-                // Watermark bar at bottom
-                const barH = 50;
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-                ctx.fillRect(0, canvas.height - barH, canvas.width, barH);
-
-                // Time and date
-                let timeStr = options.time || '08:00:00';
-                if (timeStr.length === 5) timeStr += ':00';
-                let dateStr = options.date || '';
-                if (dateStr && dateStr.includes('-')) {
-                    const parts = dateStr.split('-');
-                    if (parts.length === 3) dateStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                } else if (!dateStr) {
-                    const now = new Date();
-                    dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                }
-
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 11px monospace';
-                ctx.fillText(`${timeStr}  ${dateStr}`, 10, canvas.height - barH + 18);
-
-                // Location
-                const lat = typeof options.lat === 'number' ? options.lat : parseFloat(options.lat || (appConfig?.geofenceLat || GEOFENCE_CONFIG.lat));
-                const lng = typeof options.lng === 'number' ? options.lng : parseFloat(options.lng || (appConfig?.geofenceLng || GEOFENCE_CONFIG.lng));
-                const alt = options.alt || 15;
-                ctx.font = '10px monospace';
-                ctx.fillText(`Lat: ${lat.toFixed(5)}  Lon: ${lng.toFixed(5)}  Alt: ${alt}m`, 10, canvas.height - barH + 34);
-
-                // Status text (IN / OUT)
-                const isOut = options.type === 'OUT';
-                ctx.font = 'bold 10px monospace';
-                ctx.fillStyle = isOut ? '#60a5fa' : '#34d399';
-                ctx.fillText(isOut ? 'ABSEN PULANG' : 'ABSEN MASUK', canvas.width - 110, canvas.height - barH + 18);
-
-                // Optional badge Absen Manual / Absen Backup in watermark
-                if (options.badgeText) {
-                    ctx.font = 'bold 9px monospace';
-                    ctx.fillStyle = options.badgeColor || '#fbbf24';
-                    ctx.fillText(options.badgeText, canvas.width - 110, canvas.height - barH + 34);
-                } else if (options.includeManualBadge) {
-                    ctx.font = 'bold 9px monospace';
-                    ctx.fillStyle = '#fbbf24';
-                    ctx.fillText('ABSEN MANUAL', canvas.width - 110, canvas.height - barH + 34);
-                }
+                // Draw uniform, beautiful, non-colliding watermark
+                drawAttendanceWatermark(ctx, canvas.width, canvas.height, options);
 
                 const base64 = canvas.toDataURL('image/jpeg', 0.55).split(',')[1];
                 resolve(base64);
@@ -2940,6 +3072,189 @@ function generateWatermarkedPhoto(imageSource, options = {}) {
             resolve('');
         }
     });
+}
+
+function maToggleBackupMode() {
+    const isChecked = document.getElementById('maIsBackupCheck')?.checked ?? false;
+    const fields = document.getElementById('maBackupFields');
+    const badgeLabel = document.getElementById('maBadgeCheckLabel');
+    const badgeDesc = document.getElementById('maBadgeCheckDesc');
+    const badgeCheck = document.getElementById('maBadgeCheck');
+
+    if (fields) {
+        if (isChecked) {
+            fields.classList.remove('hidden');
+        } else {
+            fields.classList.add('hidden');
+        }
+    }
+
+    if (badgeLabel) {
+        if (isChecked) {
+            badgeLabel.innerHTML = '<i class="fas fa-shield-alt text-amber-500 text-xs"></i> Tampilkan Badge "Absen Backup"';
+        } else {
+            badgeLabel.innerHTML = '<i class="fas fa-certificate text-amber-500 text-xs"></i> Tampilkan Badge "Absen Manual"';
+        }
+    }
+    if (badgeDesc) {
+        if (isChecked) {
+            badgeDesc.innerText = 'Cantumkan tanda Absen Backup pada watermark foto, log absensi, dan rekap gaji';
+        } else {
+            badgeDesc.innerText = 'Cantumkan tanda Absen Manual pada watermark foto dan badge di tabel log absensi';
+        }
+    }
+    if (badgeCheck && isChecked) {
+        badgeCheck.checked = true;
+    }
+}
+
+async function quickAbsenSubmitBackupSelected() {
+    if (quickAbsenSelected.size === 0) {
+        showToast('Pilih minimal 1 kotak kosong untuk diabsenkan backup.', 'error');
+        return;
+    }
+    if (quickAbsenSelected.size === 1) {
+        const item = [...quickAbsenSelected][0];
+        openQuickBackupModal(item.empId, item.date);
+        return;
+    }
+
+    // For multiple selected cells
+    const backupName = prompt(`Absen Backup Massal (${quickAbsenSelected.size} jadwal dipilih).\nMasukkan Nama Lengkap Relawan Backup:`);
+    if (!backupName || !backupName.trim()) return;
+
+    const entries = [];
+    const defaultLoc = `${GEOFENCE_CONFIG.lat}, ${GEOFENCE_CONFIG.lng}`;
+
+    quickAbsenSelected.forEach(item => {
+        const divConfig = appConfig.shifts[item.division] || null;
+        const defaultIn = divConfig ? (typeof divConfig === 'string' ? '08:00' : divConfig.start) : '08:00';
+        const defaultOut = divConfig ? (typeof divConfig === 'string' ? '17:00' : divConfig.end) : '17:00';
+
+        const backupData = {
+            isBackup: true,
+            backupName: backupName.trim(),
+            backupNik: '',
+            backedUpEmpId: String(item.empId),
+            backedUpEmpName: item.name,
+            division: item.division || '',
+            shift: `${defaultIn} - ${defaultOut}`
+        };
+
+        const backupNote = `[Absen Backup] ${backupName.trim()} (Membackup: ${item.name} - ${item.division || '-'}) <!--BACKUP_DATA:${JSON.stringify(backupData)}-->`;
+
+        entries.push({
+            empId: item.empId,
+            name: item.name,
+            type: 'IN',
+            date: item.date,
+            forcedTime: defaultIn,
+            location: defaultLoc,
+            image: '',
+            overtime: 0,
+            lateMinutes: 0,
+            note: backupNote,
+            absentBy: `Admin (Backup: ${backupName.trim()})`,
+            isManual: true
+        });
+
+        entries.push({
+            empId: item.empId,
+            name: item.name,
+            type: 'OUT',
+            date: item.date,
+            forcedTime: defaultOut,
+            location: defaultLoc,
+            image: '',
+            overtime: 0,
+            lateMinutes: 0,
+            note: backupNote,
+            absentBy: `Admin (Backup: ${backupName.trim()})`,
+            isManual: true
+        });
+    });
+
+    const ok = await showCustomConfirm({
+        title: 'Kirim Absen Backup via Tabel?',
+        message: `Kirim absensi <b>BACKUP</b> (${backupName.trim()}) untuk <b>${quickAbsenSelected.size}</b> jadwal relawan (<b>${entries.length}</b> entri total)?<br><span class="text-xs text-amber-600 dark:text-amber-400 mt-2 block font-medium">Relawan asli tidak akan dihitung/tergaji pada tanggal tersebut.</span>`,
+        icon: 'fa-shield-alt',
+        iconClass: 'bg-amber-500/10 text-amber-500 dark:bg-amber-500/20 dark:text-amber-400',
+        confirmText: 'Ya, Kirim Absen Backup',
+        confirmClass: 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-600/30'
+    });
+
+    if (!ok) return;
+
+    // Visual progress indicator
+    const btnBackup = document.getElementById('btnQuickAbsenBackupSubmit');
+    const origHTML = btnBackup ? btnBackup.innerHTML : '';
+    if (btnBackup) {
+        btnBackup.disabled = true;
+        btnBackup.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...';
+    }
+
+    const inlineProgress = document.getElementById('quickAbsenProgress');
+    const progressBar = document.getElementById('quickAbsenProgressBar');
+    const progressCount = document.getElementById('quickAbsenProgressCount');
+    const progressDetail = document.getElementById('quickAbsenProgressDetail');
+
+    if (inlineProgress) inlineProgress.classList.remove('hidden');
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+        if (progressDetail) progressDetail.textContent = `Mengirim: ${entry.name} (${entry.type}) - ${entry.date}`;
+        if (progressCount) progressCount.textContent = `${i + 1}/${entries.length}`;
+        if (progressBar) progressBar.style.width = `${Math.round(((i + 1) / entries.length) * 100)}%`;
+
+        let okSend = false;
+        if (sbClient) {
+            try {
+                const sbPayload = {
+                    empId: String(entry.empId),
+                    name: entry.name,
+                    type: entry.type,
+                    date: entry.date,
+                    time: entry.forcedTime ? (entry.forcedTime.length === 5 ? `${entry.forcedTime}:00` : entry.forcedTime) : '08:00:00',
+                    location: entry.location,
+                    photo: '',
+                    overtime: entry.overtime || 0,
+                    lateMinutes: entry.lateMinutes || 0,
+                    note: entry.note || '',
+                    absentBy: entry.absentBy || 'Admin',
+                    isManual: true
+                };
+                const res = await sbPostData('attendance', sbPayload);
+                if (res) okSend = true;
+            } catch (err) {
+                console.warn('Supabase post error quick backup table:', err);
+            }
+        }
+        if (!okSend) {
+            okSend = await maSendOneEntry(entry);
+        }
+
+        if (okSend) successCount++;
+        else failCount++;
+    }
+
+    if (inlineProgress) inlineProgress.classList.add('hidden');
+    if (btnBackup) {
+        btnBackup.disabled = false;
+        btnBackup.innerHTML = origHTML;
+    }
+
+    quickAbsenClearSelection();
+    await fetchData(false);
+    refreshUI();
+
+    if (failCount === 0) {
+        showToast(`Berhasil mengirim ${successCount} entri absen backup!`, 'success');
+    } else {
+        showToast(`Selesai: ${successCount} berhasil, ${failCount} gagal.`, 'error');
+    }
 }
 
 // Map of volunteer photos for Manual Attendance: { [empId]: { in: 'data:...', out: 'data:...' } }
@@ -4339,11 +4654,24 @@ async function submitAbsence(type) {
         }
     }
     const canvas = document.getElementById('snapCanvas');
-    canvas.width = 400; canvas.height = 533; 
+    canvas.width = 360; canvas.height = 480; 
     const ctx = canvas.getContext('2d');
     if(currentFacingMode === 'user') { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const photoBase64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1]; 
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    const locParts = (typeof currentLocation === 'string' && currentLocation.includes(','))
+        ? currentLocation.split(',').map(s => parseFloat(s.trim()))
+        : [securityCoords?.lat || GEOFENCE_CONFIG.lat, securityCoords?.lng || GEOFENCE_CONFIG.lng];
+
+    drawAttendanceWatermark(ctx, canvas.width, canvas.height, {
+        time: forcedTime || now.toLocaleTimeString('id-ID', { hour12: false }),
+        date: today,
+        lat: locParts[0],
+        lng: locParts[1],
+        type: finalType
+    });
+    const photoBase64 = canvas.toDataURL('image/jpeg', 0.55).split(',')[1]; 
 
     const payload = {
         empId: scannedEmployee.id, name: scannedEmployee.name, type: finalType, overtime: overtimeHours,
@@ -6076,7 +6404,7 @@ async function submitQuickIn() {
 let currentQuickBackupEmpId = null;
 let quickBackupPhotoBase64 = null;
 
-function openQuickBackupModal(empId) {
+function openQuickBackupModal(empId, overrideDate = null) {
     const emp = employees.find(e => String(e.id) === String(empId));
     if (!emp) {
         showToast('Data relawan tidak ditemukan', 'error');
@@ -6108,7 +6436,7 @@ function openQuickBackupModal(empId) {
     document.getElementById('quickBackupNik').value = '';
     
     const now = new Date();
-    document.getElementById('quickBackupDate').value = getLocalDateStr(now);
+    document.getElementById('quickBackupDate').value = overrideDate || getLocalDateStr(now);
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     document.getElementById('quickBackupTime').value = timeStr;
 
@@ -6225,7 +6553,9 @@ async function submitQuickBackup() {
                         lng: appConfig?.geofenceLng || GEOFENCE_CONFIG.lng,
                         type: 'IN',
                         badgeText: isBadgeChecked ? 'ABSEN BACKUP' : '',
-                        badgeColor: '#f59e0b'
+                        badgeColor: '#b45309',
+                        backupName: backupName,
+                        backedUpEmpName: emp.name
                     });
                 }
             } catch (pErr) {
@@ -6350,6 +6680,7 @@ async function submitQuickBackup() {
 
         _saveToCache(employees, logs, appConfig);
         closeQuickBackupModal();
+        if (typeof quickAbsenClearSelection === 'function') quickAbsenClearSelection();
         refreshUI();
         renderActiveWorkersList();
 
@@ -8579,6 +8910,13 @@ async function maSendEntries(entries, startIndex = 0, successCount = 0, failCoun
     document.getElementById('maTimeIn').value = '';
     document.getElementById('maTimeOut').value = '';
     document.getElementById('maType').value = 'BOTH';
+    const isBackupCheck = document.getElementById('maIsBackupCheck');
+    if (isBackupCheck) isBackupCheck.checked = false;
+    const backupNameInput = document.getElementById('maBackupName');
+    if (backupNameInput) backupNameInput.value = '';
+    const backupNikInput = document.getElementById('maBackupNik');
+    if (backupNikInput) backupNikInput.value = '';
+    if (typeof maToggleBackupMode === 'function') maToggleBackupMode();
     maVolunteerPhotos = {};
     maRenderPhotoList();
     await fetchData(false);
@@ -8636,6 +8974,16 @@ async function maSubmit() {
     const timeOut = document.getElementById('maTimeOut').value || '';
     const note = document.getElementById('maNote').value.trim();
     const isBadgeChecked = document.getElementById('maBadgeCheck')?.checked ?? true;
+    const isBackupMode = document.getElementById('maIsBackupCheck')?.checked ?? false;
+    const backupName = (document.getElementById('maBackupName')?.value || '').trim();
+    const backupNik = (document.getElementById('maBackupNik')?.value || '').trim();
+
+    if (isBackupMode && !backupName) {
+        showToast('Nama Lengkap Relawan Backup wajib diisi.', 'error');
+        document.getElementById('maBackupName')?.focus();
+        return;
+    }
+
     const finalNote = isBadgeChecked
         ? (note ? `${note} [Absen Manual]` : '[Absen Manual]')
         : note;
@@ -8653,8 +9001,25 @@ async function maSubmit() {
         const emp = employees.find(e => e.id === empId);
         if (!emp) continue;
         const divConfig = appConfig.shifts[emp.division] || null;
-        const defaultIn = divConfig ? divConfig.start : '08:00';
-        const defaultOut = divConfig ? divConfig.end : '17:00';
+        const defaultIn = divConfig ? (typeof divConfig === 'string' ? '08:00' : divConfig.start) : '08:00';
+        const defaultOut = divConfig ? (typeof divConfig === 'string' ? '17:00' : divConfig.end) : '17:00';
+
+        let entryNote = finalNote;
+        let entryAbsentBy = 'Admin';
+        if (isBackupMode) {
+            const backupMeta = {
+                isBackup: true,
+                backupName: backupName,
+                backupNik: backupNik,
+                backedUpEmpId: String(emp.id),
+                backedUpEmpName: emp.name,
+                division: emp.division || '',
+                shift: `${defaultIn} - ${defaultOut}`
+            };
+            const prefix = note ? `${note} [Absen Backup]` : '[Absen Backup]';
+            entryNote = `${prefix} <!--BACKUP_DATA:${JSON.stringify(backupMeta)}-->`;
+            entryAbsentBy = `Admin (Backup: ${backupName})`;
+        }
 
         // Process IN entries
         for (const dateStr of inDates) {
@@ -8670,8 +9035,8 @@ async function maSubmit() {
                     empId: emp.id, name: emp.name, type: 'IN',
                     date: dateStr, forcedTime: timeIn || defaultIn,
                     location: defaultLoc, image: '', overtime: 0,
-                    lateMinutes: 0, note: finalNote, isManual: isBadgeChecked,
-                    absentBy: 'Admin'
+                    lateMinutes: 0, note: entryNote, isManual: isBadgeChecked,
+                    absentBy: entryAbsentBy
                 });
             }
         }
@@ -8690,8 +9055,8 @@ async function maSubmit() {
                     empId: emp.id, name: emp.name, type: 'OUT',
                     date: dateStr, forcedTime: timeOut || defaultOut,
                     location: defaultLoc, image: '', overtime: 0,
-                    lateMinutes: 0, note: finalNote, isManual: isBadgeChecked,
-                    absentBy: 'Admin'
+                    lateMinutes: 0, note: entryNote, isManual: isBadgeChecked,
+                    absentBy: entryAbsentBy
                 });
             }
         }
@@ -8721,7 +9086,11 @@ async function maSubmit() {
                     type: entry.type,
                     lat: GEOFENCE_CONFIG.lat,
                     lng: GEOFENCE_CONFIG.lng,
-                    includeManualBadge: isBadgeChecked
+                    includeManualBadge: !isBackupMode && isBadgeChecked,
+                    badgeText: isBackupMode && isBadgeChecked ? 'ABSEN BACKUP' : '',
+                    badgeColor: '#b45309',
+                    backupName: isBackupMode ? backupName : '',
+                    backedUpEmpName: isBackupMode ? entry.name : ''
                 });
                 if (watermarked) entry.image = watermarked;
             }
@@ -8730,9 +9099,11 @@ async function maSubmit() {
     }
 
     const typeLabel = type === 'BOTH' ? 'IN + OUT' : type;
-    let msg = `Kirim ${entries.length} entri absen ${typeLabel} untuk ${empIds.length} relawan?`;
+    let msg = isBackupMode
+        ? `Kirim ${entries.length} entri absen BACKUP (${backupName}) untuk ${empIds.length} relawan?`
+        : `Kirim ${entries.length} entri absen ${typeLabel} untuk ${empIds.length} relawan?`;
     if (hasAnyPhoto) msg += ' (Foto per relawan terlampir)';
-    if (isBadgeChecked) msg += ' [Badge Manual aktif]';
+    if (isBadgeChecked) msg += isBackupMode ? ' [Badge Backup aktif]' : ' [Badge Manual aktif]';
     
     // Update skipped container in modal
     const skippedList = document.getElementById('confirmMaSkippedList');
@@ -10912,7 +11283,12 @@ function volStartClockAndGPS() {
         if (dateEl) dateEl.innerText = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         // Update watermark time preview
         const wmTime = document.getElementById('volWmTime');
-        if (wmTime) wmTime.innerText = now.toLocaleTimeString('id-ID', { hour12: false }) + ' ' + now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        if (wmTime) {
+            const span = wmTime.querySelector('span');
+            const timeText = now.toLocaleTimeString('id-ID', { hour12: false }) + ' • ' + now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            if (span) span.innerText = timeText;
+            else wmTime.innerText = timeText;
+        }
     }, 1000);
 
     // GPS watch
@@ -10934,7 +11310,12 @@ function volStartClockAndGPS() {
                 volUpdateGeofenceUI();
                 // Update watermark location preview
                 const wmLoc = document.getElementById('volWmLoc');
-                if (wmLoc) wmLoc.innerText = `Lat: ${pos.coords.latitude.toFixed(5)} Lon: ${pos.coords.longitude.toFixed(5)} Alt: ${Math.round(pos.coords.altitude || 0)}m`;
+                if (wmLoc) {
+                    const span = wmLoc.querySelector('span');
+                    const locText = `Lat: ${pos.coords.latitude.toFixed(5)}  Lon: ${pos.coords.longitude.toFixed(5)}  Alt: ${Math.round(pos.coords.altitude || 0)}m`;
+                    if (span) span.innerText = locText;
+                    else wmLoc.innerText = locText;
+                }
             },
             (err) => {
                 volLocationLocked = false;
@@ -10949,14 +11330,31 @@ function volStartClockAndGPS() {
     }
 }
 
+function updateVolWmStatusUI(type) {
+    const badge = document.getElementById('volWmStatusBadge');
+    const text = document.getElementById('volWmStatusText');
+    if (!badge || !text) return;
+    if (type === 'OUT') {
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[8.5px] font-extrabold uppercase tracking-wider bg-blue-600/90 text-white border border-blue-400/40 shadow-xs flex items-center gap-1';
+        text.innerText = 'ABSEN PULANG';
+    } else {
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[8.5px] font-extrabold uppercase tracking-wider bg-emerald-600/90 text-white border border-emerald-400/40 shadow-xs flex items-center gap-1';
+        text.innerText = 'ABSEN MASUK';
+    }
+}
+
 // Deteksi otomatis: harus Clock In atau Clock Out?
 function volDetectAbsenType(empId) {
-    if (!empId) return 'IN';
+    if (!empId) {
+        updateVolWmStatusUI('IN');
+        return 'IN';
+    }
     const empLogs = logs.filter(l => String(l.empId) === String(empId))
         .sort((a, b) => parseLogDateTime(b.date, b.time) - parseLogDateTime(a.date, a.time));
     const lastLog = empLogs.length > 0 ? empLogs[0] : null;
-    if (!lastLog || lastLog.type === 'OUT' || lastLog.type === 'REJECTED') return 'IN';
-    return 'OUT'; // Sudah Clock In, berarti selanjutnya Clock Out
+    const detectedType = (!lastLog || lastLog.type === 'OUT' || lastLog.type === 'REJECTED') ? 'IN' : 'OUT';
+    updateVolWmStatusUI(detectedType);
+    return detectedType;
 }
 
 function volUpdateAbsenButton(empId) {
@@ -12428,8 +12826,8 @@ async function volSubmitSelfie() {
     const video = document.getElementById('volFaceVideo');
     const canvas = document.getElementById('volSnapCanvas');
     if (!canvas || !video) return;
-    canvas.width = 280;
-    canvas.height = 373;
+    canvas.width = 360;
+    canvas.height = 480;
     const ctx = canvas.getContext('2d');
     if (volCurrentFacingMode === 'user') { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -12437,25 +12835,17 @@ async function volSubmitSelfie() {
     // Reset transform for watermark drawing
     ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-    // Draw watermark bar at bottom
-    const barH = 50;
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(0, canvas.height - barH, canvas.width, barH);
+    // Draw anti-collision watermark & timemark
+    drawAttendanceWatermark(ctx, canvas.width, canvas.height, {
+        time: now.toLocaleTimeString('id-ID', { hour12: false }),
+        date: today,
+        lat: volCurrentLocation.lat,
+        lng: volCurrentLocation.lng,
+        alt: Math.round(volCurrentLocation.alt || 0),
+        type: finalType
+    });
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 11px monospace';
-    const timeStr = now.toLocaleTimeString('id-ID', { hour12: false }) + '  ' + now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    ctx.fillText(timeStr, 10, canvas.height - barH + 18);
-
-    ctx.font = '10px monospace';
-    const locStr = `Lat: ${volCurrentLocation.lat.toFixed(5)}  Lon: ${volCurrentLocation.lng.toFixed(5)}  Alt: ${Math.round(volCurrentLocation.alt)}m`;
-    ctx.fillText(locStr, 10, canvas.height - barH + 34);
-
-    ctx.font = 'bold 10px monospace';
-    ctx.fillStyle = volAbsenType === 'IN' ? '#34d399' : '#60a5fa';
-    ctx.fillText(volAbsenType === 'IN' ? 'ABSEN MASUK' : 'ABSEN PULANG', canvas.width - 110, canvas.height - barH + 18);
-
-    const photoBase64 = canvas.toDataURL('image/jpeg', 0.42).split(',')[1];
+    const photoBase64 = canvas.toDataURL('image/jpeg', 0.55).split(',')[1];
 
     const payload = {
         empId: volScannedEmployee.id,
