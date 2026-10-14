@@ -3074,6 +3074,9 @@ function generateWatermarkedPhoto(imageSource, options = {}) {
     });
 }
 
+// Map of backup data per volunteer: { [empId]: { name: string, nik: string } }
+let maBackupData = {};
+
 function maToggleBackupMode() {
     const isChecked = document.getElementById('maIsBackupCheck')?.checked ?? false;
     const fields = document.getElementById('maBackupFields');
@@ -3084,6 +3087,7 @@ function maToggleBackupMode() {
     if (fields) {
         if (isChecked) {
             fields.classList.remove('hidden');
+            maRenderBackupList();
         } else {
             fields.classList.add('hidden');
         }
@@ -3106,6 +3110,114 @@ function maToggleBackupMode() {
     if (badgeCheck && isChecked) {
         badgeCheck.checked = true;
     }
+
+    if (typeof maRenderPhotoList === 'function') maRenderPhotoList();
+}
+
+function maRenderBackupList() {
+    const container = document.getElementById('maBackupVolunteerList');
+    const copyBtn = document.getElementById('maBtnCopyBackupName');
+    if (!container) return;
+
+    const isBackupMode = document.getElementById('maIsBackupCheck')?.checked ?? false;
+    if (!isBackupMode) return;
+
+    const empIds = [...maSelectedEmployees];
+    if (copyBtn) {
+        if (empIds.length > 1) copyBtn.classList.remove('hidden');
+        else copyBtn.classList.add('hidden');
+    }
+
+    if (empIds.length === 0) {
+        container.innerHTML = `
+            <div class="p-4 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-dashed border-amber-300/80 dark:border-amber-700/50 text-center text-xs text-amber-700 dark:text-amber-400">
+                <i class="fas fa-user-plus text-lg mb-1 block opacity-70"></i>
+                Pilih relawan di Step 1 untuk mengisi data relawan backup masing-masing.
+            </div>`;
+        return;
+    }
+
+    const selectedEmps = employees.filter(e => empIds.includes(e.id));
+    let html = '';
+
+    selectedEmps.forEach((emp, index) => {
+        const safeId = String(emp.id).replace(/'/g, "\\'");
+        const existing = maBackupData[emp.id] || { name: '', nik: '' };
+        const safeName = (existing.name || '').replace(/"/g, '&quot;');
+        const safeNik = (existing.nik || '').replace(/"/g, '&quot;');
+
+        html += `
+        <div class="p-3.5 rounded-xl bg-white dark:bg-slate-900/60 border border-amber-200 dark:border-amber-500/30 shadow-xs space-y-2.5 transition">
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-[10px] flex items-center justify-center shrink-0">
+                        ${index + 1}
+                    </span>
+                    <div class="min-w-0">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-100 truncate block">${emp.name}</span>
+                        <span class="text-[10px] text-slate-400">${emp.division || '-'} • <span class="font-mono">${emp.id}</span></span>
+                    </div>
+                </div>
+                <span class="px-2 py-0.5 rounded text-[9px] font-extrabold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 uppercase tracking-wider shrink-0 flex items-center gap-1">
+                    <i class="fas fa-user-shield text-[10px]"></i> Dibackup Oleh:
+                </span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                <div>
+                    <label class="text-[9.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                        Nama Lengkap Backup <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" 
+                        id="maBackupName_${safeId}"
+                        value="${safeName}"
+                        oninput="maSetVolunteerBackupData('${safeId}', 'name', this.value)"
+                        class="input-field border-amber-300 dark:border-amber-500/40 text-xs py-2 focus:border-amber-500 focus:ring-amber-200" 
+                        placeholder="Nama orang yang membackup ${emp.name.replace(/"/g, '&quot;')}...">
+                </div>
+                <div>
+                    <label class="text-[9.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                        NIK Backup (Opsional)
+                    </label>
+                    <input type="text" 
+                        id="maBackupNik_${safeId}"
+                        value="${safeNik}"
+                        oninput="maSetVolunteerBackupData('${safeId}', 'nik', this.value)"
+                        class="input-field border-amber-300 dark:border-amber-500/40 text-xs py-2 focus:border-amber-500 focus:ring-amber-200" 
+                        placeholder="NIK relawan backup (jika ada)...">
+                </div>
+            </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+function maSetVolunteerBackupData(empId, field, value) {
+    if (!maBackupData[empId]) {
+        maBackupData[empId] = { name: '', nik: '' };
+    }
+    maBackupData[empId][field] = value;
+    const bNameSpan = document.getElementById(`maPhotoBackupName_${empId}`);
+    if (bNameSpan) {
+        bNameSpan.textContent = maBackupData[empId].name || '(Belum diisi di Step 2B)';
+    }
+}
+
+function maPromptCopyBackupNameToAll() {
+    const firstEmpId = [...maSelectedEmployees][0];
+    const defaultVal = maBackupData[firstEmpId]?.name || '';
+    const name = prompt('Salin Nama Relawan Backup ke SEMUA relawan yang dipilih:', defaultVal);
+    if (name === null) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    maSelectedEmployees.forEach(empId => {
+        if (!maBackupData[empId]) maBackupData[empId] = { name: '', nik: '' };
+        maBackupData[empId].name = trimmed;
+        const input = document.getElementById(`maBackupName_${empId}`);
+        if (input) input.value = trimmed;
+        const bNameSpan = document.getElementById(`maPhotoBackupName_${empId}`);
+        if (bNameSpan) bNameSpan.textContent = trimmed;
+    });
 }
 
 async function quickAbsenSubmitBackupSelected() {
@@ -3113,15 +3225,26 @@ async function quickAbsenSubmitBackupSelected() {
         showToast('Pilih minimal 1 kotak kosong untuk diabsenkan backup.', 'error');
         return;
     }
-    if (quickAbsenSelected.size === 1) {
+    const uniqueEmpIds = [...new Set([...quickAbsenSelected].map(i => String(i.empId)))];
+    if (uniqueEmpIds.length === 1) {
         const item = [...quickAbsenSelected][0];
         openQuickBackupModal(item.empId, item.date);
         return;
     }
 
-    // For multiple selected cells
-    const backupName = prompt(`Absen Backup Massal (${quickAbsenSelected.size} jadwal dipilih).\nMasukkan Nama Lengkap Relawan Backup:`);
-    if (!backupName || !backupName.trim()) return;
+    // For multiple selected different employees, ask backup name for each employee
+    const backupNameMap = {};
+    for (const empId of uniqueEmpIds) {
+        const emp = employees.find(e => String(e.id) === String(empId));
+        const empName = emp ? emp.name : `ID ${empId}`;
+        const bName = prompt(`Absen Backup untuk relawan: "${empName}" (${emp?.division || '-'})\nMasukkan Nama Lengkap Relawan Backup:`);
+        if (bName === null) return; // User cancelled
+        if (!bName.trim()) {
+            showToast(`Absen backup dibatalkan: nama backup untuk ${empName} tidak boleh kosong.`, 'error');
+            return;
+        }
+        backupNameMap[empId] = bName.trim();
+    }
 
     const entries = [];
     const defaultLoc = `${GEOFENCE_CONFIG.lat}, ${GEOFENCE_CONFIG.lng}`;
@@ -3130,10 +3253,11 @@ async function quickAbsenSubmitBackupSelected() {
         const divConfig = appConfig.shifts[item.division] || null;
         const defaultIn = divConfig ? (typeof divConfig === 'string' ? '08:00' : divConfig.start) : '08:00';
         const defaultOut = divConfig ? (typeof divConfig === 'string' ? '17:00' : divConfig.end) : '17:00';
+        const bName = backupNameMap[String(item.empId)] || 'Backup';
 
         const backupData = {
             isBackup: true,
-            backupName: backupName.trim(),
+            backupName: bName,
             backupNik: '',
             backedUpEmpId: String(item.empId),
             backedUpEmpName: item.name,
@@ -3141,7 +3265,7 @@ async function quickAbsenSubmitBackupSelected() {
             shift: `${defaultIn} - ${defaultOut}`
         };
 
-        const backupNote = `[Absen Backup] ${backupName.trim()} (Membackup: ${item.name} - ${item.division || '-'}) <!--BACKUP_DATA:${JSON.stringify(backupData)}-->`;
+        const backupNote = `[Absen Backup] ${bName} (Membackup: ${item.name} - ${item.division || '-'}) <!--BACKUP_DATA:${JSON.stringify(backupData)}-->`;
 
         entries.push({
             empId: item.empId,
@@ -3154,7 +3278,7 @@ async function quickAbsenSubmitBackupSelected() {
             overtime: 0,
             lateMinutes: 0,
             note: backupNote,
-            absentBy: `Admin (Backup: ${backupName.trim()})`,
+            absentBy: `Admin (Backup: ${bName})`,
             isManual: true
         });
 
@@ -3169,14 +3293,14 @@ async function quickAbsenSubmitBackupSelected() {
             overtime: 0,
             lateMinutes: 0,
             note: backupNote,
-            absentBy: `Admin (Backup: ${backupName.trim()})`,
+            absentBy: `Admin (Backup: ${bName})`,
             isManual: true
         });
     });
 
     const ok = await showCustomConfirm({
         title: 'Kirim Absen Backup via Tabel?',
-        message: `Kirim absensi <b>BACKUP</b> (${backupName.trim()}) untuk <b>${quickAbsenSelected.size}</b> jadwal relawan (<b>${entries.length}</b> entri total)?<br><span class="text-xs text-amber-600 dark:text-amber-400 mt-2 block font-medium">Relawan asli tidak akan dihitung/tergaji pada tanggal tersebut.</span>`,
+        message: `Kirim absensi <b>BACKUP</b> untuk <b>${uniqueEmpIds.length}</b> relawan (<b>${entries.length}</b> entri total)?<br><span class="text-xs text-amber-600 dark:text-amber-400 mt-2 block font-medium">Setiap relawan dibackup oleh orang yang telah Anda tentukan masing-masing. Relawan asli tidak akan dihitung/tergaji pada tanggal tersebut.</span>`,
         icon: 'fa-shield-alt',
         iconClass: 'bg-amber-500/10 text-amber-500 dark:bg-amber-500/20 dark:text-amber-400',
         confirmText: 'Ya, Kirim Absen Backup',
@@ -3345,6 +3469,17 @@ function maRenderPhotoList() {
             </div>`;
         }
 
+        const isBackupMode = document.getElementById('maIsBackupCheck')?.checked ?? false;
+        let backupTagHtml = '';
+        if (isBackupMode) {
+            const bName = (maBackupData[emp.id]?.name || '').trim();
+            backupTagHtml = `
+            <div class="text-[10.5px] text-amber-700 dark:text-amber-400 font-bold flex items-center gap-1.5 mt-1 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200/80 dark:border-amber-700/50 w-fit">
+                <i class="fas fa-shield-alt text-[9px] text-amber-500"></i> 
+                <span>Dibackup: <b id="maPhotoBackupName_${safeId}" class="underline">${bName || '(Belum diisi di Step 2B)'}</b></span>
+            </div>`;
+        }
+
         html += `
         <div class="p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div class="flex items-center gap-3 min-w-0">
@@ -3352,6 +3487,7 @@ function maRenderPhotoList() {
                 <div class="min-w-0">
                     <div class="font-bold text-xs text-slate-800 dark:text-slate-100 truncate">${emp.name}</div>
                     <div class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">${emp.division || '-'} • <span class="font-mono">${emp.id}</span></div>
+                    ${backupTagHtml}
                 </div>
             </div>
             <div class="flex flex-col sm:flex-row gap-2 shrink-0 md:min-w-[320px] justify-end">
@@ -8580,6 +8716,7 @@ function maUpdateCount() {
     const countEl = document.getElementById('maSelectedCount');
     if (countEl) countEl.textContent = maSelectedEmployees.size + ' dipilih';
     maRenderPhotoList();
+    if (typeof maRenderBackupList === 'function') maRenderBackupList();
 }
 
 function maChangeMonthIn(delta) {
@@ -8912,10 +9049,7 @@ async function maSendEntries(entries, startIndex = 0, successCount = 0, failCoun
     document.getElementById('maType').value = 'BOTH';
     const isBackupCheck = document.getElementById('maIsBackupCheck');
     if (isBackupCheck) isBackupCheck.checked = false;
-    const backupNameInput = document.getElementById('maBackupName');
-    if (backupNameInput) backupNameInput.value = '';
-    const backupNikInput = document.getElementById('maBackupNik');
-    if (backupNikInput) backupNikInput.value = '';
+    maBackupData = {};
     if (typeof maToggleBackupMode === 'function') maToggleBackupMode();
     maVolunteerPhotos = {};
     maRenderPhotoList();
@@ -8975,13 +9109,22 @@ async function maSubmit() {
     const note = document.getElementById('maNote').value.trim();
     const isBadgeChecked = document.getElementById('maBadgeCheck')?.checked ?? true;
     const isBackupMode = document.getElementById('maIsBackupCheck')?.checked ?? false;
-    const backupName = (document.getElementById('maBackupName')?.value || '').trim();
-    const backupNik = (document.getElementById('maBackupNik')?.value || '').trim();
 
-    if (isBackupMode && !backupName) {
-        showToast('Nama Lengkap Relawan Backup wajib diisi.', 'error');
-        document.getElementById('maBackupName')?.focus();
-        return;
+    if (isBackupMode) {
+        for (const empId of maSelectedEmployees) {
+            const emp = employees.find(e => e.id === empId);
+            const bInfo = maBackupData[empId] || {};
+            const bName = (bInfo.name || '').trim();
+            if (!bName) {
+                showToast(`Nama Lengkap Relawan Backup untuk "${emp?.name || 'relawan'}" wajib diisi!`, 'error');
+                const inputEl = document.getElementById(`maBackupName_${empId}`);
+                if (inputEl) {
+                    inputEl.focus();
+                    inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+        }
     }
 
     const finalNote = isBadgeChecked
@@ -9004,13 +9147,17 @@ async function maSubmit() {
         const defaultIn = divConfig ? (typeof divConfig === 'string' ? '08:00' : divConfig.start) : '08:00';
         const defaultOut = divConfig ? (typeof divConfig === 'string' ? '17:00' : divConfig.end) : '17:00';
 
+        const bInfo = isBackupMode ? (maBackupData[emp.id] || {}) : {};
+        const bName = (bInfo.name || '').trim();
+        const bNik = (bInfo.nik || '').trim();
+
         let entryNote = finalNote;
         let entryAbsentBy = 'Admin';
         if (isBackupMode) {
             const backupMeta = {
                 isBackup: true,
-                backupName: backupName,
-                backupNik: backupNik,
+                backupName: bName,
+                backupNik: bNik,
                 backedUpEmpId: String(emp.id),
                 backedUpEmpName: emp.name,
                 division: emp.division || '',
@@ -9018,7 +9165,7 @@ async function maSubmit() {
             };
             const prefix = note ? `${note} [Absen Backup]` : '[Absen Backup]';
             entryNote = `${prefix} <!--BACKUP_DATA:${JSON.stringify(backupMeta)}-->`;
-            entryAbsentBy = `Admin (Backup: ${backupName})`;
+            entryAbsentBy = `Admin (Backup: ${bName})`;
         }
 
         // Process IN entries
@@ -9080,6 +9227,8 @@ async function maSubmit() {
             const rawPhoto = maVolunteerPhotos[entry.empId]?.[slot];
 
             if (rawPhoto) {
+                const bInfo = isBackupMode ? (maBackupData[entry.empId] || {}) : {};
+                const bName = (bInfo.name || '').trim();
                 const watermarked = await generateWatermarkedPhoto(rawPhoto, {
                     time: entry.forcedTime,
                     date: entry.date,
@@ -9089,7 +9238,7 @@ async function maSubmit() {
                     includeManualBadge: !isBackupMode && isBadgeChecked,
                     badgeText: isBackupMode && isBadgeChecked ? 'ABSEN BACKUP' : '',
                     badgeColor: '#b45309',
-                    backupName: isBackupMode ? backupName : '',
+                    backupName: isBackupMode ? bName : '',
                     backedUpEmpName: isBackupMode ? entry.name : ''
                 });
                 if (watermarked) entry.image = watermarked;
@@ -9100,7 +9249,7 @@ async function maSubmit() {
 
     const typeLabel = type === 'BOTH' ? 'IN + OUT' : type;
     let msg = isBackupMode
-        ? `Kirim ${entries.length} entri absen BACKUP (${backupName}) untuk ${empIds.length} relawan?`
+        ? `Kirim ${entries.length} entri absen BACKUP untuk ${empIds.length} relawan (dibackup masing-masing)?`
         : `Kirim ${entries.length} entri absen ${typeLabel} untuk ${empIds.length} relawan?`;
     if (hasAnyPhoto) msg += ' (Foto per relawan terlampir)';
     if (isBadgeChecked) msg += isBackupMode ? ' [Badge Backup aktif]' : ' [Badge Manual aktif]';
