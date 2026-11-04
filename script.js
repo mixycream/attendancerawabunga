@@ -73,12 +73,53 @@ async function sbUploadPhoto(photoData, fileName) {
     }
 }
 
+// Mengambil seluruh log absensi dari Supabase dengan paginasi range paralel jika melebihi batas default 1000 baris PostgREST
+async function sbFetchAllAttendanceLogs() {
+    const PAGE_SIZE = 1000;
+    // Batch 1: ambil 1000 baris pertama + hitung total row secara exact
+    const firstRes = await sbClient.from('attendance_logs')
+        .select('*', { count: 'exact' })
+        .order('date', { ascending: false })
+        .order('time', { ascending: false })
+        .range(0, PAGE_SIZE - 1);
+
+    if (firstRes.error) throw firstRes.error;
+    const allData = [...(firstRes.data || [])];
+    const totalCount = firstRes.count || allData.length;
+
+    // Jika ada lebih dari 1000 data, ambil sisa halaman secara paralel dengan Promise.all
+    if (totalCount > PAGE_SIZE) {
+        const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+        const pagePromises = [];
+        for (let p = 1; p < totalPages; p++) {
+            const from = p * PAGE_SIZE;
+            const to = from + PAGE_SIZE - 1;
+            pagePromises.push(
+                sbClient.from('attendance_logs')
+                    .select('*')
+                    .order('date', { ascending: false })
+                    .order('time', { ascending: false })
+                    .range(from, to)
+            );
+        }
+        const remainingRes = await Promise.all(pagePromises);
+        for (const res of remainingRes) {
+            if (res.error) {
+                console.warn('[sbFetchAllAttendanceLogs] Gagal memuat batch log:', res.error);
+                continue;
+            }
+            if (res.data) allData.push(...res.data);
+        }
+    }
+    return { data: allData, error: null };
+}
+
 // Fetch Semua Data dari Supabase (~50ms)
 async function sbFetchData() {
     if (!sbClient) throw new Error("Supabase not initialized");
     const [empRes, logRes, shiftRes, cfgRes] = await Promise.all([
         sbClient.from('employees').select('*').order('name', { ascending: true }),
-        sbClient.from('attendance_logs').select('*').order('date', { ascending: false }).order('time', { ascending: false }),
+        sbFetchAllAttendanceLogs(),
         sbClient.from('shifts').select('*'),
         sbClient.from('app_config').select('*')
     ]);
@@ -192,16 +233,28 @@ async function sbPostData(action, payload) {
         timeStr = String(timeStr).replace(/\./g, ':');
         if (timeStr.length === 5) timeStr += ':00';
 
-        if (payload.absentBy === 'Admin') {
+        const isAdmin = payload.absentBy && (payload.absentBy === 'Admin' || String(payload.absentBy).startsWith('Admin'));
+        if (isAdmin) {
             const { data: dups } = await sbClient.from('attendance_logs')
                 .select('id')
                 .eq('emp_id', payload.empId)
                 .eq('date', dateStr)
                 .eq('type', payload.type)
-                .eq('absent_by', 'Admin')
                 .limit(1);
             if (dups && dups.length > 0) {
-                return { status: 'success', duplicate: true };
+                // Perbarui record yang ada dengan data manual terbaru
+                const updatePayload = {
+                    time: timeStr,
+                    note: payload.note || '',
+                    location: payload.location || '',
+                    absent_by: payload.absentBy || 'Admin'
+                };
+                if (photoUrl) updatePayload.photo = photoUrl;
+                const { error: updErr } = await sbClient.from('attendance_logs')
+                    .update(updatePayload)
+                    .eq('id', dups[0].id);
+                if (updErr) throw updErr;
+                return { status: 'success', updated: true, id: dups[0].id };
             }
         }
 
@@ -1375,10 +1428,17 @@ const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 jam
 function _saveToCache(emps, lgArr, cfg) {
     try {
         localStorage.setItem('mbg_cache_employees', JSON.stringify(emps));
-        // Simpan hanya log 30 hari terakhir agar cache tidak bengkak
-        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
-        const recentLogs = lgArr.filter(l => new Date(l.date) >= cutoff);
-        localStorage.setItem('mbg_cache_logs', JSON.stringify(recentLogs));
+        // Simpan log hingga 120 hari terakhir agar rekap bulan-bulan sebelumnya tetap tersimpan & instan saat dibuka
+        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 120);
+        let recentLogs = (lgArr || []).filter(l => new Date(l.date) >= cutoff);
+        try {
+            localStorage.setItem('mbg_cache_logs', JSON.stringify(recentLogs));
+        } catch (quotaErr) {
+            // Jika kuota localStorage browser penuh, fallback simpan 60 hari terakhir
+            const fallbackCutoff = new Date(); fallbackCutoff.setDate(fallbackCutoff.getDate() - 60);
+            recentLogs = (lgArr || []).filter(l => new Date(l.date) >= fallbackCutoff);
+            localStorage.setItem('mbg_cache_logs', JSON.stringify(recentLogs));
+        }
         localStorage.setItem('mbg_cache_config', JSON.stringify(appConfig));
         localStorage.setItem('mbg_cache_ts', Date.now().toString());
     } catch(e) { /* storage full, silently fail */ }
@@ -3728,8 +3788,13 @@ async function quickAbsenSubmitSelected() {
         if (okSend) {
             successCount++;
             // Optimistic update ke logs lokal agar tabel gaji langsung terupdate secara REALTIME
-            const exists = (logs || []).some(l => String(l.empId) === String(entry.empId) && l.date === entry.date && l.type === entry.type);
-            if (!exists) {
+            const existingLog = (logs || []).find(l => String(l.empId) === String(entry.empId) && l.date === entry.date && l.type === entry.type);
+            if (existingLog) {
+                existingLog.time = entry.forcedTime ? (entry.forcedTime.length === 5 ? entry.forcedTime + ':00' : entry.forcedTime) : existingLog.time;
+                existingLog.note = entry.note || existingLog.note;
+                existingLog.location = entry.location || existingLog.location;
+                existingLog.absentBy = entry.absentBy || existingLog.absentBy;
+            } else {
                 logs.unshift({
                     id: 'quick_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
                     empId: String(entry.empId),
@@ -9038,7 +9103,12 @@ function maTypeChanged() {
 
 function maRenderHistory() {
     const tbody = document.getElementById('maHistoryBody');
-    const manualLogs = logs.filter(l => l.absentBy === 'Admin').slice(-50).reverse();
+    if (!tbody) return;
+    const manualLogs = (logs || []).filter(l => 
+        (l.absentBy && l.absentBy.includes('Admin')) ||
+        (l.note && (l.note.includes('[Absen Manual]') || l.note.includes('[Absen Backup]') || l.note.includes('Absen Cepat Matrix')))
+    ).sort((a, b) => (b.date + ' ' + (b.time || '')).localeCompare(a.date + ' ' + (a.time || ''))).slice(0, 50);
+
     if (manualLogs.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-xs text-slate-400">Belum ada riwayat absen manual</td></tr>';
         return;
@@ -9049,7 +9119,7 @@ function maRenderHistory() {
             <td class="px-6 py-3 text-slate-700 font-bold text-xs">${l.name}</td>
             <td class="px-6 py-3 text-center"><span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${l.type==='IN'?'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-500/20':'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100/50 dark:border-rose-500/20'}">${l.type}</span></td>
             <td class="px-6 py-3 text-slate-500 text-xs">${l.note || '-'}</td>
-            <td class="px-6 py-3 text-slate-400 text-xs">${l.absentBy}</td>
+            <td class="px-6 py-3 text-slate-400 text-xs">${l.absentBy || '-'}</td>
         </tr>`).join('');
 }
 
@@ -9194,6 +9264,30 @@ async function maSendEntries(entries, startIndex = 0, successCount = 0, failCoun
         if (ok) {
             successCount++;
             consecutiveFails = 0;
+            // Optimistic update ke logs lokal
+            const existingLog = (logs || []).find(l => String(l.empId) === String(entry.empId) && l.date === entry.date && l.type === entry.type);
+            if (existingLog) {
+                existingLog.time = entry.forcedTime ? (entry.forcedTime.length === 5 ? entry.forcedTime + ':00' : entry.forcedTime) : existingLog.time;
+                existingLog.note = entry.note || existingLog.note;
+                existingLog.location = entry.location || existingLog.location;
+                existingLog.absentBy = entry.absentBy || existingLog.absentBy;
+                if (entry.image) existingLog.photo = entry.image;
+            } else {
+                logs.unshift({
+                    id: 'ma_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                    empId: String(entry.empId),
+                    name: entry.name,
+                    type: entry.type,
+                    date: entry.date,
+                    time: entry.forcedTime ? (entry.forcedTime.length === 5 ? entry.forcedTime + ':00' : entry.forcedTime) : '08:00:00',
+                    photo: entry.image || '',
+                    overtime: 0,
+                    lateMinutes: 0,
+                    location: entry.location || '',
+                    note: entry.note || '[Absen Manual]',
+                    absentBy: entry.absentBy || 'Admin'
+                });
+            }
         } else {
             failCount++;
             consecutiveFails++;
@@ -9356,7 +9450,7 @@ async function maSubmit() {
 
         // Process IN entries
         for (const dateStr of inDates) {
-            const hasIn = !appConfig.allowMultipleIn && logs.some(l => 
+            const hasIn = !appConfig.allowMultipleIn && !isBackupMode && logs.some(l => 
                 String(l.empId) === String(emp.id) && 
                 l.date === dateStr && 
                 (l.type === 'IN' || l.type === 'PENDING')
@@ -9376,7 +9470,7 @@ async function maSubmit() {
 
         // Process OUT entries
         for (const dateStr of outDates) {
-            const hasOut = !appConfig.allowMultipleIn && logs.some(l => 
+            const hasOut = !appConfig.allowMultipleIn && !isBackupMode && logs.some(l => 
                 String(l.empId) === String(emp.id) && 
                 l.date === dateStr && 
                 l.type === 'OUT'
