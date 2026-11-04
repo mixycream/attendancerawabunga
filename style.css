@@ -1403,8 +1403,8 @@ html.dark table tbody tr:hover { background-color: rgba(255, 255, 255, 0.02) !im
     #sidebar, header, .no-print,
     #globalLoader, #toastContainer,
     #cetakModal, #configModal, #editEmployeeModal,
-    #kopSettingModal, #activeWorkersModal {
-        display: none !important;
+    #kopSettingModal, #activeWorkersModal, #mobileBottomFade, #mobileBottomNav, #moreSheetBackdrop, #moreSheetPanel, #sidebarOverlay, #mobileNavPill, #mobileNavIndicator {
+        display: none !important; opacity: 0 !important; visibility: hidden !important; height: 0 !important; width: 0 !important; background: none !important; pointer-events: none !important;
     }
     #mainContent {
         margin: 0 !important;
@@ -1937,7 +1937,7 @@ html.dark table tbody tr:hover { background-color: rgba(255, 255, 255, 0.02) !im
     body.printing-gizi #securityLayout,
     body.printing-gizi #loaderEl,
     body.printing-gizi #toastContainer {
-        display: none !important;
+        display: none !important; opacity: 0 !important; visibility: hidden !important; height: 0 !important; width: 0 !important; background: none !important; pointer-events: none !important;
     }
     body.printing-gizi #nPrintArea {
         display: block !important;

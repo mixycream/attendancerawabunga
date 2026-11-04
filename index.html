@@ -1899,20 +1899,20 @@
             </aside>
             
             <!-- Mobile Overlay -->
-            <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-slate-900/50 z-30 hidden md:hidden backdrop-blur-sm transition-opacity"></div>
+            <div id="sidebarOverlay" onclick="toggleSidebar()" class="no-print fixed inset-0 bg-slate-900/50 z-30 hidden md:hidden backdrop-blur-sm transition-opacity"></div>
 
             <!-- ═══════════════════════════════════
                  iPhone-style bottom vignette fade
                  Separates nav from content naturally
                  ═══════════════════════════════════ -->
-            <div id="mobileBottomFade" class="md:hidden fixed bottom-0 left-0 right-0 pointer-events-none z-40"
+            <div id="mobileBottomFade" class="no-print md:hidden fixed bottom-0 left-0 right-0 pointer-events-none z-40"
                  style="height: 130px; background: linear-gradient(to top, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.10) 55%, transparent 100%);"></div>
 
             <!-- ═══════════════════════════════════════════════════════
                  iOS-style 4-Tab Bottom Bar — Mobile Only
                  3 main tabs + Lainnya (More)
                  ═══════════════════════════════════════════════════════ -->
-            <nav id="mobileBottomNav" class="md:hidden fixed bottom-0 left-0 right-0 z-50 px-3 pb-3">
+            <nav id="mobileBottomNav" class="no-print md:hidden fixed bottom-0 left-0 right-0 z-50 px-3 pb-3">
                 <!-- Fluid Glass Pill -->
                 <div id="mobileNavPill" class="relative rounded-3xl overflow-hidden">
 
@@ -1961,12 +1961,12 @@
 
             <!-- Backdrop dimmer -->
             <div id="moreSheetBackdrop" onclick="closeMobileMoreSheet()"
-                 class="md:hidden fixed inset-0 z-[60] hidden transition-opacity duration-300 opacity-0"
+                 class="no-print md:hidden fixed inset-0 z-[60] hidden transition-opacity duration-300 opacity-0"
                  style="background: rgba(0,0,0,0.42); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);"></div>
 
             <!-- Sheet Panel -->
             <div id="moreSheetPanel"
-                 class="md:hidden fixed bottom-0 left-0 right-0 z-[61] hidden"
+                 class="no-print md:hidden fixed bottom-0 left-0 right-0 z-[61] hidden"
                  style="transform: translateY(110%); transition: transform 0.38s cubic-bezier(0.34,1.22,0.64,1);">
 
                 <!-- Drag handle + Glass card -->
@@ -2954,7 +2954,7 @@
                             <div class="mt-8 no-print border-t border-slate-100 dark:border-white/5 pt-6" id="dailySalarySection">
                                 <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
                                     <h4 class="font-bold text-slate-800 dark:text-white text-sm flex items-center gap-2">
-                                        <i class="fas fa-table text-blue-600 dark:text-blue-400"></i> Detail Kehadiran Harian &amp; Potongan (2 Minggu)
+                                        <i class="fas fa-table text-blue-600 dark:text-blue-400"></i> Detail Kehadiran Harian &amp; Potongan <span id="dailySalaryPeriodLabel" class="text-xs font-semibold text-slate-500 dark:text-slate-400">(Periode Terpilih)</span>
                                         <span class="bg-blue-100 dark:bg-blue-500/10 text-blue-800 dark:text-blue-400 border border-blue-100/50 dark:border-blue-500/20 text-[10px] px-2 py-0.5 rounded-full font-bold">Hanya Tampil di Web</span>
                                     </h4>
                                     <div class="flex items-center gap-2">
@@ -3180,6 +3180,13 @@
                                         <div class="text-[10px] text-slate-400">Relawan yang lembur</div>
                                     </div>
                                 </label>
+                                <label class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer hover:bg-amber-50 hover:border-amber-200 transition">
+                                    <input type="checkbox" id="pengChkBackup" checked class="w-5 h-5 rounded accent-amber-600">
+                                    <div>
+                                        <div class="font-bold text-sm text-slate-700">Laporan Absen Backup</div>
+                                        <div class="text-[10px] text-slate-400">Relawan pengganti &amp; yang digantikan</div>
+                                    </div>
+                                </label>
                             </div>
 
                             <!-- Tanggal Dikecualikan -->
@@ -3262,6 +3269,7 @@
                                 <div id="pengDataTelat"></div>
                                 <div id="pengDataTelat30"></div>
                                 <div id="pengDataLembur"></div>
+                                <div id="pengDataBackup"></div>
 
                                 <!-- Penutup -->
                                 <p style="font-size:12px; margin:16px 0 0; line-height:1.8; text-align:justify;">
@@ -5135,6 +5143,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <!-- MAIN SCRIPT -->
-    <script src="script.js?v=3.4.2"></script>
+    <script src="script.js?v=3.4.3"></script>
 </body>
 </html>

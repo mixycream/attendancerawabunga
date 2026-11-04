@@ -891,8 +891,13 @@ function getDivisionSchedule(division) {
     
     if (!divSched || !Array.isArray(divSched.days) || divSched.days.length === 0) {
         const norm = division.toLowerCase();
-        if (norm.includes('helper cook') || norm === 'cook' || norm.includes('head chef')) {
-            return { days: [0, 1, 2, 3, 4], dates: [] }; // Minggu - Kamis
+        // Tim Masak / Dapur: Minggu - Kamis (0, 1, 2, 3, 4)
+        if (norm.includes('helper cook') || norm === 'cook' || norm.includes('chef') || norm.includes('masak') || norm.includes('dapur')) {
+            return { days: [0, 1, 2, 3, 4], dates: [] };
+        }
+        // Tim Distribusi, Kenek, Packing, Cuci Ompreng: Senin - Jumat (1, 2, 3, 4, 5)
+        if (norm.includes('distribusi') || norm.includes('kenek') || norm.includes('driver') || norm.includes('supir') || norm.includes('packing') || norm.includes('ompreng')) {
+            return { days: [1, 2, 3, 4, 5], dates: [] };
         }
         return { days: [1, 2, 3, 4, 5, 6], dates: [] }; // Senin - Sabtu
     }
@@ -2287,16 +2292,23 @@ function onSalaryDateChange(changedInputId) {
     let tglMulai = document.getElementById('salaryTglMulai')?.value || '';
     let tglSelesai = document.getElementById('salaryTglSelesai')?.value || '';
     
+    // Bebas atur tanggal: jika tglMulai > tglSelesai, sesuaikan secara wajar tanpa mengunci durasi
     if (changedInputId === 'mulai' && tglMulai) {
-        const d = new Date(tglMulai + 'T00:00:00');
-        d.setDate(d.getDate() + 13);
-        tglSelesai = getLocalDateStr(d);
-        document.getElementById('salaryTglSelesai').value = tglSelesai;
+        if (!tglSelesai || tglMulai > tglSelesai) {
+            const d = new Date(tglMulai + 'T00:00:00');
+            const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+            tglSelesai = getLocalDateStr(lastDay);
+            const selesaiEl = document.getElementById('salaryTglSelesai');
+            if (selesaiEl) selesaiEl.value = tglSelesai;
+        }
     } else if (changedInputId === 'selesai' && tglSelesai) {
-        const d = new Date(tglSelesai + 'T00:00:00');
-        d.setDate(d.getDate() - 13);
-        tglMulai = getLocalDateStr(d);
-        document.getElementById('salaryTglMulai').value = tglMulai;
+        if (!tglMulai || tglSelesai < tglMulai) {
+            const d = new Date(tglSelesai + 'T00:00:00');
+            const firstDay = new Date(d.getFullYear(), d.getMonth(), 1);
+            tglMulai = getLocalDateStr(firstDay);
+            const mulaiEl = document.getElementById('salaryTglMulai');
+            if (mulaiEl) mulaiEl.value = tglMulai;
+        }
     }
     
     // Sync to cetakModal
@@ -2370,18 +2382,19 @@ function renderSalary(filteredLogsOverride) {
     const dailyHeaderEl = document.getElementById('dailySalaryTableHeader');
     const dailyBodyEl = document.getElementById('dailySalaryTableBody');
     
-    // Initialize date inputs if they are empty
+    // Initialize date inputs: default 1 bulan penuh (tgl 1 s/d tgl akhir bulan)
     const tglMulaiInput = document.getElementById('salaryTglMulai');
     const tglSelesaiInput = document.getElementById('salaryTglSelesai');
     
     if (tglMulaiInput && !tglMulaiInput.value) {
-        const today = new Date();
-        const twoWeeksAgo = new Date(today);
-        twoWeeksAgo.setDate(today.getDate() - 13);
-        tglMulaiInput.value = getLocalDateStr(twoWeeksAgo);
+        const now = new Date();
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        tglMulaiInput.value = getLocalDateStr(firstDay);
     }
     if (tglSelesaiInput && !tglSelesaiInput.value) {
-        tglSelesaiInput.value = getLocalDateStr(new Date());
+        const now = new Date();
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        tglSelesaiInput.value = getLocalDateStr(lastDay);
     }
     
     const tglMulai = tglMulaiInput?.value || '';
@@ -2393,30 +2406,37 @@ function renderSalary(filteredLogsOverride) {
     if (cetakMulai && !cetakMulai.value) cetakMulai.value = tglMulai;
     if (cetakSelesai && !cetakSelesai.value) cetakSelesai.value = tglSelesai;
 
-    // Generate day list for the 14 daily columns
+    // Generate day list secara dinamis sesuai periode yang dipilih
     const dates = [];
     const dayNames = [];
     const dateNumbers = [];
     const start = new Date(tglMulai + 'T00:00:00');
+    const end = new Date(tglSelesai + 'T00:00:00');
     const daysIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     
-    for (let i = 0; i < 14; i++) {
-        const curr = new Date(start);
-        curr.setDate(start.getDate() + i);
-        const dateStr = getLocalDateStr(curr);
-        dates.push(dateStr);
-        dayNames.push(daysIndo[curr.getDay()]);
-        dateNumbers.push(curr.getDate());
+    if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start <= end) {
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const dateStr = getLocalDateStr(d);
+            dates.push(dateStr);
+            dayNames.push(daysIndo[d.getDay()]);
+            dateNumbers.push(d.getDate());
+        }
+    }
+
+    const periodLabelEl = document.getElementById('dailySalaryPeriodLabel');
+    if (periodLabelEl) {
+        periodLabelEl.textContent = `(${dates.length} Hari: ${tglMulai} s/d ${tglSelesai})`;
     }
 
     // Render 2-row table headers for the Daily Table
     if (dailyHeaderEl) {
+        const numCols = Math.max(dates.length, 1);
         let row1 = `
         <tr>
             <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 w-10 text-center align-middle">No</th>
             <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 text-left align-middle min-w-[120px]">Divisi</th>
             <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 text-left align-middle min-w-[150px]">Nama Relawan</th>
-            <th colspan="14" class="border-r border-b border-slate-200/60 dark:border-white/5 p-2 text-center align-middle bg-blue-50 dark:bg-indigo-500/10 text-blue-700 dark:text-indigo-300 font-extrabold uppercase tracking-wider text-[10px]">Absensi Harian (2 Minggu)</th>
+            <th colspan="${numCols}" class="border-r border-b border-slate-200/60 dark:border-white/5 p-2 text-center align-middle bg-blue-50 dark:bg-indigo-500/10 text-blue-700 dark:text-indigo-300 font-extrabold uppercase tracking-wider text-[10px]">Absensi Harian (${dates.length} Hari)</th>
             <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 text-right align-middle min-w-[140px]">Honoranium Sukarelawan</th>
             <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 text-right align-middle min-w-[100px] text-slate-500 dark:text-slate-400">Iuran BPJS</th>
             <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 text-right align-middle min-w-[80px] text-slate-500 dark:text-slate-400">TK</th>
@@ -2425,7 +2445,7 @@ function renderSalary(filteredLogsOverride) {
         </tr>`;
         
         let row2 = `<tr>`;
-        for (let i = 0; i < 14; i++) {
+        for (let i = 0; i < dates.length; i++) {
             const isWeekend = dayNames[i] === 'Minggu' || dayNames[i] === 'Sabtu';
             const textClass = isWeekend ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300 font-medium';
             row2 += `
@@ -2620,7 +2640,7 @@ function renderSalary(filteredLogsOverride) {
             groupMembers.forEach((item, memberIdx) => {
                 globalIndex++;
                 let dailyCellsHtml = '';
-                for (let dIdx = 0; dIdx < 14; dIdx++) {
+                for (let dIdx = 0; dIdx < dates.length; dIdx++) {
                     const val = item.dailySalaries[dIdx];
                     const cellDate = dates[dIdx];
                     const cellKey = `${item.id}_${cellDate}`;
@@ -2714,10 +2734,10 @@ function renderSalary(filteredLogsOverride) {
         dailyBodyEl.innerHTML = rowsHtml;
 
         // Grand Total row for Daily Table
-        const dailyTotals = Array(14).fill(0);
+        const dailyTotals = Array(dates.length).fill(0);
         salaryData.forEach(item => {
-            for (let dIdx = 0; dIdx < 14; dIdx++) {
-                dailyTotals[dIdx] += item.dailySalaries[dIdx];
+            for (let dIdx = 0; dIdx < dates.length; dIdx++) {
+                dailyTotals[dIdx] += (item.dailySalaries[dIdx] || 0);
             }
         });
 
@@ -2728,7 +2748,7 @@ function renderSalary(filteredLogsOverride) {
         const grandTotalUpah = grandHonoranium;
 
         let footerDailyCells = '';
-        for (let dIdx = 0; dIdx < 14; dIdx++) {
+        for (let dIdx = 0; dIdx < dates.length; dIdx++) {
             const val = dailyTotals[dIdx];
             const content = val > 0 ? val.toLocaleString() : '-';
             footerDailyCells += `<td class="border-r border-slate-200 p-1.5 text-center font-extrabold text-slate-700 text-[10px]">${content}</td>`;
@@ -2800,12 +2820,16 @@ function quickAbsenSelectAllVisibleEmpty() {
     const tglMulai = document.getElementById('salaryTglMulai')?.value || '';
     if (!tglMulai) return;
 
+    const tglSelesai = document.getElementById('salaryTglSelesai')?.value || '';
+    if (!tglMulai || !tglSelesai) return;
+
     const start = new Date(tglMulai + 'T00:00:00');
+    const end = new Date(tglSelesai + 'T00:00:00');
     const dates = [];
-    for (let i = 0; i < 14; i++) {
-        const curr = new Date(start);
-        curr.setDate(start.getDate() + i);
-        dates.push(getLocalDateStr(curr));
+    if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start <= end) {
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            dates.push(getLocalDateStr(d));
+        }
     }
 
     const useLogs = logs || [];
@@ -3822,32 +3846,38 @@ function buildRekapWorkbook(tglMulai, tglSelesai) {
     const allowedEmployees = employees.filter(e => ALLOWED_ROLES.includes(e.role || 'employee'));
     const allowedEmpIds = new Set(allowedEmployees.map(e => String(e.id)));
 
-    // Generate day list for the 14 columns
+    // Generate day list secara dinamis untuk kolom rekap Excel
     const dates = [];
     const dayNames = [];
     const dateNumbers = [];
     const start = new Date(tglMulai + 'T00:00:00');
+    const end = new Date(tglSelesai + 'T00:00:00');
     const daysIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     
-    for (let i = 0; i < 14; i++) {
-        const curr = new Date(start);
-        curr.setDate(start.getDate() + i);
-        dates.push(getLocalDateStr(curr));
-        dayNames.push(daysIndo[curr.getDay()]);
-        dateNumbers.push(curr.getDate());
+    if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start <= end) {
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            dates.push(getLocalDateStr(d));
+            dayNames.push(daysIndo[d.getDay()]);
+            dateNumbers.push(d.getDate());
+        }
     }
+
+    const numDays = Math.max(dates.length, 1);
 
     // Build Excel Headers for Sheet 1 (2-Row Header)
     // Row 1: Merge labels
     const headerRow1 = [
         'No', 'Divisi', 'Nama Relawan', 
-        'Absensi Harian (2 Minggu)', '', '', '', '', '', '', '', '', '', '', '', '', '', 
-        'Honoranium Sukarelawan', 'Iuran BPJS', 'TK', 'PJ', 'Total Upah'
+        `Absensi Harian (${numDays} Hari)`
     ];
+    for (let i = 1; i < numDays; i++) {
+        headerRow1.push('');
+    }
+    headerRow1.push('Honoranium Sukarelawan', 'Iuran BPJS', 'TK', 'PJ', 'Total Upah');
     
     // Row 2: Sub-labels (column headers for daily cells)
     const headerRow2 = ['', '', ''];
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < numDays; i++) {
         headerRow2.push(`${dayNames[i]} (${dateNumbers[i]})`);
     }
     headerRow2.push('', '', '', '', '');
@@ -3857,12 +3887,12 @@ function buildRekapWorkbook(tglMulai, tglSelesai) {
         { s: { r: 0, c: 0 }, e: { r: 1, c: 0 } }, // No
         { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } }, // Divisi
         { s: { r: 0, c: 2 }, e: { r: 1, c: 2 } }, // Nama Relawan
-        { s: { r: 0, c: 3 }, e: { r: 0, c: 16 } }, // Absensi Harian (2 Minggu)
-        { s: { r: 0, c: 17 }, e: { r: 1, c: 17 } }, // Honoranium
-        { s: { r: 0, c: 18 }, e: { r: 1, c: 18 } }, // Iuran BPJS
-        { s: { r: 0, c: 19 }, e: { r: 1, c: 19 } }, // TK
-        { s: { r: 0, c: 20 }, e: { r: 1, c: 20 } }, // PJ
-        { s: { r: 0, c: 21 }, e: { r: 1, c: 21 } }  // Total Upah
+        { s: { r: 0, c: 3 }, e: { r: 0, c: 3 + numDays - 1 } }, // Absensi Harian (${numDays} Hari)
+        { s: { r: 0, c: 3 + numDays }, e: { r: 1, c: 3 + numDays } }, // Honoranium
+        { s: { r: 0, c: 4 + numDays }, e: { r: 1, c: 4 + numDays } }, // Iuran BPJS
+        { s: { r: 0, c: 5 + numDays }, e: { r: 1, c: 5 + numDays } }, // TK
+        { s: { r: 0, c: 6 + numDays }, e: { r: 1, c: 6 + numDays } }, // PJ
+        { s: { r: 0, c: 7 + numDays }, e: { r: 1, c: 7 + numDays } }  // Total Upah
     ];
 
     // Filter logs that are within the selected range and are for allowed employees
@@ -3945,23 +3975,24 @@ function buildRekapWorkbook(tglMulai, tglSelesai) {
                 item.name
             ];
 
-            // Presence daily salaries for col D to col Q (14 columns)
-            for (let i = 0; i < 14; i++) {
-                rowData.push(item.dailySalaries[i]);
+            // Presence daily salaries untuk setiap hari dalam rentang tanggal terpilih
+            for (let i = 0; i < numDays; i++) {
+                rowData.push(item.dailySalaries[i] || 0);
             }
 
-            // R: Honoranium
+            // Honoranium
             rowData.push(item.honoranium);
-            // S: BPJS
+            // BPJS
             rowData.push(item.bpjs);
-            // T: TK
+            // TK
             rowData.push(item.tk);
-            // U: PJ
+            // PJ
             rowData.push(item.pj);
             
-            // V: Total Upah (Excel formula linking to R)
+            // Total Upah (Excel formula linking to Honoranium column)
             const excelRowNumber = currentRowIdx + 1; // 1-indexed Excel row
-            rowData.push({ f: `R${excelRowNumber}` });
+            const honorColLetter = XLSX.utils.encode_col(3 + numDays);
+            rowData.push({ f: `${honorColLetter}${excelRowNumber}` });
 
             ws1Data.push(rowData);
             currentRowIdx++;
@@ -3972,22 +4003,17 @@ function buildRekapWorkbook(tglMulai, tglSelesai) {
     const lastDataRow = currentRowIdx;
     const grandTotalRow = ['', '', 'GRAND TOTAL'];
     
-    // Sum formulas for D to Q
-    for (let i = 0; i < 14; i++) {
-        const colLetter = String.fromCharCode(68 + i); // 68 is ASCII for 'D'
+    // Sum formulas untuk seluruh kolom harian
+    for (let i = 0; i < numDays; i++) {
+        const colLetter = XLSX.utils.encode_col(3 + i);
         grandTotalRow.push({ f: `SUM(${colLetter}3:${colLetter}${lastDataRow})` });
     }
     
-    // R: Honoranium
-    grandTotalRow.push({ f: `SUM(R3:R${lastDataRow})` });
-    // S: BPJS
-    grandTotalRow.push({ f: `SUM(S3:S${lastDataRow})` });
-    // T: TK
-    grandTotalRow.push({ f: `SUM(T3:T${lastDataRow})` });
-    // U: PJ
-    grandTotalRow.push({ f: `SUM(U3:U${lastDataRow})` });
-    // V: Total Upah
-    grandTotalRow.push({ f: `SUM(V3:V${lastDataRow})` });
+    // Sum formulas untuk Honoranium, BPJS, TK, PJ, Total Upah
+    for (let c = 3 + numDays; c <= 3 + numDays + 4; c++) {
+        const colLetter = XLSX.utils.encode_col(c);
+        grandTotalRow.push({ f: `SUM(${colLetter}3:${colLetter}${lastDataRow})` });
+    }
     
     ws1Data.push(grandTotalRow);
 
@@ -4021,12 +4047,12 @@ function buildRekapWorkbook(tglMulai, tglSelesai) {
     const wb = XLSX.utils.book_new();
     const ws1 = XLSX.utils.aoa_to_sheet(ws1Data);
 
-    // Apply Currency format (Rp#,##0) to columns D (3) to V (21)
+    // Apply Currency format (Rp#,##0) to columns 3 to 7+numDays
     for (const key in ws1) {
         if (key[0] === '!') continue;
         const cell = ws1[key];
         const decoded = XLSX.utils.decode_cell(key);
-        if (decoded.c >= 3 && decoded.c <= 21) {
+        if (decoded.c >= 3 && decoded.c <= 7 + numDays) {
             if (decoded.r >= 2) {
                 if (cell && (cell.t === 'n' || cell.f)) {
                     cell.z = '"Rp"#,##0';
@@ -4041,7 +4067,7 @@ function buildRekapWorkbook(tglMulai, tglSelesai) {
 
     // Set column widths
     const ws1Cols = [{wch:4},{wch:15},{wch:20}];
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < numDays; i++) {
         ws1Cols.push({wch:12});
     }
     ws1Cols.push({wch:22},{wch:12},{wch:8},{wch:8},{wch:16});
@@ -8207,11 +8233,10 @@ function renderExcludedList() {
 
 function initPengumumanTab() {
     const today = new Date();
-    const twoWeeksAgo = new Date(today);
-    twoWeeksAgo.setDate(today.getDate() - 13);
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const mulaiEl = document.getElementById('pengTglMulai');
     const selesaiEl = document.getElementById('pengTglSelesai');
-    if (mulaiEl && !mulaiEl.value) mulaiEl.value = getLocalDateStr(twoWeeksAgo);
+    if (mulaiEl && !mulaiEl.value) mulaiEl.value = getLocalDateStr(firstDayOfMonth);
     if (selesaiEl && !selesaiEl.value) selesaiEl.value = getLocalDateStr(today);
     renderExcludeDivCheckboxes();
 }
@@ -8234,6 +8259,7 @@ function renderPengumumanPreview() {
     const showTelat = document.getElementById('pengChkTelat')?.checked;
     const showTelat30 = document.getElementById('pengChkTelat30')?.checked;
     const showLembur = document.getElementById('pengChkLembur')?.checked;
+    const showBackup = document.getElementById('pengChkBackup')?.checked;
 
     const bulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
     const now = new Date();
@@ -8266,6 +8292,7 @@ function renderPengumumanPreview() {
         allDatesInPeriod.push({ date: ds, day: d.getDay() });
     }
 
+    // Tanggal kerja yang dijadwalkan khusus untuk divisi tertentu dalam periode ini
     function getWorkDatesForDiv(division) {
         return allDatesInPeriod
             .filter(d => isDivisionWorkingOnDate(division, d.date) && !getHoliday(d.date) && !isDateExcludedForDiv(d.date, division))
@@ -8277,26 +8304,11 @@ function renderPengumumanPreview() {
         return `${dayNames[dt.getDay()]}, ${dt.getDate()}/${dt.getMonth() + 1}`;
     }
 
-    // Hadir = tanggal yang punya IN dan OUT (pasangan), hitung jumlah pair per hari
-    function getHadirMap(empId, empWorkDates) {
-        const empLogs = filteredLogs.filter(l => String(l.empId) === String(empId));
-        const hadirMap = new Map(); // date -> count
-        empWorkDates.forEach(wd => {
-            const inCount = empLogs.filter(l => l.type === 'IN' && l.date === wd).length;
-            if (inCount === 0) return;
-            const nextDay = new Date(new Date(wd + 'T00:00:00').getTime() + 86400000);
-            const nextDayStr = getLocalDateStr(nextDay);
-            const outCount = empLogs.filter(l => l.type === 'OUT' && (l.date === wd || l.date === nextDayStr)).length;
-            const pairs = Math.min(inCount, outCount);
-            if (pairs > 0) hadirMap.set(wd, pairs);
-        });
-        return hadirMap;
-    }
-
-    function formatDateWithCount(ds, count) {
-        const dt = new Date(ds + 'T00:00:00');
-        const label = `${dayNames[dt.getDay()]}, ${dt.getDate()}/${dt.getMonth() + 1}`;
-        return count > 1 ? `${label} <b>x${count}</b>` : label;
+    // Ambil log kehadiran reguler (bukan backup) untuk relawan
+    function getEmpPresence(empId) {
+        const empRegularLogs = filteredLogs.filter(l => String(l.empId) === String(empId) && !isBackupLog(l) && (l.type === 'IN' || l.type === 'OUT'));
+        const attendedDates = new Set(empRegularLogs.map(l => l.date));
+        return { attendedDates, empRegularLogs };
     }
 
     // Section label counter
@@ -8311,12 +8323,15 @@ function renderPengumumanPreview() {
         const empHadirData = employees
             .filter(e => ALLOWED_ROLES.includes(e.role || 'employee'))
             .map(e => {
-            const empWorkDates = getWorkDatesForDiv(e.division);
-            const hadirMap = getHadirMap(e.id, empWorkDates);
-            const hadirDates = empWorkDates.filter(d => hadirMap.has(d));
-            const hadirCount = hadirDates.reduce((sum, d) => sum + hadirMap.get(d), 0);
-            return { name: e.name, division: e.division, hadirCount, total: empWorkDates.length, hadirDates, hadirMap };
-        }).filter(e => e.hadirCount > 0);
+                const empWorkDates = getWorkDatesForDiv(e.division);
+                const { attendedDates } = getEmpPresence(e.id);
+                const hadirDates = Array.from(attendedDates).sort();
+                const hadirCount = hadirDates.length;
+                // Total jadwal sesuai hari kerja divisi masing-masing (misal tim masak 5 hari, distribusi 5 hari)
+                const total = Math.max(empWorkDates.length, hadirCount);
+                return { name: e.name, division: e.division, hadirCount, total, hadirDates };
+            })
+            .filter(e => e.hadirCount > 0);
 
         if (empHadirData.length > 0) {
             hadirEl.innerHTML = `
@@ -8339,7 +8354,7 @@ function renderPengumumanPreview() {
                             <td style="border:1px solid #cbd5e1; padding:5px;">${e.division}</td>
                             <td style="border:1px solid #cbd5e1; padding:5px; text-align:center; color:#059669; font-weight:700;">${e.hadirCount}</td>
                             <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${e.total}</td>
-                            <td style="border:1px solid #cbd5e1; padding:5px; font-size:9px;">${e.hadirDates.map(d => formatDateWithCount(d, e.hadirMap.get(d))).join(', ')}</td>
+                            <td style="border:1px solid #cbd5e1; padding:5px; font-size:9px;">${e.hadirDates.map(formatDateShort).join(', ')}</td>
                         </tr>`).join('')}
                     </tbody>
                 </table>`;
@@ -8357,11 +8372,29 @@ function renderPengumumanPreview() {
         const empTidakData = employees
             .filter(e => ALLOWED_ROLES.includes(e.role || 'employee'))
             .map(e => {
-            const empWorkDates = getWorkDatesForDiv(e.division);
-            const hadirMap = getHadirMap(e.id, empWorkDates);
-            const tidakHadirDates = empWorkDates.filter(d => !hadirMap.has(d));
-            return { name: e.name, division: e.division, tidakCount: tidakHadirDates.length, total: empWorkDates.length, tidakHadirDates };
-        }).filter(e => e.tidakCount > 0);
+                const empWorkDates = getWorkDatesForDiv(e.division);
+                const { attendedDates } = getEmpPresence(e.id);
+                // Hanya hari kerja terjadwal milik divisinya yang tidak dihadiri
+                const missedDates = empWorkDates.filter(d => !attendedDates.has(d));
+                const missedDetails = missedDates.map(d => {
+                    const backupLog = filteredLogs.find(l => String(l.empId) === String(e.id) && l.date === d && isBackupLog(l));
+                    let backupName = null;
+                    if (backupLog) {
+                        const bData = parseBackupData(backupLog.note);
+                        backupName = bData?.backupName || 'Relawan Pengganti';
+                    }
+                    return { date: d, backupName };
+                });
+                return { 
+                    name: e.name, 
+                    division: e.division, 
+                    tidakCount: missedDates.length, 
+                    total: empWorkDates.length, 
+                    missedDates, 
+                    missedDetails 
+                };
+            })
+            .filter(e => e.tidakCount > 0);
 
         if (empTidakData.length > 0) {
             tidakHadirEl.innerHTML = `
@@ -8384,7 +8417,15 @@ function renderPengumumanPreview() {
                             <td style="border:1px solid #cbd5e1; padding:5px;">${e.division}</td>
                             <td style="border:1px solid #cbd5e1; padding:5px; text-align:center; color:#dc2626; font-weight:700;">${e.tidakCount}</td>
                             <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${e.total}</td>
-                            <td style="border:1px solid #cbd5e1; padding:5px; font-size:9px; color:#dc2626;">${e.tidakHadirDates.map(formatDateShort).join(', ')}</td>
+                            <td style="border:1px solid #cbd5e1; padding:5px; font-size:9px; color:#dc2626;">
+                                ${e.missedDetails.map(m => {
+                                    const dStr = formatDateShort(m.date);
+                                    if (m.backupName) {
+                                        return `${dStr} <span style="color:#d97706; font-weight:600;">(Dibackup: ${m.backupName})</span>`;
+                                    }
+                                    return dStr;
+                                }).join(', ')}
+                            </td>
                         </tr>`).join('')}
                     </tbody>
                 </table>`;
@@ -8399,7 +8440,7 @@ function renderPengumumanPreview() {
     const telatEl = document.getElementById('pengDataTelat');
     if (showTelat) {
         const label = nextSection();
-        const lateLogs = filteredLogs.filter(l => l.type === 'IN' && l.lateMinutes >= 5 && l.lateMinutes <= 30 && allowedEmpIds.has(String(l.empId)));
+        const lateLogs = filteredLogs.filter(l => l.type === 'IN' && !isBackupLog(l) && l.lateMinutes >= 5 && l.lateMinutes <= 30 && allowedEmpIds.has(String(l.empId)));
         if (lateLogs.length > 0) {
             telatEl.innerHTML = `
                 <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${label}. Daftar Keterlambatan (5–30 Menit)</h4>
@@ -8439,7 +8480,7 @@ function renderPengumumanPreview() {
     const telat30El = document.getElementById('pengDataTelat30');
     if (showTelat30) {
         const label = nextSection();
-        const lateLogs30 = filteredLogs.filter(l => l.type === 'IN' && l.lateMinutes > 30 && allowedEmpIds.has(String(l.empId)));
+        const lateLogs30 = filteredLogs.filter(l => l.type === 'IN' && !isBackupLog(l) && l.lateMinutes > 30 && allowedEmpIds.has(String(l.empId)));
         if (lateLogs30.length > 0) {
             telat30El.innerHTML = `
                 <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${label}. Daftar Keterlambatan Lebih dari 30 Menit</h4>
@@ -8479,7 +8520,7 @@ function renderPengumumanPreview() {
     const lemburEl = document.getElementById('pengDataLembur');
     if (showLembur) {
         const label = nextSection();
-        const otLogs = filteredLogs.filter(l => l.type === 'OUT' && l.overtime > 0 && allowedEmpIds.has(String(l.empId)));
+        const otLogs = filteredLogs.filter(l => l.type === 'OUT' && !isBackupLog(l) && l.overtime > 0 && allowedEmpIds.has(String(l.empId)));
         if (otLogs.length > 0) {
             lemburEl.innerHTML = `
                 <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${label}. Daftar Lembur</h4>
@@ -8511,6 +8552,67 @@ function renderPengumumanPreview() {
         }
     } else {
         lemburEl.innerHTML = '';
+    }
+
+    // --- DATA RELAWAN BACKUP (PENGGANTI) ---
+    const backupEl = document.getElementById('pengDataBackup');
+    if (backupEl) {
+        if (showBackup) {
+            const label = nextSection();
+            const backupLogs = [];
+            const seenBackup = new Set();
+            filteredLogs.filter(l => isBackupLog(l)).forEach(l => {
+                const key = `${l.empId}_${l.date}`;
+                if (!seenBackup.has(key)) {
+                    seenBackup.add(key);
+                    backupLogs.push(l);
+                }
+            });
+            backupLogs.sort((a, b) => a.date.localeCompare(b.date) || (a.name || '').localeCompare(b.name || ''));
+
+            if (backupLogs.length > 0) {
+                backupEl.innerHTML = `
+                    <h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${label}. Laporan Absen Relawan Pengganti (Backup)</h4>
+                    <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:12px;">
+                        <thead>
+                            <tr style="background:#fffbeb;">
+                                <th style="border:1px solid #cbd5e1; padding:6px; text-align:center; width:35px;">No</th>
+                                <th style="border:1px solid #cbd5e1; padding:6px; text-align:center;">Tanggal</th>
+                                <th style="border:1px solid #cbd5e1; padding:6px;">Relawan Asli</th>
+                                <th style="border:1px solid #cbd5e1; padding:6px;">Divisi</th>
+                                <th style="border:1px solid #cbd5e1; padding:6px;">Relawan Backup (Pengganti)</th>
+                                <th style="border:1px solid #cbd5e1; padding:6px; text-align:center;">NIK Backup</th>
+                                <th style="border:1px solid #cbd5e1; padding:6px;">Catatan / Shift</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${backupLogs.map((l, i) => {
+                                const emp = employees.find(e => String(e.id) === String(l.empId));
+                                const bData = parseBackupData(l.note);
+                                const originalName = emp ? emp.name : (bData?.backedUpEmpName || l.name || '-');
+                                const divName = emp ? emp.division : (bData?.division || '-');
+                                const backupName = bData?.backupName || 'Relawan Backup';
+                                const backupNik = bData?.backupNik || '-';
+                                const cleanNote = (l.note || '').replace(/<!--.*?-->/gs, '').replace(/\[Absen Backup\].*?(?:\||$)/gi, '').trim() || 'Hadir Menggantikan';
+
+                                return `<tr>
+                                    <td style="border:1px solid #cbd5e1; padding:5px; text-align:center;">${i + 1}</td>
+                                    <td style="border:1px solid #cbd5e1; padding:5px; text-align:center; font-weight:600;">${formatDateShort(l.date)}</td>
+                                    <td style="border:1px solid #cbd5e1; padding:5px; font-weight:600;">${originalName}</td>
+                                    <td style="border:1px solid #cbd5e1; padding:5px;">${divName}</td>
+                                    <td style="border:1px solid #cbd5e1; padding:5px; color:#b45309; font-weight:700;">${backupName}</td>
+                                    <td style="border:1px solid #cbd5e1; padding:5px; text-align:center; font-family:monospace; font-size:10px;">${backupNik}</td>
+                                    <td style="border:1px solid #cbd5e1; padding:5px; font-size:10px;">${cleanNote}</td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>`;
+            } else {
+                backupEl.innerHTML = `<h4 style="font-size:13px; font-weight:700; margin:16px 0 8px;">${label}. Laporan Absen Relawan Pengganti (Backup)</h4><p style="font-size:11px; color:#777; margin:0 0 12px;">Tidak ada data relawan pengganti (backup) pada periode ini.</p>`;
+            }
+        } else {
+            backupEl.innerHTML = '';
+        }
     }
 
     // Show content, hide empty state
