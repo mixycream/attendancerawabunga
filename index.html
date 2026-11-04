@@ -657,8 +657,8 @@
     </div>
 
     <!-- IMAGE PREVIEW MODAL -->
-    <div id="imgModal" class="fixed inset-0 z-[250] bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0" onclick="closePreview()">
-        <img id="imgModalSrc" src="" class="max-w-full max-h-[80vh] rounded-xl shadow-2xl border border-white/10 transform scale-95 transition-transform duration-300">
+    <div id="imgModal" class="fixed inset-0 z-[480] bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0" onclick="closePreview()">
+        <img id="imgModalSrc" src="" class="max-w-full max-h-[80vh] rounded-xl shadow-2xl border border-white/10 transform scale-95 transition-transform duration-300" onclick="event.stopPropagation()">
         <button class="absolute top-6 right-6 w-10 h-10 bg-white/10 text-white rounded-full flex items-center justify-center hover:bg-red-500 transition"><i class="fas fa-times"></i></button>
         <div class="absolute bottom-6 left-0 right-0 text-center">
             <a id="imgDownloadLink" href="#" target="_blank" class="inline-flex items-center gap-2 bg-white text-slate-900 px-4 py-2 rounded-full text-xs font-bold hover:bg-blue-600 hover:text-white transition" onclick="event.stopPropagation()">
@@ -1137,6 +1137,9 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Backup Notice Banner (jika relawan dibackup pada hari ini) -->
+                <div id="dailyDetailBackupBanner" class="hidden"></div>
 
                 <!-- Absen Masuk (IN) Card -->
                 <div class="p-3.5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-500/20 space-y-2.5">
@@ -5144,6 +5147,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <!-- MAIN SCRIPT -->
-    <script src="script.js?v=3.4.4"></script>
+    <script src="script.js?v=3.4.5"></script>
 </body>
 </html>

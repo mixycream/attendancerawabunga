@@ -6211,6 +6211,7 @@ function renderActiveWorkersList() {
             if (myLogs.length > 0 && myLogs[0].type === 'IN') { 
                 const lastIn = myLogs[0];
                 const bData = parseBackupData(lastIn.note);
+                const isManual = (lastIn.note && (lastIn.note.includes('[Absen Manual]') || lastIn.note.includes('Absen Cepat Matrix'))) || lastIn.isManual || (lastIn.absentBy && lastIn.absentBy.includes('Admin'));
                 return { 
                     ...e, 
                     inTime: lastIn.time, 
@@ -6218,7 +6219,10 @@ function renderActiveWorkersList() {
                     status: 'working',
                     isBackup: !!bData,
                     backupData: bData,
-                    logPhoto: lastIn.photo || e.photo
+                    isManual: isManual,
+                    logPhoto: lastIn.photo || '',
+                    logNote: lastIn.note || '',
+                    absentBy: lastIn.absentBy || ''
                 }; 
             }
             return null;
@@ -6230,6 +6234,7 @@ function renderActiveWorkersList() {
             const emp = employees.find(e => e.id === log.empId);
             const bData = parseBackupData(log.note);
             if (!emp && !bData) return null;
+            const isManual = (log.note && (log.note.includes('[Absen Manual]') || log.note.includes('Absen Cepat Matrix'))) || log.isManual || (log.absentBy && log.absentBy.includes('Admin'));
             return {
                 ...(emp || {}),
                 id: emp ? emp.id : (bData?.backedUpEmpId || log.empId),
@@ -6239,7 +6244,10 @@ function renderActiveWorkersList() {
                 status: 'present',
                 isBackup: !!bData,
                 backupData: bData,
-                logPhoto: log.photo || (emp ? emp.photo : '')
+                isManual: isManual,
+                logPhoto: log.photo || '',
+                logNote: log.note || '',
+                absentBy: log.absentBy || ''
             };
         }).filter(e => e);
     } else if (mode === 'absent') {
@@ -6331,7 +6339,16 @@ function renderActiveWorkersList() {
         const todayOvertimeLogs = logs.filter(l => l.date === today && l.type === 'OUT' && l.overtime > 0);
         filtered = todayOvertimeLogs.map(log => {
             const emp = employees.find(e => e.id === log.empId);
-            return emp ? { ...emp, extraInfo: `+${log.overtime} Jam`, status: 'overtime' } : null;
+            const isManual = (log.note && (log.note.includes('[Absen Manual]') || log.note.includes('Absen Cepat Matrix'))) || log.isManual || (log.absentBy && log.absentBy.includes('Admin'));
+            return emp ? { 
+                ...emp, 
+                extraInfo: `+${log.overtime} Jam`, 
+                status: 'overtime',
+                isManual: isManual,
+                logPhoto: log.photo || '',
+                logNote: log.note || '',
+                absentBy: log.absentBy || ''
+            } : null;
         }).filter(e => e);
     } else if (mode === 'late') {
         document.getElementById('activeModalSubtitle').innerText = `Terlambat ${today}`;
@@ -6339,7 +6356,16 @@ function renderActiveWorkersList() {
         filtered = todayLateLogs.map(log => {
             const emp = employees.find(e => e.id === log.empId);
             const info = `${formatDuration(log.lateMinutes)}`;
-            return emp ? { ...emp, extraInfo: info, status: 'late' } : null;
+            const isManual = (log.note && (log.note.includes('[Absen Manual]') || log.note.includes('Absen Cepat Matrix'))) || log.isManual || (log.absentBy && log.absentBy.includes('Admin'));
+            return emp ? { 
+                ...emp, 
+                extraInfo: info, 
+                status: 'late',
+                isManual: isManual,
+                logPhoto: log.photo || '',
+                logNote: log.note || '',
+                absentBy: log.absentBy || ''
+            } : null;
         }).filter(e => e);
     } else if (mode === 'division') {
         document.getElementById('activeModalSubtitle').innerText = "Filter Divisi";
@@ -6419,10 +6445,14 @@ function renderActiveWorkersList() {
             </div>`;
         }
 
-        // Tampilan avatar & nama jika relawan backup
+        // Utamakan foto absensi masuk/kehadiran (logPhoto), jika belum ada gunakan foto profil relawan (w.photo)
+        let avatarSrc = (w.logPhoto && String(w.logPhoto).trim().length > 10) ? w.logPhoto : (w.photo || '');
+        const hasLogPhoto = !!(w.logPhoto && String(w.logPhoto).trim().length > 10);
+        const safeAvatarSrc = avatarSrc ? avatarSrc.replace(/'/g, "\\'") : '';
+
+        // Tampilan avatar & nama jika relawan backup / manual / reguler
         let nameTitleHtml = `<div class="font-bold text-sm text-slate-800 dark:text-slate-200 truncate">${w.name}</div>`;
         let metaHtml = `<div class="flex items-center gap-2 mt-0.5">${statusBadge} <span class="text-[10px] text-slate-400">• ${w.division}</span></div>`;
-        let avatarSrc = w.photo;
 
         if (w.isBackup && w.backupData) {
             nameTitleHtml = `<div class="font-bold text-sm text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
@@ -6434,12 +6464,37 @@ function renderActiveWorkersList() {
                 <span>• <strong class="text-indigo-600 dark:text-indigo-400">${w.division}</strong></span>
                 <span>• Membackup: <strong class="text-slate-700 dark:text-slate-200">${w.name}</strong></span>
             </div>`;
-            if (w.logPhoto) avatarSrc = w.logPhoto;
+        } else if (w.isManual) {
+            metaHtml = `<div class="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                ${statusBadge}
+                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20">Absen Manual</span>
+                <span>• ${w.division}</span>
+            </div>`;
         }
 
-        const avatarHtml = avatarSrc
-            ? `<img src="${avatarSrc}" class="w-10 h-10 rounded-full object-cover border ${w.isBackup ? 'border-amber-400' : 'border-slate-200 dark:border-white/10'} shrink-0">`
-            : `<div class="w-10 h-10 rounded-full ${w.isBackup ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-600' : 'bg-slate-200 dark:bg-slate-800 text-slate-400'} flex items-center justify-center font-bold text-xs shrink-0"><i class="fas ${w.isBackup ? 'fa-user-shield' : 'fa-user'}"></i></div>`;
+        // Jika memiliki foto absensi masuk (baik absen QR selfie, backup, maupun manual), munculkan tombol 'Lihat Foto Absen'
+        if (hasLogPhoto) {
+            metaHtml += `<div class="mt-1">
+                <button type="button" onclick="previewImage('${safeAvatarSrc}'); event.stopPropagation();" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-500/30 transition active:scale-95 shadow-2xs cursor-pointer" title="Klik untuk lihat foto absen ukuran penuh">
+                    <i class="fas fa-camera text-[8.5px]"></i> Lihat Foto Absen
+                </button>
+            </div>`;
+        }
+
+        let avatarHtml = '';
+        if (avatarSrc) {
+            const borderRing = w.isBackup 
+                ? 'border-2 border-amber-400 ring-2 ring-amber-400/20' 
+                : (hasLogPhoto ? 'border-2 border-emerald-500 ring-2 ring-emerald-500/20' : 'border border-slate-200 dark:border-white/10');
+            
+            avatarHtml = `
+            <div class="relative shrink-0 cursor-pointer group/avatar" onclick="previewImage('${safeAvatarSrc}'); event.stopPropagation();" title="Klik untuk perbesar foto ${hasLogPhoto ? 'absen' : 'relawan'}">
+                <img src="${avatarSrc}" class="w-11 h-11 rounded-full object-cover ${borderRing} group-hover/avatar:scale-105 transition shadow-sm">
+                ${hasLogPhoto ? `<span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full ${w.isBackup ? 'bg-amber-500' : 'bg-emerald-500'} text-white flex items-center justify-center text-[7.5px] shadow-xs" title="Foto Absen Masuk"><i class="fas fa-camera"></i></span>` : ''}
+            </div>`;
+        } else {
+            avatarHtml = `<div class="w-11 h-11 rounded-full ${w.isBackup ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-600' : 'bg-slate-200 dark:bg-slate-800 text-slate-400'} flex items-center justify-center font-bold text-xs shrink-0"><i class="fas ${w.isBackup ? 'fa-user-shield' : 'fa-user'}"></i></div>`;
+        }
 
         return `
         <div class="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-100 dark:border-white/5 shadow-sm hover:border-slate-200 dark:hover:border-white/10 transition">
@@ -7033,7 +7088,8 @@ function showBackupProfileModal(logId) {
     const photoContainer = document.getElementById('backupProfilePhotoContainer');
     if (photoContainer) {
         if (log.photo) {
-            photoContainer.innerHTML = `<img src="${log.photo}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition" onclick="previewImage('${log.photo}')">`;
+            const safePhoto = log.photo.replace(/'/g, "\\'");
+            photoContainer.innerHTML = `<img src="${log.photo}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 hover:scale-105 transition shadow-sm" onclick="previewImage('${safePhoto}')" alt="Foto Relawan Backup" title="Klik untuk perbesar foto backup">`;
         } else {
             const initials = (backupData?.backupName || 'B').split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase();
             photoContainer.innerHTML = `<div class="w-full h-full flex items-center justify-center font-bold text-amber-600 dark:text-amber-400 text-xl">${initials}</div>`;
@@ -7110,10 +7166,39 @@ function showDailyAttendanceDetailModal(empId, date) {
     const avatarEl = document.getElementById('dailyDetailEmpAvatar');
     if (avatarEl) {
         if (emp.photo) {
-            avatarEl.innerHTML = `<img src="${emp.photo}" class="w-full h-full object-cover">`;
+            const safeEmpPhoto = emp.photo.replace(/'/g, "\\'");
+            avatarEl.innerHTML = `<img src="${emp.photo}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 hover:scale-105 transition" onclick="previewImage('${safeEmpPhoto}')" alt="Foto Profil" title="Klik untuk perbesar foto profil">`;
         } else {
             const initials = (emp.name || 'R').split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase();
             avatarEl.innerHTML = `<span>${initials}</span>`;
+        }
+    }
+
+    // Backup notice banner jika pada hari ini relawan dibackup
+    const backupBanner = document.getElementById('dailyDetailBackupBanner');
+    if (backupBanner) {
+        const isBackup = inLog && isBackupLog(inLog);
+        const bData = isBackup ? parseBackupData(inLog.note) : null;
+        if (isBackup && bData) {
+            backupBanner.classList.remove('hidden');
+            backupBanner.innerHTML = `
+            <div class="p-3 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <span class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                        <i class="fas fa-user-shield text-xs"></i>
+                    </span>
+                    <div class="truncate">
+                        <div class="font-bold text-slate-800 dark:text-white truncate">Kehadiran Backup: ${bData.backupName || 'Relawan Backup'}</div>
+                        <div class="text-[10px] text-amber-700 dark:text-amber-400 truncate">NIK: ${bData.backupNik || '-'} • Relawan asli digantikan</div>
+                    </div>
+                </div>
+                <button type="button" onclick="showBackupProfileModal('${inLog.id}')" class="px-2.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] transition active:scale-95 shrink-0 shadow-xs">
+                    Profil Backup
+                </button>
+            </div>`;
+        } else {
+            backupBanner.classList.add('hidden');
+            backupBanner.innerHTML = '';
         }
     }
 
@@ -7127,9 +7212,12 @@ function showDailyAttendanceDetailModal(empId, date) {
     if (inLog) {
         if (inTimeEl) inTimeEl.innerText = inLog.time || '--:--:--';
         if (inPhotoCont) {
-            inPhotoCont.innerHTML = inLog.photo
-                ? `<img src="${inLog.photo}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition" onclick="previewImage('${inLog.photo}')" alt="Foto Masuk">`
-                : `<span class="text-[10px] text-slate-400">Tanpa Foto</span>`;
+            if (inLog.photo) {
+                const safeInPhoto = inLog.photo.replace(/'/g, "\\'");
+                inPhotoCont.innerHTML = `<img src="${inLog.photo}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 hover:scale-105 transition" onclick="previewImage('${safeInPhoto}')" alt="Foto Masuk" title="Klik untuk perbesar foto masuk">`;
+            } else {
+                inPhotoCont.innerHTML = `<span class="text-[10px] text-slate-400">Tanpa Foto</span>`;
+            }
         }
         if (inStatusEl) {
             if (inLog.lateMinutes > 0) {
@@ -7163,9 +7251,12 @@ function showDailyAttendanceDetailModal(empId, date) {
     if (outLog) {
         if (outTimeEl) outTimeEl.innerText = outLog.time || '--:--:--';
         if (outPhotoCont) {
-            outPhotoCont.innerHTML = outLog.photo
-                ? `<img src="${outLog.photo}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition" onclick="previewImage('${outLog.photo}')" alt="Foto Pulang">`
-                : `<span class="text-[10px] text-slate-400">Tanpa Foto</span>`;
+            if (outLog.photo) {
+                const safeOutPhoto = outLog.photo.replace(/'/g, "\\'");
+                outPhotoCont.innerHTML = `<img src="${outLog.photo}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 hover:scale-105 transition" onclick="previewImage('${safeOutPhoto}')" alt="Foto Pulang" title="Klik untuk perbesar foto pulang">`;
+            } else {
+                outPhotoCont.innerHTML = `<span class="text-[10px] text-slate-400">Tanpa Foto</span>`;
+            }
         }
         if (outOvertimeEl) {
             if (outLog.overtime > 0) {
@@ -7786,8 +7877,28 @@ function toggleSidebar() {
     if (sb.classList.contains('-translate-x-full')) { sb.classList.remove('-translate-x-full'); ol.classList.remove('hidden'); setTimeout(() => ol.classList.remove('opacity-0'), 10); } 
     else { sb.classList.add('-translate-x-full'); ol.classList.add('opacity-0'); setTimeout(() => ol.classList.add('hidden'), 300); }
 }
-function previewImage(url) { document.getElementById('imgModalSrc').src = url; document.getElementById('imgDownloadLink').href = url; document.getElementById('imgModal').classList.remove('hidden'); setTimeout(() => document.getElementById('imgModal').classList.remove('opacity-0'), 10); }
-function closePreview() { document.getElementById('imgModal').classList.add('opacity-0'); setTimeout(() => document.getElementById('imgModal').classList.add('hidden'), 300); }
+function previewImage(url) { 
+    if (!url) return;
+    const imgModal = document.getElementById('imgModal');
+    const imgSrc = document.getElementById('imgModalSrc');
+    const imgLink = document.getElementById('imgDownloadLink');
+    if (!imgModal || !imgSrc) return;
+    imgSrc.src = url; 
+    if (imgLink) imgLink.href = url; 
+    imgModal.classList.remove('hidden'); 
+    setTimeout(() => {
+        imgModal.classList.remove('opacity-0');
+        imgSrc.classList.remove('scale-95');
+    }, 10); 
+}
+function closePreview() { 
+    const imgModal = document.getElementById('imgModal');
+    const imgSrc = document.getElementById('imgModalSrc');
+    if (!imgModal) return;
+    imgModal.classList.add('opacity-0'); 
+    if (imgSrc) imgSrc.classList.add('scale-95');
+    setTimeout(() => imgModal.classList.add('hidden'), 300); 
+}
 function switchTab(id) {
     ['dashboard','employees','salaries','manual_attendance','violations','settings','pengumuman'].forEach(t => document.getElementById('tab-'+t)?.classList.add('hidden'));
     document.getElementById('tab-'+id)?.classList.remove('hidden');
