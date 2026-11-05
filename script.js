@@ -2488,28 +2488,28 @@ function renderSalary(filteredLogsOverride) {
         periodLabelEl.textContent = `(${dates.length} Hari: ${tglMulai} s/d ${tglSelesai})`;
     }
 
-    // Render 2-row table headers for the Daily Table
+    // Render 2-row table headers for the Daily Table (Sticky Top & Freeze Left Columns)
     if (dailyHeaderEl) {
         const numCols = Math.max(dates.length, 1);
         let row1 = `
-        <tr>
-            <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 w-10 text-center align-middle">No</th>
-            <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 text-left align-middle min-w-[120px]">Divisi</th>
-            <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 text-left align-middle min-w-[150px]">Nama Relawan</th>
-            <th colspan="${numCols}" class="border-r border-b border-slate-200/60 dark:border-white/5 p-2 text-center align-middle bg-blue-50 dark:bg-indigo-500/10 text-blue-700 dark:text-indigo-300 font-extrabold uppercase tracking-wider text-[10px]">Absensi Harian (${dates.length} Hari)</th>
-            <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 text-right align-middle min-w-[140px]">Honoranium Sukarelawan</th>
-            <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 text-right align-middle min-w-[100px] text-slate-500 dark:text-slate-400">Iuran BPJS</th>
-            <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 text-right align-middle min-w-[80px] text-slate-500 dark:text-slate-400">TK</th>
-            <th rowspan="2" class="border-r border-b border-slate-200/60 dark:border-white/5 p-3 text-right align-middle min-w-[80px] text-slate-500 dark:text-slate-400">PJ</th>
-            <th rowspan="2" class="border-b border-slate-200/60 dark:border-white/5 p-3 text-right align-middle min-w-[140px] text-blue-600 dark:text-indigo-400 font-extrabold bg-blue-50/50 dark:bg-indigo-500/5">Total Upah</th>
+        <tr class="h-[36px]">
+            <th rowspan="2" class="sticky top-0 left-0 z-40 bg-slate-100 dark:bg-slate-900 border-r border-b border-slate-200/80 dark:border-white/10 p-2 w-12 min-w-[48px] max-w-[48px] text-center align-middle font-bold text-slate-700 dark:text-slate-300">No</th>
+            <th rowspan="2" class="sticky top-0 left-[48px] z-40 bg-slate-100 dark:bg-slate-900 border-r border-b border-slate-200/80 dark:border-white/10 p-2 text-center align-middle w-28 min-w-[110px] max-w-[110px] font-bold text-slate-700 dark:text-slate-300">Divisi</th>
+            <th rowspan="2" class="sticky top-0 left-[158px] z-40 bg-slate-100 dark:bg-slate-900 border-r-2 border-b border-slate-300 dark:border-white/20 p-2 text-left align-middle w-44 min-w-[170px] max-w-[170px] font-bold text-slate-700 dark:text-slate-300 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.08)]">Nama Relawan</th>
+            <th colspan="${numCols}" class="sticky top-0 z-20 border-r border-b border-slate-200/80 dark:border-white/10 py-1 px-2 text-center align-middle bg-blue-50/95 dark:bg-indigo-500/20 text-blue-700 dark:text-indigo-300 font-extrabold uppercase tracking-wider text-[10px] h-[28px] leading-tight">Absensi Harian (${dates.length} Hari)</th>
+            <th rowspan="2" class="sticky top-0 z-20 bg-slate-100 dark:bg-slate-900 border-r border-b border-slate-200/80 dark:border-white/10 p-2 text-right align-middle min-w-[140px] font-bold text-slate-700 dark:text-slate-300">Honoranium Sukarelawan</th>
+            <th rowspan="2" class="sticky top-0 z-20 bg-slate-100 dark:bg-slate-900 border-r border-b border-slate-200/80 dark:border-white/10 p-2 text-right align-middle min-w-[100px] text-slate-500 dark:text-slate-400 font-bold">Iuran BPJS</th>
+            <th rowspan="2" class="sticky top-0 z-20 bg-slate-100 dark:bg-slate-900 border-r border-b border-slate-200/80 dark:border-white/10 p-2 text-right align-middle min-w-[80px] text-slate-500 dark:text-slate-400 font-bold">TK</th>
+            <th rowspan="2" class="sticky top-0 z-20 bg-slate-100 dark:bg-slate-900 border-r border-b border-slate-200/80 dark:border-white/10 p-2 text-right align-middle min-w-[80px] text-slate-500 dark:text-slate-400 font-bold">PJ</th>
+            <th rowspan="2" class="sticky top-0 z-20 bg-blue-50/95 dark:bg-indigo-500/20 border-b border-slate-200/80 dark:border-white/10 p-2 text-right align-middle min-w-[140px] text-blue-600 dark:text-indigo-400 font-extrabold">Total Upah</th>
         </tr>`;
         
-        let row2 = `<tr>`;
+        let row2 = `<tr class="h-[36px]">`;
         for (let i = 0; i < dates.length; i++) {
             const isWeekend = dayNames[i] === 'Minggu' || dayNames[i] === 'Sabtu';
             const textClass = isWeekend ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-300 font-medium';
             row2 += `
-            <th class="border-r border-b border-slate-200/60 dark:border-white/5 p-1.5 text-center align-middle text-[9px] min-w-[45px] bg-slate-50/30 dark:bg-white/[0.02]">
+            <th class="sticky top-[28px] z-20 border-r border-b border-slate-200/80 dark:border-white/10 p-1 text-center align-middle text-[9px] min-w-[48px] bg-slate-50 dark:bg-slate-900">
                 <div class="${textClass}">${dayNames[i]}</div>
                 <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">${dateNumbers[i]}</div>
             </th>`;
@@ -2773,20 +2773,20 @@ function renderSalary(filteredLogsOverride) {
 
                 // Divisi cell is only rendered on the first row of the group with rowspan=K
                 const divisionCellHtml = memberIdx === 0 
-                    ? `<td rowspan="${K}" class="border-r border-slate-200/60 dark:border-white/5 p-2 font-bold text-slate-700 dark:text-slate-300 bg-slate-50/20 dark:bg-slate-900/10 align-middle text-center">${divName}</td>`
+                    ? `<td rowspan="${K}" class="sticky left-[48px] z-10 w-28 min-w-[110px] max-w-[110px] border-r border-b border-slate-200/60 dark:border-white/5 p-2 font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 align-middle text-center">${divName}</td>`
                     : '';
 
                 rowsHtml += `
-                <tr class="border-b border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/[0.02] break-inside-avoid text-[11px] bg-white">
-                    <td class="border-r border-slate-200/60 dark:border-white/5 p-2 text-center text-slate-400 font-mono">${globalIndex}</td>
+                <tr class="border-b border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/[0.02] break-inside-avoid text-[11px] bg-white dark:bg-slate-900">
+                    <td class="sticky left-0 z-10 w-12 min-w-[48px] max-w-[48px] bg-white dark:bg-slate-900 border-r border-b border-slate-200/60 dark:border-white/5 p-2 text-center text-slate-400 font-mono align-middle">${globalIndex}</td>
                     ${divisionCellHtml}
-                    <td class="border-r border-slate-200/60 dark:border-white/5 p-2 font-bold text-slate-700 dark:text-slate-300">${item.name}</td>
+                    <td class="sticky left-[158px] z-10 w-44 min-w-[170px] max-w-[170px] bg-white dark:bg-slate-900 border-r-2 border-b border-slate-300 dark:border-white/20 p-2 font-bold text-slate-700 dark:text-slate-300 align-middle truncate shadow-[4px_0_6px_-2px_rgba(0,0,0,0.08)]">${item.name}</td>
                     ${dailyCellsHtml}
-                    <td class="border-r border-slate-200/60 dark:border-white/5 p-2 text-right font-extrabold text-slate-800 dark:text-slate-100">Rp ${item.honoranium.toLocaleString()}</td>
-                    <td class="border-r border-slate-200/60 dark:border-white/5 p-2 text-right text-slate-500 dark:text-slate-400">Rp 16.800</td>
-                    <td class="border-r border-slate-200/60 dark:border-white/5 p-2 text-right text-slate-400">Rp 0</td>
-                    <td class="border-r border-slate-200/60 dark:border-white/5 p-2 text-right text-slate-400">Rp 0</td>
-                    <td class="p-2 text-right font-extrabold text-blue-700 dark:text-indigo-400 bg-blue-50/20 dark:bg-indigo-500/10">Rp ${item.totalUpah.toLocaleString()}</td>
+                    <td class="border-r border-b border-slate-200/60 dark:border-white/5 p-2 text-right font-extrabold text-slate-800 dark:text-slate-100 align-middle">Rp ${item.honoranium.toLocaleString()}</td>
+                    <td class="border-r border-b border-slate-200/60 dark:border-white/5 p-2 text-right text-slate-500 dark:text-slate-400 align-middle">Rp 16.800</td>
+                    <td class="border-r border-b border-slate-200/60 dark:border-white/5 p-2 text-right text-slate-400 align-middle">Rp 0</td>
+                    <td class="border-r border-b border-slate-200/60 dark:border-white/5 p-2 text-right text-slate-400 align-middle">Rp 0</td>
+                    <td class="p-2 border-b border-slate-200/60 dark:border-white/5 text-right font-extrabold text-blue-700 dark:text-indigo-400 bg-blue-50/20 dark:bg-indigo-500/10 align-middle">Rp ${item.totalUpah.toLocaleString()}</td>
                 </tr>`;
             });
         });
@@ -2815,14 +2815,14 @@ function renderSalary(filteredLogsOverride) {
         }
 
         dailyBodyEl.innerHTML += `
-        <tr class="bg-slate-100 border-t-2 border-slate-300 break-inside-avoid text-[11px]">
-            <td colspan="3" class="border-r border-slate-200 p-2.5 text-right font-extrabold text-slate-700 uppercase tracking-wider">Total Keseluruhan</td>
+        <tr class="bg-slate-100 dark:bg-slate-800 border-t-2 border-slate-300 dark:border-white/20 break-inside-avoid text-[11px]">
+            <td colspan="3" class="sticky left-0 z-10 bg-slate-100 dark:bg-slate-800 border-r-2 border-slate-300 dark:border-white/20 p-2.5 text-right font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider shadow-[4px_0_6px_-2px_rgba(0,0,0,0.08)]">Total Keseluruhan</td>
             ${footerDailyCells}
-            <td class="border-r border-slate-200 p-2.5 text-right font-extrabold text-slate-800">Rp ${grandHonoranium.toLocaleString()}</td>
-            <td class="border-r border-slate-200 p-2.5 text-right font-extrabold text-slate-500">Rp ${grandBpjs.toLocaleString()}</td>
-            <td class="border-r border-slate-200 p-2.5 text-right font-extrabold text-slate-400">Rp 0</td>
-            <td class="border-r border-slate-200 p-2.5 text-right font-extrabold text-slate-400">Rp 0</td>
-            <td class="p-2.5 text-right font-extrabold text-blue-700 bg-blue-100/50">Rp ${grandTotalUpah.toLocaleString()}</td>
+            <td class="border-r border-slate-200 dark:border-white/5 p-2.5 text-right font-extrabold text-slate-800 dark:text-slate-100">Rp ${grandHonoranium.toLocaleString()}</td>
+            <td class="border-r border-slate-200 dark:border-white/5 p-2.5 text-right font-extrabold text-slate-500 dark:text-slate-400">Rp ${grandBpjs.toLocaleString()}</td>
+            <td class="border-r border-slate-200 dark:border-white/5 p-2.5 text-right font-extrabold text-slate-400">Rp 0</td>
+            <td class="border-r border-slate-200 dark:border-white/5 p-2.5 text-right font-extrabold text-slate-400">Rp 0</td>
+            <td class="p-2.5 text-right font-extrabold text-blue-700 dark:text-indigo-400 bg-blue-100/50 dark:bg-indigo-500/10">Rp ${grandTotalUpah.toLocaleString()}</td>
         </tr>`;
     }
 }

@@ -2258,4 +2258,29 @@ html.dark #moreSheetCard .text-slate-400 { color: rgba(140,155,195,0.70) !import
 html.dark #moreSheetCard [style*="rgba(0,0,0,0.18)"] { background: rgba(140,165,255,0.22) !important; }
 html.dark #moreSheetCard [style*="rgba(0,0,0,0.07)"]  { background: rgba(99,130,220,0.10) !important; }
 html.dark #moreSheetCard [style*="rgba(0,0,0,0.36)"]  { color: rgba(140,165,255,0.40) !important; }
-
+
+
+/* =============================================
+   STICKY TABLE FREEZE PANES (Header & Left Columns)
+   ============================================= */
+#dailySalaryTableContainer {
+    scrollbar-gutter: stable;
+}
+#dailySalaryTableContainer tr:hover td.sticky {
+    background-color: #f8fafc !important;
+}
+.dark #dailySalaryTableContainer tr:hover td.sticky {
+    background-color: #1e293b !important;
+}
+@media print {
+    #dailySalaryTableContainer {
+        max-height: none !important;
+        overflow: visible !important;
+    }
+    #dailySalaryTableContainer th,
+    #dailySalaryTableContainer td,
+    #dailySalaryTableContainer .sticky {
+        position: static !important;
+        box-shadow: none !important;
+    }
+}
