@@ -656,7 +656,9 @@ let kopConfig = {
     alamat: 'Jl. Masjid Jatinegara No.25, RT.10/RW.7, Rw. Bunga, Kec. Jatinegara, DKI Jakarta 13350',
     telp: '0814-1414-2726',
     email: 'enjoycreamid@gmail.com',
-    paperSize: 'A4 portrait'
+    paperSize: 'A4 portrait',
+    kopPosition: 'first_only',      // 'every_page', 'first_only', 'first_last', 'custom'
+    kopCustomPages: '1'             // Comma-separated page numbers
 };
 
 // Load kopConfig from appConfig/Supabase on init
@@ -742,6 +744,215 @@ function applyPaperSizeCSS() {
     styleEl.textContent = `@media print { @page { size: ${size}; margin: 15mm 12mm 15mm 12mm; } }`;
 }
 
+// Change handlers for kop placement radio buttons
+function onKopPlacementChange(val) {
+    const customWrap = document.getElementById('kopCustomPagesWrap');
+    if (customWrap) {
+        if (val === 'custom') customWrap.classList.remove('hidden');
+        else customWrap.classList.add('hidden');
+    }
+}
+
+function onPengKopPlacementChange(val) {
+    const customWrap = document.getElementById('pengKopCustomPagesWrap');
+    if (customWrap) {
+        if (val === 'custom') customWrap.classList.remove('hidden');
+        else customWrap.classList.add('hidden');
+    }
+}
+
+function onModalKopPlacementChange(val) {
+    const customWrap = document.getElementById('modalKopCustomPagesWrap');
+    if (customWrap) {
+        if (val === 'custom') customWrap.classList.remove('hidden');
+        else customWrap.classList.add('hidden');
+    }
+}
+
+// Global print state for Kop placement cleanup
+let _printCleanupState = null;
+
+function setupPrintKopPlacement(targetType, mode, customPagesStr) {
+    cleanupPrintKopPlacement(targetType);
+
+    const isGaji = targetType === 'gaji';
+    const areaId = isGaji ? 'printAreaSalary' : 'printAreaPengumuman';
+    const kopId = isGaji ? 'kopSuratGaji' : 'kopSuratPengumuman';
+    const areaEl = document.getElementById(areaId);
+    const kopEl = document.getElementById(kopId);
+    if (!areaEl) return;
+
+    _printCleanupState = {
+        targetType,
+        mode,
+        areaEl,
+        kopEl,
+        wrapperTable: null,
+        injectedElements: []
+    };
+
+    const kopHtml = buildKopHtml(targetType);
+
+    if (mode === 'every_page') {
+        // Mode 1: Kop di setiap lembar
+        // Memanfaatkan thead tabel print yang otomatis berulang pada setiap halaman fisik oleh browser
+        const wrapperTable = document.createElement('table');
+        wrapperTable.id = `printWrapperTable_${targetType}`;
+        wrapperTable.className = 'print-outer-layout-table';
+        wrapperTable.style.cssText = 'width:100%;border-collapse:collapse;border:none !important;margin:0;padding:0;background:transparent;';
+
+        const thead = document.createElement('thead');
+        thead.style.cssText = 'display:table-header-group !important;';
+        const theadTr = document.createElement('tr');
+        const theadTd = document.createElement('td');
+        theadTd.style.cssText = 'border:none !important;padding:0 0 12px 0 !important;background:transparent;';
+        theadTd.innerHTML = `<div class="print-kop-wrapper">${kopHtml}</div>`;
+        theadTr.appendChild(theadTd);
+        thead.appendChild(theadTr);
+        wrapperTable.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        const tbodyTr = document.createElement('tr');
+        const tbodyTd = document.createElement('td');
+        tbodyTd.style.cssText = 'border:none !important;padding:0 !important;background:transparent;';
+
+        // Pindahkan semua child aktif dari areaEl ke dalam tbodyTd
+        const childrenToMove = Array.from(areaEl.childNodes);
+        childrenToMove.forEach(node => {
+            if (node === kopEl) {
+                node._prevDisplay = node.style.display;
+                node.style.display = 'none';
+            }
+            tbodyTd.appendChild(node);
+        });
+
+        tbodyTr.appendChild(tbodyTd);
+        tbody.appendChild(tbodyTr);
+        wrapperTable.appendChild(tbody);
+
+        areaEl.appendChild(wrapperTable);
+        _printCleanupState.wrapperTable = wrapperTable;
+
+    } else if (mode === 'first_only') {
+        // Mode 2: Di awal saja
+        if (kopEl) {
+            kopEl.innerHTML = kopHtml;
+            kopEl.classList.remove('hidden');
+            kopEl.style.display = 'block';
+        }
+        if (isGaji) {
+            const periodeEl = document.getElementById('printPeriodeGaji');
+            if (periodeEl) kopEl.appendChild(periodeEl);
+        }
+
+    } else if (mode === 'first_last') {
+        // Mode 3: Di awal dan akhir
+        if (kopEl) {
+            kopEl.innerHTML = kopHtml;
+            kopEl.classList.remove('hidden');
+            kopEl.style.display = 'block';
+        }
+        if (isGaji) {
+            const periodeEl = document.getElementById('printPeriodeGaji');
+            if (periodeEl) kopEl.appendChild(periodeEl);
+        }
+
+        // Kop di lembar akhir sebelum tanda tangan
+        const footerId = isGaji ? 'printTtdFooter' : 'pengTtdFooter';
+        const footerEl = document.getElementById(footerId);
+        if (footerEl) {
+            const lastKop = document.createElement('div');
+            lastKop.className = 'print-only print-kop-last';
+            lastKop.style.cssText = 'page-break-before:always !important;margin-bottom:14px;';
+            lastKop.innerHTML = `<div class="print-kop-wrapper">${kopHtml}</div>`;
+            footerEl.parentNode.insertBefore(lastKop, footerEl);
+            _printCleanupState.injectedElements.push(lastKop);
+        }
+
+    } else if (mode === 'custom') {
+        // Mode 4: Custom halaman
+        const customPages = new Set();
+        (customPagesStr || '1').split(',').forEach(part => {
+            part = part.trim();
+            if (part.includes('-')) {
+                const [start, end] = part.split('-').map(n => parseInt(n.trim(), 10));
+                if (!isNaN(start) && !isNaN(end)) {
+                    for (let i = start; i <= end; i++) customPages.add(i);
+                }
+            } else {
+                const num = parseInt(part, 10);
+                if (!isNaN(num)) customPages.add(num);
+            }
+        });
+
+        // Halaman 1
+        if (customPages.has(1)) {
+            if (kopEl) {
+                kopEl.innerHTML = kopHtml;
+                kopEl.classList.remove('hidden');
+                kopEl.style.display = 'block';
+            }
+            if (isGaji) {
+                const periodeEl = document.getElementById('printPeriodeGaji');
+                if (periodeEl) kopEl.appendChild(periodeEl);
+            }
+        } else {
+            if (kopEl) kopEl.style.display = 'none';
+        }
+
+        // Halaman rincian / lampiran (Halaman 2 / 3)
+        const secondarySectionId = isGaji ? 'printSectionLembur' : 'pengDataTidakHadir';
+        const secondaryEl = document.getElementById(secondarySectionId);
+        if (secondaryEl && (customPages.has(2) || customPages.has(3))) {
+            const midKop = document.createElement('div');
+            midKop.className = 'print-only print-kop-custom-mid';
+            midKop.style.cssText = 'page-break-before:always !important;margin-bottom:14px;';
+            midKop.innerHTML = `<div class="print-kop-wrapper">${kopHtml}</div>`;
+            secondaryEl.parentNode.insertBefore(midKop, secondaryEl);
+            _printCleanupState.injectedElements.push(midKop);
+        }
+
+        // Halaman akhir / TTD
+        const footerId = isGaji ? 'printTtdFooter' : 'pengTtdFooter';
+        const footerEl = document.getElementById(footerId);
+        const hasHigherPage = Array.from(customPages).some(p => p >= 3);
+        if (footerEl && hasHigherPage) {
+            const lastKop = document.createElement('div');
+            lastKop.className = 'print-only print-kop-last';
+            lastKop.style.cssText = 'page-break-before:always !important;margin-bottom:14px;';
+            lastKop.innerHTML = `<div class="print-kop-wrapper">${kopHtml}</div>`;
+            footerEl.parentNode.insertBefore(lastKop, footerEl);
+            _printCleanupState.injectedElements.push(lastKop);
+        }
+    }
+}
+
+function cleanupPrintKopPlacement(targetType) {
+    if (!_printCleanupState) return;
+    const { areaEl, kopEl, wrapperTable, injectedElements } = _printCleanupState;
+
+    if (injectedElements && injectedElements.length > 0) {
+        injectedElements.forEach(el => el.remove());
+    }
+
+    if (wrapperTable && areaEl) {
+        const tbodyTd = wrapperTable.querySelector('tbody > tr > td');
+        if (tbodyTd) {
+            const nodes = Array.from(tbodyTd.childNodes);
+            nodes.forEach(node => {
+                if (node === kopEl && node._prevDisplay !== undefined) {
+                    node.style.display = node._prevDisplay;
+                    delete node._prevDisplay;
+                }
+                areaEl.appendChild(node);
+            });
+        }
+        wrapperTable.remove();
+    }
+
+    _printCleanupState = null;
+}
+
 // Open Kop Setting Modal
 function openKopSettingModal() {
     const modal = document.getElementById('kopSettingModal');
@@ -775,6 +986,14 @@ function openKopSettingModal() {
 
     // Paper size chips
     selectPaperSizeInit(kopConfig.paperSize || 'A4 portrait');
+
+    // Kop placement radios in setting modal
+    const modalKopPos = kopConfig.kopPosition || 'first_only';
+    const modalPosRadio = document.querySelector(`input[name="modalKopPlacement"][value="${modalKopPos}"]`);
+    if (modalPosRadio) modalPosRadio.checked = true;
+    const modalCustomInput = document.getElementById('modalKopCustomPagesInput');
+    if (modalCustomInput) modalCustomInput.value = kopConfig.kopCustomPages || '1';
+    onModalKopPlacementChange(modalKopPos);
 
     // Live preview
     updateKopPreview();
@@ -904,6 +1123,10 @@ async function saveKopSetting() {
     kopConfig.telp = document.getElementById('kopTelp').value.trim();
     kopConfig.email = document.getElementById('kopEmail').value.trim();
     kopConfig.paperSize = document.getElementById('kopPaperSize').value || 'A4 portrait';
+    const checkedModalPos = document.querySelector('input[name="modalKopPlacement"]:checked');
+    if (checkedModalPos) kopConfig.kopPosition = checkedModalPos.value;
+    const modalCustomInputVal = document.getElementById('modalKopCustomPagesInput')?.value;
+    if (modalCustomInputVal) kopConfig.kopCustomPages = modalCustomInputVal.trim();
     // Logo sudah tersimpan di kopConfig.logoKiri/Kanan saat upload
 
     toggleLoader(true, 'Menyimpan Setting Kop Surat...');
@@ -3858,6 +4081,25 @@ function openCetakModal() {
     
     modal.classList.remove('hidden');
     setTimeout(() => modal.classList.remove('opacity-0'), 10);
+
+    // Sync Kop placement options with saved kopConfig
+    const activePos = kopConfig.kopPosition || 'first_only';
+    const posRadio = document.querySelector(`input[name="kopPlacement"][value="${activePos}"]`);
+    if (posRadio) posRadio.checked = true;
+    const customPagesInput = document.getElementById('kopCustomPagesInput');
+    if (customPagesInput) customPagesInput.value = kopConfig.kopCustomPages || '1';
+    onKopPlacementChange(activePos);
+
+    // Toggle placement container visibility based on chkKopSurat
+    const chkKop = document.getElementById('chkKopSurat');
+    const kopPlaceWrap = document.getElementById('kopPlacementContainer');
+    if (chkKop && kopPlaceWrap) {
+        kopPlaceWrap.style.display = chkKop.checked ? 'block' : 'none';
+        chkKop.onchange = () => {
+            kopPlaceWrap.style.display = chkKop.checked ? 'block' : 'none';
+        };
+    }
+
     // Update info jumlah foto setiap kali tanggal berubah
     _updateFotoInfoBadge();
     document.getElementById('cetakTglMulai').addEventListener('change', _updateFotoInfoBadge);
@@ -4329,6 +4571,15 @@ function cetakRekapGaji() {
     const showSlip = document.getElementById('chkSlipIndividual')?.checked;
     const showKop = document.getElementById('chkKopSurat')?.checked;
 
+    // Baca opsi posisi kop surat
+    const kopPosEl = document.querySelector('input[name="kopPlacement"]:checked');
+    const kopPosition = kopPosEl ? kopPosEl.value : (kopConfig.kopPosition || 'first_only');
+    const customPages = document.getElementById('kopCustomPagesInput')?.value || kopConfig.kopCustomPages || '1';
+
+    if (showKop) {
+        setupPrintKopPlacement('gaji', kopPosition, customPages);
+    }
+
     // Generate individual slip per employee
     const slipContainer = document.getElementById('slipGajiIndividual');
     if (slipContainer) {
@@ -4460,12 +4711,15 @@ function cetakRekapGaji() {
 
     window.print();
 
-    // Restore: hapus class print-excluded setelah dialog print selesai
-    setTimeout(() => {
+    // Restore: hapus class print-excluded & kembalikan struktur kop
+    const cleanupGaji = () => {
         document.title = origTitle;
         excluded.forEach(el => el.classList.remove('print-excluded'));
+        cleanupPrintKopPlacement('gaji');
         renderSalary(); // Re-render with all logs (unfiltered)
-    }, 500);
+    };
+    window.addEventListener('afterprint', cleanupGaji, { once: true });
+    setTimeout(cleanupGaji, 600);
 }
 
 
@@ -7482,28 +7736,62 @@ function closeConfirmDupModal() {
     }
 }
 
+// Helper scoring cerdas untuk evaluasi duplikat agar data autentik (foto selfie, backup, catatan) selalu dipertahankan
+function _scoreLogForDeduplication(l) {
+    let s = 0;
+    const p = String(l.photo || '').trim();
+    if (p.length > 20) s += 100;
+    const note = String(l.note || '');
+    if (note.includes('[Absen Backup]') || note.includes('BACKUP_DATA:')) s += 50;
+    if (!note.includes('Absen Cepat Matrix')) s += 20;
+    if (note && note !== '[Absen Manual]') s += 10;
+    const ab = String(l.absent_by || l.absentBy || '');
+    if (ab === 'Mandiri') s += 15;
+    else if (ab.startsWith('Backup:') || ab.includes('Backup')) s += 25;
+    return s;
+}
+
 function cleanDuplicateLogs() {
-    // Hitung duplikat lokal untuk konfirmasi
-    const seen = {};
-    const dupesList = [];
+    // Kelompokkan log berdasarkan empId + date + type
+    const groups = {};
     logs.forEach(l => {
-        const key = `${l.empId}|${l.date}|${l.type}`;
-        if (seen[key]) {
+        const empId = String(l.empId || l.emp_id || '').trim();
+        const d = String(l.date || '').trim();
+        const t = String(l.type || '').trim();
+        if (!empId || !d || !t) return;
+        const key = `${empId}|${d}|${t}`;
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(l);
+    });
+
+    const dupesList = [];
+    Object.values(groups).forEach(items => {
+        if (items.length <= 1) return;
+        items.sort((a, b) => {
+            const sA = _scoreLogForDeduplication(a);
+            const sB = _scoreLogForDeduplication(b);
+            if (sB !== sA) return sB - sA;
+            return (Number(a.id) || 0) - (Number(b.id) || 0);
+        });
+        // items[0] adalah data asli/terbaik yang dipertahankan
+        // items[1...] adalah duplikat yang akan dihapus
+        for (let i = 1; i < items.length; i++) {
+            const loser = items[i];
             dupesList.push({
-                name: l.name,
-                date: l.date,
-                type: l.type,
-                time: l.time || ''
+                id: loser.id,
+                name: loser.name,
+                date: loser.date,
+                type: loser.type,
+                time: loser.time || '',
+                note: loser.note || ''
             });
-        } else {
-            seen[key] = true;
         }
     });
 
     const localDupes = dupesList.length;
     const msg = localDupes > 0
-        ? `Ditemukan ${localDupes} data duplikat di sesi ini. Lanjutkan bersihkan Spreadsheet? (Baris pertama dipertahankan, duplikat dihapus)`
-        : `Tidak ada duplikat terdeteksi secara lokal. Tetap jalankan pengecekan di server?`;
+        ? `Ditemukan ${localDupes} data duplikat. Data absen asli (foto selfie/absen mandiri/backup) akan DIJAGA, dan duplikat kosong akan dibersihkan. Lanjutkan?`
+        : `Tidak ada duplikat terdeteksi secara lokal. Tetap jalankan pemindaian mendalam di database server?`;
 
     const msgEl = document.getElementById('confirmDupMessage');
     if (msgEl) msgEl.textContent = msg;
@@ -7512,12 +7800,12 @@ function cleanDuplicateLogs() {
     if (detailsContainer) {
         if (localDupes > 0) {
             detailsContainer.classList.remove('hidden');
-            detailsContainer.innerHTML = dupesList.map(d => `
+            detailsContainer.innerHTML = dupesList.slice(0, 100).map(d => `
                 <div class="flex justify-between items-center bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-100 dark:border-white/5">
                     <span class="font-bold text-slate-700 dark:text-slate-350">${d.name}</span>
-                    <span class="text-slate-500 text-[10px]">${d.date} (${d.type} - ${d.time})</span>
+                    <span class="text-slate-500 text-[10px]">${d.date} (${d.type} - ${d.time}) ${d.note ? '<span class="text-amber-500">[' + d.note.substring(0, 25) + ']</span>' : ''}</span>
                 </div>
-            `).join('');
+            `).join('') + (dupesList.length > 100 ? `<div class="text-[10px] text-center text-slate-400 py-1">...dan ${dupesList.length - 100} duplikat lainnya</div>` : '');
         } else {
             detailsContainer.classList.add('hidden');
             detailsContainer.innerHTML = '';
@@ -7573,28 +7861,32 @@ async function executeCleanDuplicateLogs() {
 
         if (sbClient) {
             // --- SUPABASE DUPLICATE CLEANING ---
-            // 1. Ambil data attendance_logs terurut ID ascending (entri paling awal tercatat dipertahankan)
-            const { data: sbLogs, error: fetchErr } = await sbClient
-                .from('attendance_logs')
-                .select('id, emp_id, date, type')
-                .order('id', { ascending: true });
-
+            // 1. Ambil seluruh data attendance_logs secara lengkap (dengan paginasi paralel via sbFetchAllAttendanceLogs)
+            const { data: sbLogs, error: fetchErr } = await sbFetchAllAttendanceLogs();
             if (fetchErr) throw fetchErr;
 
-            const seen = {};
-            const toDeleteIds = [];
-
+            const groups = {};
             (sbLogs || []).forEach(l => {
-                const empId = String(l.emp_id || '').trim();
+                const empId = String(l.emp_id || l.empId || '').trim();
                 const d = String(l.date || '').trim();
                 const t = String(l.type || '').trim();
                 if (!empId || !d || !t) return;
-
                 const key = `${empId}|${d}|${t}`;
-                if (seen[key]) {
-                    toDeleteIds.push(l.id);
-                } else {
-                    seen[key] = true;
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(l);
+            });
+
+            const toDeleteIds = [];
+            Object.values(groups).forEach(items => {
+                if (items.length <= 1) return;
+                items.sort((a, b) => {
+                    const sA = _scoreLogForDeduplication(a);
+                    const sB = _scoreLogForDeduplication(b);
+                    if (sB !== sA) return sB - sA;
+                    return (Number(a.id) || 0) - (Number(b.id) || 0);
+                });
+                for (let i = 1; i < items.length; i++) {
+                    toDeleteIds.push(items[i].id);
                 }
             });
 
@@ -7617,6 +7909,13 @@ async function executeCleanDuplicateLogs() {
                 form.append('action', 'cleanDuplicateLogs');
                 fetch(SCRIPT_URL, { method: 'POST', body: form }).catch(() => {});
             } catch(e) {}
+
+            // Hapus juga dari array logs lokal dan simpan ke cache
+            if (toDeleteIds.length > 0) {
+                const toDelSet = new Set(toDeleteIds.map(String));
+                logs = logs.filter(l => !toDelSet.has(String(l.id)));
+                _saveToCache();
+            }
 
         } else {
             // --- GAS SPREADSHEET DUPLICATE CLEANING ---
@@ -7650,8 +7949,8 @@ async function executeCleanDuplicateLogs() {
         document.getElementById('cleanDupSubtitle').textContent = 'Menyinkronkan data dari server...';
         await new Promise(r => setTimeout(r, 300));
 
-        // Fetch baru di background
-        await fetchData(false);
+        // Fetch baru dari server dengan force = true untuk memastikan data dan cache lokal bersih
+        await fetchData(true);
         _cleanDupMarkStepDone('stepSync');
         await new Promise(r => setTimeout(r, 300));
 
@@ -7661,7 +7960,7 @@ async function executeCleanDuplicateLogs() {
         document.getElementById('cleanDupTitle').textContent = 'Selesai!';
         document.getElementById('cleanDupSubtitle').textContent = deleted > 0 ? `${deleted} duplikat berhasil dihapus` : 'Logs sudah bersih';
         document.getElementById('cleanDupSuccessMsg').textContent = deleted > 0
-            ? `${deleted} baris duplikat dihapus dari database. Data asli (entri pertama) dipertahankan.`
+            ? `${deleted} baris duplikat dihapus dari database. Data absen asli (foto selfie/absen mandiri/backup) tetap aman dipertahankan.`
             : 'Tidak ada data duplikat — semua log absensi sudah bersih!';
 
         if (deleted > 0) {
@@ -8808,9 +9107,14 @@ function cetakPengumuman() {
     renderKopSurat('pengumuman');
     applyPaperSizeCSS();
 
-    // Show kop & content for print
-    const kopEl = document.getElementById('kopSuratPengumuman');
-    kopEl.classList.remove('hidden');
+    // Baca opsi posisi kop surat pengumuman
+    const pengKopPosEl = document.querySelector('input[name="pengKopPlacement"]:checked');
+    const kopPosition = pengKopPosEl ? pengKopPosEl.value : (kopConfig.kopPosition || 'first_only');
+    const customPages = document.getElementById('pengKopCustomPagesInput')?.value || kopConfig.kopCustomPages || '1';
+
+    setupPrintKopPlacement('pengumuman', kopPosition, customPages);
+
+    // Show content for print
     content.classList.remove('hidden');
 
     // Hide other tabs' printables
@@ -8825,13 +9129,14 @@ function cetakPengumuman() {
 
     window.print();
 
-
     // Restore
-    setTimeout(() => {
+    const cleanupPeng = () => {
         document.title = origTitle;
-        kopEl.classList.add('hidden');
         if (salaryPrint) salaryPrint.style.display = origSalaryDisplay;
-    }, 500);
+        cleanupPrintKopPlacement('pengumuman');
+    };
+    window.addEventListener('afterprint', cleanupPeng, { once: true });
+    setTimeout(cleanupPeng, 600);
 }
 
 // =============================================

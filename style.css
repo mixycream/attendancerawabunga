@@ -1491,6 +1491,53 @@ html.dark table tbody tr:hover { background-color: rgba(255, 255, 255, 0.02) !im
 
     /* ---- Table row page break ---- */
     tr { break-inside: avoid; }
+
+    /* ---- Outer Layout Table & Kop Placement for Multi-Page Printing ---- */
+    #printAreaSalary table.print-outer-layout-table,
+    #printAreaSalary table.print-outer-layout-table > thead > tr > td,
+    #printAreaSalary table.print-outer-layout-table > tbody > tr > td,
+    #printAreaPengumuman table.print-outer-layout-table,
+    #printAreaPengumuman table.print-outer-layout-table > thead > tr > td,
+    #printAreaPengumuman table.print-outer-layout-table > tbody > tr > td,
+    table.print-outer-layout-table,
+    table.print-outer-layout-table > thead,
+    table.print-outer-layout-table > thead > tr,
+    table.print-outer-layout-table > thead > tr > td,
+    table.print-outer-layout-table > tbody,
+    table.print-outer-layout-table > tbody > tr,
+    table.print-outer-layout-table > tbody > tr > td {
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    table.print-outer-layout-table > thead {
+        display: table-header-group !important;
+    }
+
+    .print-kop-wrapper {
+        background: #fff !important;
+        color: #000 !important;
+        width: 100% !important;
+    }
+
+    .print-kop-wrapper table,
+    .print-kop-wrapper td,
+    #kopSuratGaji table,
+    #kopSuratGaji td,
+    #kopSuratPengumuman table,
+    #kopSuratPengumuman td {
+        border: none !important;
+    }
+
+    .print-kop-last,
+    .print-kop-custom-mid {
+        display: block !important;
+        page-break-before: always !important;
+        break-before: page !important;
+    }
 }
 
 /* Cosmic Login Container */
