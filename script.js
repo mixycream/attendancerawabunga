@@ -8780,9 +8780,19 @@ function renderPengumumanPreview() {
     }
 
     // Ambil log kehadiran reguler (bukan backup) untuk relawan
-    function getEmpPresence(empId) {
-        const empRegularLogs = filteredLogs.filter(l => String(l.empId) === String(empId) && !isBackupLog(l) && (l.type === 'IN' || l.type === 'OUT'));
-        const attendedDates = new Set(empRegularLogs.map(l => l.date));
+    function getEmpPresence(empId, division) {
+        const empRegularLogs = filteredLogs.filter(l => String(l.empId) === String(empId) && !isBackupLog(l));
+        const attendedDates = new Set();
+        empRegularLogs.forEach(l => {
+            if (l.type === 'IN') {
+                attendedDates.add(l.date);
+            } else if (l.type === 'OUT') {
+                // Jangan hitung jam kepulangan shift malam di hari libur (misal Jumat pagi bagi Cook/Helper) sebagai hari hadir baru
+                if (!division || isDivisionWorkingOnDate(division, l.date)) {
+                    attendedDates.add(l.date);
+                }
+            }
+        });
         return { attendedDates, empRegularLogs };
     }
 
@@ -8799,7 +8809,7 @@ function renderPengumumanPreview() {
             .filter(e => ALLOWED_ROLES.includes(e.role || 'employee'))
             .map(e => {
                 const empWorkDates = getWorkDatesForDiv(e.division);
-                const { attendedDates } = getEmpPresence(e.id);
+                const { attendedDates } = getEmpPresence(e.id, e.division);
                 const hadirDates = Array.from(attendedDates).sort();
                 const hadirCount = hadirDates.length;
                 // Total jadwal sesuai hari kerja divisi masing-masing (misal tim masak 5 hari, distribusi 5 hari)
@@ -8848,7 +8858,7 @@ function renderPengumumanPreview() {
             .filter(e => ALLOWED_ROLES.includes(e.role || 'employee'))
             .map(e => {
                 const empWorkDates = getWorkDatesForDiv(e.division);
-                const { attendedDates } = getEmpPresence(e.id);
+                const { attendedDates } = getEmpPresence(e.id, e.division);
                 // Hanya hari kerja terjadwal milik divisinya yang tidak dihadiri
                 const missedDates = empWorkDates.filter(d => !attendedDates.has(d));
                 const missedDetails = missedDates.map(d => {
