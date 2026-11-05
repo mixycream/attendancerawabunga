@@ -133,7 +133,7 @@ async function sbFetchData() {
         division: e.division || '',
         salary: Number(e.salary) || 0,
         photo: e.photo || '',
-        role: e.role || 'employee',
+        role: (e.role && e.role !== 'employee') ? e.role : (inferRoleFromDivision(e.division) || e.role || 'employee'),
         username: e.username || '',
         password: e.password || ''
     }));
@@ -237,7 +237,7 @@ async function sbPostData(action, payload) {
         if (isAdmin) {
             const { data: dups } = await sbClient.from('attendance_logs')
                 .select('id')
-                .eq('emp_id', payload.empId)
+                .eq('emp_id', String(payload.empId))
                 .eq('date', dateStr)
                 .eq('type', payload.type)
                 .limit(1);
@@ -256,12 +256,26 @@ async function sbPostData(action, payload) {
                 if (updErr) throw updErr;
                 return { status: 'success', updated: true, id: dups[0].id };
             }
+        } else {
+            // Anti-duplicate protection untuk non-admin:
+            // Jika allowMultipleIn bernilai false (default), cegah double insertion IN di hari yang sama
+            if (payload.type === 'IN' && !appConfig.allowMultipleIn) {
+                const { data: existingIn } = await sbClient.from('attendance_logs')
+                    .select('id')
+                    .eq('emp_id', String(payload.empId))
+                    .eq('date', dateStr)
+                    .eq('type', 'IN')
+                    .limit(1);
+                if (existingIn && existingIn.length > 0) {
+                    return { status: 'success', duplicate: true, message: 'Sudah absen masuk hari ini' };
+                }
+            }
         }
 
         const { error } = await sbClient.from('attendance_logs').insert([{
             date: dateStr,
             time: timeStr,
-            emp_id: payload.empId,
+            emp_id: String(payload.empId),
             name: payload.name,
             type: payload.type,
             photo: photoUrl,
@@ -293,12 +307,22 @@ async function sbPostData(action, payload) {
             }
         }
 
+        let photoUrl = payload.photo || '';
+        const rawImg = payload.photo || payload.image || '';
+        if (rawImg && String(rawImg).startsWith('data:image')) {
+            try {
+                photoUrl = await sbUploadPhoto(rawImg, `profile_${payload.id}_${Date.now()}`);
+            } catch(pErr) {
+                console.warn('Profile photo upload error:', pErr);
+            }
+        }
+
         const { error } = await sbClient.from('employees').upsert([{
-            id: payload.id,
+            id: String(payload.id),
             name: payload.name,
             division: payload.division || '',
             salary: parseFloat(payload.salary) || 0,
-            photo: payload.photo || '',
+            photo: photoUrl,
             role: payload.role || 'employee',
             username: payload.username || null,
             password: payload.password || null
@@ -308,7 +332,7 @@ async function sbPostData(action, payload) {
     }
 
     if (action === 'deleteEmployee') {
-        const { error } = await sbClient.from('employees').delete().eq('id', payload.id);
+        const { error } = await sbClient.from('employees').delete().eq('id', String(payload.id));
         if (error) throw error;
         return { status: 'success' };
     }
@@ -368,8 +392,8 @@ async function sbPostData(action, payload) {
 
     if (action === 'deleteAttendanceByEmpDate') {
         const { error } = await sbClient.from('attendance_logs').delete()
-            .eq('emp_id', payload.empId)
-            .eq('date', payload.date);
+            .eq('emp_id', String(payload.empId))
+            .eq('date', String(payload.date));
         if (error) throw error;
         return { status: 'success' };
     }
@@ -383,15 +407,43 @@ async function sbPostData(action, payload) {
     }
 
     if (action === 'confirmViolation') {
-        const { error } = await sbClient.from('violations').insert([{
-            emp_id: payload.empId,
-            name: payload.name,
-            date: payload.date,
-            type: payload.type,
-            penalty: parseFloat(payload.penalty) || 0,
-            status: 'confirmed'
-        }]);
-        if (error) throw error;
+        const empId = String(payload.empId || '');
+        const date = String(payload.date || '');
+        if (!empId || !date) return { status: 'error', message: 'Missing empId or date' };
+
+        // Update attendance_logs note di Supabase agar tersimpan permanen dengan prefix [OK]
+        const { data: targetLogs, error: fetchErr } = await sbClient
+            .from('attendance_logs')
+            .select('id, note, late_minutes, type')
+            .eq('emp_id', empId)
+            .eq('date', date);
+        if (fetchErr) throw fetchErr;
+
+        if (targetLogs && targetLogs.length > 0) {
+            for (const l of targetLogs) {
+                const isLate = (l.type === 'IN' && (Number(l.late_minutes) >= 5));
+                const isEarly = (l.type === 'OUT' && l.note && l.note.includes('[Pulang'));
+                if ((isLate || isEarly) && !String(l.note || '').includes('[OK]')) {
+                    const newNote = '[OK] ' + (l.note || '');
+                    await sbClient.from('attendance_logs').update({ note: newNote }).eq('id', l.id);
+                }
+            }
+        }
+
+        // Catat ke tabel violations sebagai audit log historis
+        try {
+            await sbClient.from('violations').insert([{
+                emp_id: empId,
+                name: payload.name || '',
+                date: date,
+                type: payload.type || 'Violation',
+                penalty: parseFloat(payload.penalty) || 0,
+                status: 'confirmed'
+            }]);
+        } catch(vErr) {
+            console.warn('violations audit log insert warning:', vErr);
+        }
+
         return { status: 'success' };
     }
 
@@ -411,17 +463,123 @@ async function sbPostData(action, payload) {
 
         if (!error && users && users.length > 0) {
             const user = users[0];
+            const role = (user.role && user.role !== 'employee') 
+                ? user.role 
+                : (inferRoleFromDivision(user.division) || user.role || 'employee');
+
+            if (role === 'security') {
+                const { data: sessRow } = await sbClient
+                    .from('app_config')
+                    .select('value')
+                    .eq('key', 'activeSecuritySession')
+                    .maybeSingle();
+
+                if (sessRow && sessRow.value) {
+                    try {
+                        const active = typeof sessRow.value === 'string' ? JSON.parse(sessRow.value) : sessRow.value;
+                        if (active && active.u && String(active.u).toLowerCase() !== u) {
+                            return { 
+                                status: "error", 
+                                message: `Security ${active.name || active.u} sedang login. Silahkan hubungi Security tersebut terlebih dahulu.` 
+                            };
+                        }
+                    } catch(e) {}
+                }
+
+                // Simpan sesi aktif security ke app_config
+                const newSess = { u, name: user.name, time: new Date().toISOString() };
+                await sbClient.from('app_config').upsert([{
+                    key: 'activeSecuritySession',
+                    value: JSON.stringify(newSess)
+                }], { onConflict: 'key' });
+            }
+
             return {
                 status: "success",
                 user: {
                     u: user.username || user.name,
-                    role: user.role || 'employee',
+                    role: role,
                     name: user.name,
-                    id: user.id
+                    id: user.id,
+                    division: user.division || ''
                 }
             };
         }
         return { status: "error", message: "Username atau password salah" };
+    }
+
+    if (action === 'securityLogout') {
+        const reqUser = String(payload.username || '').toLowerCase().trim();
+        const { data: sessRow } = await sbClient
+            .from('app_config')
+            .select('value')
+            .eq('key', 'activeSecuritySession')
+            .maybeSingle();
+
+        if (sessRow && sessRow.value) {
+            try {
+                const active = typeof sessRow.value === 'string' ? JSON.parse(sessRow.value) : sessRow.value;
+                if (!active || !active.u || String(active.u).toLowerCase() === reqUser) {
+                    await sbClient.from('app_config').delete().eq('key', 'activeSecuritySession');
+                }
+            } catch(e) {
+                await sbClient.from('app_config').delete().eq('key', 'activeSecuritySession');
+            }
+        }
+        return { status: "success" };
+    }
+
+    if (action === 'checkSecuritySession') {
+        const reqUser = String(payload.username || '').toLowerCase().trim();
+        if (!reqUser) return { status: "error", message: "Username tidak valid" };
+
+        const { data: sessRow } = await sbClient
+            .from('app_config')
+            .select('value')
+            .eq('key', 'activeSecuritySession')
+            .maybeSingle();
+
+        if (!sessRow || !sessRow.value) return { status: "error", message: "Tidak ada security aktif" };
+
+        try {
+            const active = typeof sessRow.value === 'string' ? JSON.parse(sessRow.value) : sessRow.value;
+            if (active && active.u && String(active.u).toLowerCase() === reqUser) {
+                return { status: "success" };
+            }
+            return { 
+                status: "error", 
+                message: `Security ${active && (active.name || active.u) ? (active.name || active.u) : 'lain'} sedang login.` 
+            };
+        } catch(e) {
+            return { status: "error", message: "Session security tidak valid" };
+        }
+    }
+
+    if (action === 'saveNutritionistPlan') {
+        const dateStr = payload.savedAt ? String(payload.savedAt).substring(0, 10) : getLocalDateStr(new Date());
+        const { error } = await sbClient.from('nutritionist_plans').insert([{
+            date: dateStr,
+            data: payload
+        }]);
+        if (error) throw error;
+        return { status: 'success' };
+    }
+
+    if (action === 'loadNutritionistPlan') {
+        const { data: plans, error } = await sbClient
+            .from('nutritionist_plans')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(1);
+        if (error) throw error;
+        const plan = (plans && plans.length > 0) ? plans[0].data : null;
+        return { status: 'success', plan: plan };
+    }
+
+    if (action === 'deleteNutritionistPlan') {
+        const { error } = await sbClient.from('nutritionist_plans').delete().neq('id', 0);
+        if (error) throw error;
+        return { status: 'success' };
     }
 
     return null;
